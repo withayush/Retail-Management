@@ -64,9 +64,46 @@ const updateBusiness = async (req, res, next) => {
   }
 };
 
+const getOnboardingStatus = async (req, res, next) => {
+  try {
+    const status = await businessService.getOnboardingStatus(
+      req.user.accountId
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: status,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const saveOnboardingStep = async (req, res, next) => {
+  try {
+    const result = await businessService.saveOnboardingStep({
+      accountId: req.user.accountId,
+      step: req.body.step,
+      data: req.body.data,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.isCompleted
+        ? "Business onboarding completed successfully! All modules unlocked."
+        : `Onboarding Step ${result.step} saved successfully.`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createBusiness,
   getMyBusinesses,
   getBusinessById,
   updateBusiness,
+  getOnboardingStatus,
+  saveOnboardingStep,
 };

@@ -43,6 +43,57 @@ const updateVendorOnboardingStatus = async (vendorId, status, session = null) =>
   );
 };
 
+const findBusinessMember = async ({ businessId, accountId }) => {
+  return await BusinessMember.findOne({
+    businessId,
+    accountId,
+    status: "ACTIVE",
+  });
+};
+
+const findMembershipsByAccountId = async (accountId) => {
+  return await BusinessMember.find({
+    accountId,
+    status: "ACTIVE",
+  }).populate("businessId");
+};
+
+const saveVendorOnboardingProgress = async ({
+  vendorId,
+  onboardingStep,
+  onboardingData,
+  onboardingStatus = "IN_PROGRESS",
+  session = null,
+}) => {
+  const options = session ? { session, new: true } : { new: true };
+  return await Vendor.findByIdAndUpdate(
+    vendorId,
+    {
+      $set: {
+        onboardingStep,
+        onboardingData,
+        onboardingStatus,
+      },
+    },
+    options
+  );
+};
+
+const finalizeVendorOnboarding = async (vendorId, session = null) => {
+  const options = session ? { session, new: true } : { new: true };
+  return await Vendor.findByIdAndUpdate(
+    vendorId,
+    {
+      $set: {
+        onboardingStatus: "COMPLETED",
+        onboardingStep: 4,
+        onboardingData: {},
+      },
+    },
+    options
+  );
+};
+
 module.exports = {
   createBusiness,
   createBusinessMember,
@@ -51,4 +102,8 @@ module.exports = {
   updateBusinessById,
   findVendorByAccountId,
   updateVendorOnboardingStatus,
+  findBusinessMember,
+  findMembershipsByAccountId,
+  saveVendorOnboardingProgress,
+  finalizeVendorOnboarding,
 };

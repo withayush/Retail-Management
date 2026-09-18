@@ -29,6 +29,18 @@ const vendorSchema = new mongoose.Schema(
       ],
       default: "NOT_STARTED",
     },
+
+    onboardingStep: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 4,
+    },
+
+    onboardingData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   {
     timestamps: true,

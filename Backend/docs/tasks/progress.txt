@@ -1,23 +1,27 @@
 ================================================================================
                          VENDOROS - PROJECT PROGRESS
 ================================================================================
-Last Updated : 2026-09-17
+Last Updated : 2026-09-18
 Stack        : Node.js (CommonJS), Express 5.x, MongoDB (Mongoose), JWT, Zod, Bcrypt
-Architecture : Controller -> Service -> Repository -> Database (Layered)
+Architecture : Routes -> Middleware -> Controller -> Service -> Repository -> Database
 Auth Model   : JWT (Access 15m + Refresh 7d) in Secure HttpOnly Cookies + Sessions
+API Base URL : http://localhost:5000/api
 
 ================================================================================
 1. OVERALL PROGRESS SCORECARD
 ================================================================================
-[✓] Task 1: Environment & Database Setup           --> 100% (DONE)
-[✓] Task 2: Authentication & User Management       --> 100% (DONE)
-[~] Task 3: Vendor & Business CRUD / Inventory     -->  60% (CRUD APIS READY)
-[ ] Task 4: Error Handling & System Monitoring     -->  40% (BASIC READY)
+[✓] Phase 0: Environment & Database Setup            --> 100% (DONE)
+[✓] Phase 0: Authentication & User Management        --> 100% (DONE)
+[✓] Phase 1: Business Foundation & Onboarding Wizard --> 100% (DONE)
+[ ] Phase 2: Inventory & Catalog Core                -->   0% (NEXT SPRINT)
+[ ] Phase 3: Billing, Invoicing & Khata Ledger       -->   0% (PENDING)
+[ ] Phase 4: Error Handling & System Monitoring      -->  40% (BASIC READY)
 
 ================================================================================
 2. COMPLETED WORK (KAISE & KYA-KYA HO GAYA HAI)
 ================================================================================
 
+--- [ PHASE 0 : AUTHENTICATION & SECURITY ] ---
 [✓] A1. Registration (POST /api/auth/register)
     - Zod validation, strong password check, email & phone uniqueness check.
     - Bcrypt password hashing (10 rounds), Account created (PENDING_VERIFICATION).
@@ -69,62 +73,98 @@ Auth Model   : JWT (Access 15m + Refresh 7d) in Secure HttpOnly Cookies + Sessio
 [✓] A16. CommonJS Model Syntax Standardization
     - Converted all 14 Mongoose models to pure CommonJS (`require` / `module.exports`).
 
-[✓] B1. Phase 1 - T1: Business DB Schema Model (src/models/business.model.js)
+--- [ PHASE 1 : BUSINESS FOUNDATION & ONBOARDING WIZARD ] ---
+[✓] B1. Business DB Schema Model (src/models/business.model.js)
     - Physical Business table structure with ID, businessName, retailSegment, ownerId (User ref), vendorId, address & status.
     - Designed as the core anchor linking User -> Business in a 1-to-many relationship.
 
-[✓] B2. Phase 1 - T2: Business Onboarding & Profile CRUD APIs (/api/business)
-    - Full implementation: POST /, GET /me, GET /:id, PUT /:id with Zod validation, Ownership authorization, Vendor onboardingStatus auto-update, and BusinessMember OWNER role assignment.
+[✓] B2. Create Business API Endpoint (POST /api/business)
+    - POST /api/business endpoint to register business details with model validations.
+    - Sanitizes business metadata on creation (trimmed strings, phone/whatsapp canonical normalization, pincode format).
+    - Restricts segmentation initially to Retail/Kirana (e.g., 'Retail/Kirana', 'Kirana', 'Retail', 'Grocery', 'Supermarket', 'General Retail').
+    - Atomic lifecycle integration: Links User (ownerId) & Vendor, assigns OWNER role in BusinessMember, and auto-updates Vendor onboardingStatus to 'COMPLETED'.
+    - Profile management: GET /me, GET /:id, PUT /:id with ownership access control.
+
+[✓] B3. Get Business API Endpoint (GET /api/business/:id)
+    - Fetches business configuration profile, settings, and contact details.
+    - Integrates with user context middleware (`authMiddleware`) to verify access permissions (Owner / BusinessMember role).
+    - Returns full business metadata + membership role context (OWNER/MANAGER/STAFF).
+
+[✓] B4. Update Business API Endpoint (PUT /api/business/:id)
+    - PUT /api/business/:id to modify operating hours, address, and profile settings.
+    - Enables profile customization (operatingHours: open, close, days, notes, addressLine, city, state, pincode, logoUrl, status).
+    - Enforces security to ensure only Owner can perform PUT (403 `ONLY_OWNER_CAN_UPDATE` rejection for non-owners).
+
+[✓] B5. Business Setup Onboarding Wizard (GET /api/business/onboarding/status & POST /api/business/onboarding/step)
+    - Multi-step UI wizard workflow designed specifically for React/Next.js frontend.
+    - Step 1: Store Basics & Retail/Kirana Segment selection.
+    - Step 2: Location, 6-digit Pincode & Normalized Contact info.
+    - Step 3: Operating Hours, Weekly Schedule & Business Profile Preferences.
+    - Step-by-Step Draft State Tracking: Vendor model retains intermediate step progress and partial data so users can resume anytime without losing input.
+    - Final Step Atomic Execution: On Step 3 completion, automatically provisions the Business document, creates the OWNER BusinessMember record, marks Vendor `onboardingStatus = 'COMPLETED'`, and unlocks operational modules (Dashboard, Inventory, Catalog, Invoices, Khata).
 
 ================================================================================
-3. PENDING WORK & IMMEDIATE ROADMAP (KYA BAAKI HAI)
+3. ROADMAP & UPCOMING TASKS (KYA BAAKI HAI)
 ================================================================================
-
---- [PHASE 0 : AUTHENTICATION & JWT SETUP (100% COMPLETE)] ---
-[✓] 1. Resend OTP API (POST /api/auth/resend-phone-otp)
-       - Limit to max 3 resends, cooldown check, update existing challenge.
-[✓] 2. Auth Attempts Logging (AuthAttempt Model)
-       - Track failed logins (wrong password, unknown user, locked account) with IP/Agent.
-[✓] 3. Pending Account UX Response
-       - Unverified user login par 403 `PHONE_VERIFICATION_REQUIRED` code + phone return.
-[✓] 4. /me Profile Enrichment
-       - Return Account data + linked Vendor data (vendorId, status, onboardingStatus).
-[✓] 5. Auth Middleware Hardening
-       - Check active account status in DB along with JWT token signature.
-[✓] 6. CommonJS Model Syntax Fix
-       - Convert remaining ES module (`import/export`) schemas to CommonJS (`require`).
-
---- [PHASE 1 : BUSINESS FOUNDATION] ---
-[✓] T1. Business DB Schema Model (src/models/business.model.js)
-        - Structure: ID, Name, Retail Segment, OwnerID (1-to-many link with User).
-[✓] T2. Business Onboarding & Profile CRUD APIs (/api/business)
-        - Create Business profile, Auto-update Vendor onboardingStatus, Get my businesses, Update business.
-[ ] T3. Business Member & Staff Roles (/api/business/members)
-        - Assign roles: OWNER, MANAGER, ACCOUNTANT, STAFF per business.
 
 --- [PHASE 2 : INVENTORY & CATALOG CORE] ---
-[ ] T4. Product & Category Management APIs (/api/products, /api/categories).
-[ ] T5. Inventory Stock Adjustment & Ledger Tracking (/api/inventory).
+[ ] T6. Category Management APIs (POST, GET, PUT, DELETE /api/categories).
+[ ] T7. Product Catalog APIs with Barcode & Variant support (/api/products).
+[ ] T8. Inventory Stock Tracking & Real-time Ledger Updates (/api/inventory).
+[ ] T9. Low Stock & Expiry Alert Engine (/api/inventory/alerts).
 
 --- [PHASE 3 : BILLING, INVOICING & KHATA] ---
-[ ] T6. Invoicing, Billing & Customer Credit (Khata) Ledger (/api/invoices, /api/customers).
+[ ] T10. Fast Point-of-Sale (POS) & Invoice Generation (/api/invoices).
+[ ] T11. Customer Khata / Credit Ledger & Payment Tracking (/api/customers).
+[ ] T12. Daily Sales & Profit Summary Reports (/api/reports).
 
 ================================================================================
-4. CORE WORKFLOW SNAPSHOT
+4. CORE ARCHITECTURE & DATA FLOW
 ================================================================================
 
-A. AUTHENTICATION FLOW:
-   Register -> Send OTP -> Verify Phone -> [Transaction: Account ACTIVE + Vendor Created + Session Created] 
-   -> Cookies Set (Access + Refresh) -> Authenticated Access -> Token Refresh (RTR) -> Logout
+1. AUTHENTICATION & ONBOARDING PIPELINE:
+   [Client App]
+         │
+         ▼ (1. Register / Login)
+   [Auth Routes] ──► [Auth Controller] ──► [Auth Service] ──► [Account & Otp Models]
+         │
+         ▼ (2. Verify Phone OTP)
+   [Verify Controller] ──► [Vendor Model (onboardingStatus: PENDING, step: 1)] ──► Issue JWT Cookies
+         │
+         ▼ (3. Onboarding Wizard - Step 1, 2, 3)
+   [POST /api/business/onboarding/step] ──► Validates Step Data & Saves Draft in Vendor Model
+         │
+         ▼ (4. On Step 3 Completion)
+   [Business Service] ──► Creates [Business] + Creates [BusinessMember (OWNER)] + Marks [Vendor: COMPLETED]
+         │
+         ▼ (5. Modules Unlocked)
+   Unlocked Modules: DASHBOARD | PRODUCTS | CATEGORIES | INVENTORY | INVOICES | CUSTOMERS | REPORTS
 
-B. BUSINESS OPERATIONS FLOW:
-   Auth -> Create Business (Phase 1) -> Add Categories & Products (Phase 2) -> Initial Stock In (Phase 2)
-   -> Point of Sale / Create Invoices (Phase 3) -> Customer Khata & Payments (Phase 3)
+2. REQUEST-RESPONSE PATTERN:
+   HTTP Request (with Cookies/JWT)
+         │
+         ▼
+   `authMiddleware` (Verifies JWT + Validates active Account in DB)
+         │
+         ▼
+   `validateRequest(schema)` (Zod sanitization & strict validation)
+         │
+         ▼
+   `Controller Layer` (Extracts user context, orchestrates HTTP responses)
+         │
+         ▼
+   `Service Layer` (Executes business rules, permissions, transactional integrity)
+         │
+         ▼
+   `Repository Layer` (Performs optimized MongoDB Mongoose queries)
+         │
+         ▼
+   MongoDB Database (14 interconnected CommonJS schemas)
 
 ================================================================================
-5. ACTION PLAN (CURRENT SPRINT)
+5. ACTION PLAN FOR NEXT SPRINT
 ================================================================================
-Step 1: [DONE] Business DB Schema Model (T1) with 1-to-many User linkage.
-Step 2: [NEXT] Build Business Validation, Repository, Service, Controller & Routes (`/api/business`).
-Step 3: Add Business Member Staff Management (`/api/business/members`).
+Step 1: [DONE] Complete Phase 1 Business Setup Onboarding Wizard APIs & Verification.
+Step 2: [NEXT] Begin Phase 2: Category & Product Management APIs (`/api/categories`, `/api/products`).
+Step 3: [NEXT] Build Inventory Stock Movement & Ledger Engine (`/api/inventory`).
 ================================================================================

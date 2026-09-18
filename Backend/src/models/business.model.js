@@ -28,7 +28,7 @@ const businessSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 100,
-      default: "General Retail",
+      default: "Retail/Kirana",
     },
 
     businessType: {
@@ -99,6 +99,16 @@ const businessSchema = new mongoose.Schema(
     logoUrl: {
       type: String,
       trim: true,
+    },
+
+    operatingHours: {
+      open: { type: String, trim: true, default: "09:00 AM" },
+      close: { type: String, trim: true, default: "10:00 PM" },
+      days: {
+        type: [String],
+        default: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+      },
+      notes: { type: String, trim: true },
     },
 
     status: {
