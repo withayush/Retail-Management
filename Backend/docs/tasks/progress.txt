@@ -11,7 +11,7 @@ Auth Model   : JWT (Access 15m + Refresh 7d) in Secure HttpOnly Cookies + Sessio
 ================================================================================
 [✓] Task 1: Environment & Database Setup           --> 100% (DONE)
 [✓] Task 2: Authentication & User Management       --> 100% (DONE)
-[ ] Task 3: Vendor & Business CRUD / Inventory     -->  20% (SCHEMAS READY)
+[~] Task 3: Vendor & Business CRUD / Inventory     -->  60% (CRUD APIS READY)
 [ ] Task 4: Error Handling & System Monitoring     -->  40% (BASIC READY)
 
 ================================================================================
@@ -69,11 +69,18 @@ Auth Model   : JWT (Access 15m + Refresh 7d) in Secure HttpOnly Cookies + Sessio
 [✓] A16. CommonJS Model Syntax Standardization
     - Converted all 14 Mongoose models to pure CommonJS (`require` / `module.exports`).
 
+[✓] B1. Phase 1 - T1: Business DB Schema Model (src/models/business.model.js)
+    - Physical Business table structure with ID, businessName, retailSegment, ownerId (User ref), vendorId, address & status.
+    - Designed as the core anchor linking User -> Business in a 1-to-many relationship.
+
+[✓] B2. Phase 1 - T2: Business Onboarding & Profile CRUD APIs (/api/business)
+    - Full implementation: POST /, GET /me, GET /:id, PUT /:id with Zod validation, Ownership authorization, Vendor onboardingStatus auto-update, and BusinessMember OWNER role assignment.
+
 ================================================================================
 3. PENDING WORK & IMMEDIATE ROADMAP (KYA BAAKI HAI)
 ================================================================================
 
---- [PRIORITY P0 : AUTHENTICATION COMPLETION (100% DONE)] ---
+--- [PHASE 0 : AUTHENTICATION & JWT SETUP (100% COMPLETE)] ---
 [✓] 1. Resend OTP API (POST /api/auth/resend-phone-otp)
        - Limit to max 3 resends, cooldown check, update existing challenge.
 [✓] 2. Auth Attempts Logging (AuthAttempt Model)
@@ -87,16 +94,20 @@ Auth Model   : JWT (Access 15m + Refresh 7d) in Secure HttpOnly Cookies + Sessio
 [✓] 6. CommonJS Model Syntax Fix
        - Convert remaining ES module (`import/export`) schemas to CommonJS (`require`).
 
---- [PRIORITY P1 : SECURITY & SESSION MANAGEMENT] ---
-[ ] 7. Login Rate Limiting (Brute-force protection / temporary lock).
-[ ] 8. Multi-Device Management (GET /sessions, DELETE /sessions/:id, Revoke All).
-[ ] 9. Password Reset via OTP (Forgot Password & Reset Password APIs).
+--- [PHASE 1 : BUSINESS FOUNDATION] ---
+[✓] T1. Business DB Schema Model (src/models/business.model.js)
+        - Structure: ID, Name, Retail Segment, OwnerID (1-to-many link with User).
+[✓] T2. Business Onboarding & Profile CRUD APIs (/api/business)
+        - Create Business profile, Auto-update Vendor onboardingStatus, Get my businesses, Update business.
+[ ] T3. Business Member & Staff Roles (/api/business/members)
+        - Assign roles: OWNER, MANAGER, ACCOUNTANT, STAFF per business.
 
---- [PRIORITY P2 : BUSINESS MODULES & CRUD (TASK 3)] ---
-[ ] 10. Vendor Onboarding & Business Profile CRUD (/api/business).
-[ ] 11. Product & Category Management APIs (/api/products, /api/categories).
-[ ] 12. Inventory Stock Adjustment & Ledger Tracking (/api/inventory).
-[ ] 13. Invoicing, Billing & Customer Credit (Khata) Ledger (/api/invoices).
+--- [PHASE 2 : INVENTORY & CATALOG CORE] ---
+[ ] T4. Product & Category Management APIs (/api/products, /api/categories).
+[ ] T5. Inventory Stock Adjustment & Ledger Tracking (/api/inventory).
+
+--- [PHASE 3 : BILLING, INVOICING & KHATA] ---
+[ ] T6. Invoicing, Billing & Customer Credit (Khata) Ledger (/api/invoices, /api/customers).
 
 ================================================================================
 4. CORE WORKFLOW SNAPSHOT
@@ -106,15 +117,14 @@ A. AUTHENTICATION FLOW:
    Register -> Send OTP -> Verify Phone -> [Transaction: Account ACTIVE + Vendor Created + Session Created] 
    -> Cookies Set (Access + Refresh) -> Authenticated Access -> Token Refresh (RTR) -> Logout
 
-B. BUSINESS OPERATIONS FLOW (Upcoming):
-   Auth -> Vendor Onboard -> Create Business -> Add Categories/Products -> Add Initial Stock
-   -> Create Invoices (Auto stock deduction) -> Manage Customer Khata & Payments
+B. BUSINESS OPERATIONS FLOW:
+   Auth -> Create Business (Phase 1) -> Add Categories & Products (Phase 2) -> Initial Stock In (Phase 2)
+   -> Point of Sale / Create Invoices (Phase 3) -> Customer Khata & Payments (Phase 3)
 
 ================================================================================
-5. ACTION PLAN (NEXT IMMEDIATE STEPS)
+5. ACTION PLAN (CURRENT SPRINT)
 ================================================================================
-Step 1: Implement Resend OTP API (`/resend-phone-otp`) with max 3 attempts limit.
-Step 2: Add Failed & Success `AuthAttempt` logging on login endpoint.
-Step 3: Enrich `/me` response with Vendor profile data & harden Auth Middleware.
-Step 4: Standardize all database models to CommonJS.
+Step 1: [DONE] Business DB Schema Model (T1) with 1-to-many User linkage.
+Step 2: [NEXT] Build Business Validation, Repository, Service, Controller & Routes (`/api/business`).
+Step 3: Add Business Member Staff Management (`/api/business/members`).
 ================================================================================
