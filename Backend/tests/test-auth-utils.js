@@ -1,13 +1,13 @@
 const {
   hashPassword,
   comparePassword,
-} = require("./src/utils/password");
+} = require("../src/utils/password");
 
 const {
   generateOtp,
   hashOtp,
   compareOtp,
-} = require("./src/utils/otp");
+} = require("../src/utils/otp");
 
 const test = async () => {
   // PASSWORD TEST

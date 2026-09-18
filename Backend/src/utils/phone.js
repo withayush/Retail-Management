@@ -3,8 +3,8 @@
 const normalizePhone = (phone) => {
   if (!phone) return "";
   
-  // 1. Remove all spaces, dashes, or non-digit characters except '+'
-  let cleaned = phone.trim();
+  // 1. Remove all spaces, dashes, parentheses or non-digit characters except '+'
+  let cleaned = phone.replace(/[\s\-\(\)]/g, "").trim();
 
   // 2. Remove leading zeros if any
   cleaned = cleaned.replace(/^0+/, "");

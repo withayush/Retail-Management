@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-const Business = require("./src/models/business.model");
-const BusinessMember = require("./src/models/businessMember.model");
+const Business = require("../src/models/business.model");
+const BusinessMember = require("../src/models/businessMember.model");
 
 console.log("=== 1. VERIFY BUSINESS SCHEMA STRUCTURE ===");
 
@@ -12,8 +12,11 @@ const business1 = new Business({
   ownerId: dummyOwnerId,
   vendorId: dummyVendorId,
   businessName: "Ayush Kirana & Supermarket",
-  retailSegment: "Grocery & FMCG",
-  businessType: "RETAIL_STORE",
+  retailSegment: "Grocery",
+  businessType: "Retail",
+  currency: "INR",
+  taxMode: "GST",
+  inventoryTracking: true,
   city: "Lucknow",
   state: "Uttar Pradesh",
 });
@@ -24,6 +27,8 @@ console.log("Fields checked:");
 console.log(" - _id:", business1._id.toString());
 console.log(" - businessName:", business1.businessName);
 console.log(" - retailSegment:", business1.retailSegment);
+console.log(" - currency:", business1.currency);
+console.log(" - taxMode:", business1.taxMode);
 console.log(" - ownerId:", business1.ownerId.toString());
 
 // Test 2: 1-to-Many support: Instantiating Business 2 for the SAME Owner
@@ -31,8 +36,8 @@ const business2 = new Business({
   ownerId: dummyOwnerId,
   vendorId: dummyVendorId,
   businessName: "Ayush Electronics & Mobile",
-  retailSegment: "Consumer Electronics",
-  businessType: "RETAIL_STORE",
+  retailSegment: "Electronics",
+  businessType: "Retail",
   city: "Lucknow",
   state: "Uttar Pradesh",
 });

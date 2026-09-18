@@ -52,7 +52,7 @@ VendorOS strict **6-Layer Architecture** follow karta hai jisse code organized, 
 
 ## 2. Active APIs List & Complete Details
 
-Abhi tak project me total **13 APIs** active hain:
+Abhi tak project me total **26 APIs** active hain:
 
 | # | Method | Endpoint | Auth Required | Description |
 |---|--------|----------|---------------|-------------|
@@ -70,6 +70,19 @@ Abhi tak project me total **13 APIs** active hain:
 | 12 | `GET` | `/api/business/me` | ✅ Yes (JWT) | User ke owned saare active businesses list karta hai |
 | 13 | `GET` | `/api/business/:id` | ✅ Yes (JWT) | Single business profile + user membership role fetch karta hai |
 | 14 | `PUT` | `/api/business/:id` | ✅ Yes (JWT) | Business profile settings update karta hai (Sirf Owner allow hai) |
+| 15 | `GET` | `/api/business/active/context` | ✅ Yes (JWT) | Current active `businessId`, role, aur business context fetch karta hai (T6) |
+| 16 | `POST` | `/api/categories` | ✅ Yes (JWT + T6) | Current active business ke under nayi Category create karta hai |
+| 17 | `GET` | `/api/categories` | ✅ Yes (JWT + T6) | Current active business ki saari categories list karta hai (with search) |
+| 18 | `GET` | `/api/categories/:id` | ✅ Yes (JWT + T6) | Single category fetch karta hai (Tenant-isolated) |
+| 19 | `PUT` | `/api/categories/:id` | ✅ Yes (JWT + T6) | Category name/description update karta hai (with conflict check) |
+| 20 | `DELETE` | `/api/categories/:id` | ✅ Yes (JWT + T6) | Category delete karta hai (Tenant-isolated) |
+| 21 | `POST` | `/api/products` | ✅ Yes (JWT + T6) | Naya Product create karta hai (Category ownership check + SKU auto-uppercase) |
+| 22 | `GET` | `/api/products` | ✅ Yes (JWT + T6) | Business-scoped products list karta hai (Pagination, search & category filters) |
+| 23 | `GET` | `/api/products/barcode/:barcode` | ✅ Yes (JWT + T6) | Fast Barcode scan lookup endpoint for POS billing machines |
+| 24 | `GET` | `/api/products/:id` | ✅ Yes (JWT + T6) | Single product by ID fetch karta hai (Tenant isolated) |
+| 25 | `PUT` | `/api/products/:id` | ✅ Yes (JWT + T6) | Product details, selling/cost price & category update karta hai |
+| 26 | `DELETE` | `/api/products/:id` | ✅ Yes (JWT + T6) | Product delete karta hai (Tenant isolated) |
+
 
 ---
 
@@ -150,6 +163,17 @@ Backend/
 │   ├── tasks/PRD.md
 │   ├── tasks/progress.txt
 │   └── PROJECT_COMPLETE_GUIDE.md     # (Yeh complete documentation file)
+├── tests/                            # Complete Automated Unit & Integration Tests Suite
+│   ├── test-auth-utils.js
+│   ├── test-phone-norm.js
+│   ├── test-token.js
+│   ├── test-validation.js
+│   ├── test-resend-otp.js
+│   ├── test-business-model.js
+│   ├── test-business-flow.js
+│   ├── test-get-business.js
+│   ├── test-update-business.js
+│   └── test-onboarding-wizard.js
 └── src/
     ├── app.js                        # Express App setup, CORS/JSON/Cookie middlewares & Route mounting
     ├── config/
@@ -302,6 +326,15 @@ Backend/
   - Agar validation fail ho, to formatted `400 Bad Request` with field-level errors return karta hai.
   - Pass hone par sanitized data `req.body` me set karke aage bhej deta hai.
 
+#### `src/middlewares/business.middleware.js` (T6)
+- **Kaam:** Tenant Isolation Layer. Har authenticated request ko evaluate karke active `req.businessId`, `req.businessRole`, aur `req.business` inject karta hai.
+- **Kisse Connect Hai:** `src/repositories/business.repository.js`, `business.routes.js`, and future operational modules (Products, Inventory, Invoices).
+- **Code Breakdown:**
+  - `X-Business-Id` header (ya cookie) verify karta hai.
+  - Database membership check karta hai (User OWNER ya ACTIVE member hai ya nahi). Unauthorized access par 403 `NO_ACCESS_TO_BUSINESS` reject karta hai.
+  - Agar header na ho, to user ka default active business auto-resolve karta hai.
+  - `requireBusinessRole(["OWNER", "MANAGER"])` factory provide karta hai for role-based permission control.
+
 #### `src/middlewares/error.middleware.js`
 - **Kaam:** Global centralized error handler hai jo runtime exceptions ko capture karta hai.
 - **Kisse Connect Hai:** `src/app.js`
@@ -327,6 +360,16 @@ Backend/
   - `onboardingStep2Schema`: Address, Pincode & Contact normalization.
   - `onboardingStep3Schema`: Store timings, description & preferences.
   - `saveOnboardingStepSchema`: Step number (1, 2, 3) + Data object.
+
+#### `src/validations/category.validation.js`
+- **Kaam:** Category CRUD ke Zod schemas:
+  - `createCategorySchema`: Category `name` (min 2, max 80 chars, trimmed), optional `description`.
+  - `updateCategorySchema`: Optional `name` and `description`.
+
+#### `src/validations/product.validation.js`
+- **Kaam:** Product Catalog & Pricing Zod schemas:
+  - `createProductSchema`: `name`, `sku` (auto-transformed to uppercase), optional `barcode`, `sellingPrice` (min 0), `costPrice` (min 0), `categoryId` (valid Mongo ID), optional `unit` and `description`.
+  - `updateProductSchema`: Partial schema for updating product info and prices.
 
 ---
 
@@ -357,6 +400,29 @@ Backend/
   - `saveVendorOnboardingProgress`: Intermediate wizard step draft ko Vendor model me persist karta hai.
   - `finalizeVendorOnboarding`: Wizard complete hone par Vendor ka status `COMPLETED` mark karta hai.
 
+#### `src/repositories/category.repository.js`
+- **Kaam:** Business-scoped Category database operations.
+- **Kisse Connect Hai:** `Category` model.
+- **Key Functions:**
+  - `createCategory`: Category create karta hai with `businessId`.
+  - `findCategoriesByBusinessId`: Business ki categories list karta hai with regex search.
+  - `findCategoryById`: Single category fetch karta hai (`_id` + `businessId`).
+  - `findCategoryByName`: Duplicate category check karta hai within same business.
+  - `updateCategoryById`: Category details update karta hai.
+  - `deleteCategoryById`: Category delete karta hai.
+
+#### `src/repositories/product.repository.js`
+- **Kaam:** Business-scoped Product database queries & barcode lookups.
+- **Kisse Connect Hai:** `Product` model.
+- **Key Functions:**
+  - `createProduct`: Naya product insert karta hai (`businessId` + `categoryId`).
+  - `findProductsByBusinessId`: Filter, search & pagination support ke sath products list karta hai.
+  - `findProductById`: Single product fetch karta hai (`_id` + `businessId`).
+  - `findProductBySku`: Duplicate SKU check karta hai within business.
+  - `findProductByBarcode`: Fast barcode scan query for POS (`businessId` + `barcode`).
+  - `updateProductById`: Product update karta hai.
+  - `deleteProductById`: Product delete karta hai.
+
 ---
 
 ### 7. Service Files (`src/services/`)
@@ -386,6 +452,31 @@ Backend/
     - Step 2: Validates location/contact -> Saves to draft -> Returns Next Step 3.
     - Step 3: Validates timing -> Merges all steps -> Runs full schema validation -> **Atomic DB Transaction** me Business create karta hai, OWNER role assign karta hai aur Vendor status COMPLETED karta hai -> Returns unlocked modules.
 
+#### `src/services/category.service.js`
+- **Kaam:** Category business rules & tenant scoping.
+- **Kisse Connect Hai:** `category.repository.js`.
+- **Key Functions & Logic:**
+  - `createCategory()`: Checks duplicate category name within active business -> creates category.
+  - `getCategories()`: Returns categories for active business.
+  - `getCategoryById()`: Tenant-isolated single category retrieval.
+  - `updateCategory()`: Checks name conflicts with other categories in the business before updating.
+  - `deleteCategory()`: Removes category within active business.
+
+#### `src/services/product.service.js`
+- **Kaam:** Product catalog business logic, category ownership verification, and margin calculations.
+- **Kisse Connect Hai:** `product.repository.js`, `category.repository.js`.
+- **Key Functions & Logic:**
+  - `createProduct()`:
+    1. Validates that `categoryId` exists and belongs strictly to `req.businessId` (Cross-Tenant Category Protection).
+    2. Checks duplicate SKU within the same business.
+    3. Checks duplicate Barcode within the same business.
+    4. Creates product and returns calculated margin (`sellingPrice - costPrice`).
+  - `getProducts()`: Paginated list with category filter and search query.
+  - `getProductByBarcode()`: Quick POS lookup by barcode within active business context.
+  - `getProductById()`: Tenant-isolated single product fetch.
+  - `updateProduct()`: Category ownership check + SKU/Barcode uniqueness check + update.
+  - `deleteProduct()`: Removes product strictly within active business.
+
 ---
 
 ### 8. Controller Files (`src/controllers/`)
@@ -398,6 +489,14 @@ Backend/
 - **Kaam:** Business route handlers.
 - **Functions:** `createBusiness`, `getMyBusinesses`, `getBusinessById`, `updateBusiness`, `getOnboardingStatus`, `saveOnboardingStep`.
 
+#### `src/controllers/category.controller.js`
+- **Kaam:** Category CRUD route handlers receiving `req.businessId`.
+- **Functions:** `createCategory`, `getCategories`, `getCategoryById`, `updateCategory`, `deleteCategory`.
+
+#### `src/controllers/product.controller.js`
+- **Kaam:** Product catalog route handlers receiving `req.businessId`.
+- **Functions:** `createProduct`, `getProducts`, `getProductByBarcode`, `getProductById`, `updateProduct`, `deleteProduct`.
+
 ---
 
 ### 9. Route Files (`src/routes/`)
@@ -407,6 +506,12 @@ Backend/
 
 #### `src/routes/business.routes.js`
 - Express Router jo `/api/business` ke endpoints map karta hai. Isme `router.use(authMiddleware)` laga hai jisse har business API protected rehti hai.
+
+#### `src/routes/category.routes.js`
+- Express Router jo `/api/categories` ke endpoints map karta hai. Protected by `authMiddleware` + `businessMiddleware` (T6).
+
+#### `src/routes/product.routes.js`
+- Express Router jo `/api/products` ke endpoints map karta hai. Protected by `authMiddleware` + `businessMiddleware` (T6).
 
 ---
 

@@ -111,6 +111,25 @@ const businessSchema = new mongoose.Schema(
       notes: { type: String, trim: true },
     },
 
+    currency: {
+      type: String,
+      trim: true,
+      default: "INR",
+      maxlength: 10,
+    },
+
+    taxMode: {
+      type: String,
+      trim: true,
+      default: "GST",
+      enum: ["GST", "COMPOSITION", "NON_GST", "NONE", "VAT"],
+    },
+
+    inventoryTracking: {
+      type: Boolean,
+      default: true,
+    },
+
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE", "ARCHIVED"],

@@ -1,5 +1,5 @@
-// test-phone-norm.js
-const { normalizePhone } = require("./src/utils/phone");
+// tests/test-phone-norm.js
+const { normalizePhone } = require("../src/utils/phone");
 
 console.log("--- Testing Phone Normalization ---");
 

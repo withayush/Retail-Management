@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const businessService = require("./src/services/business.service");
+const businessService = require("../src/services/business.service");
 
 console.log("================================================================================");
 console.log("            PHASE 1 - TASK T3: GET BUSINESS API ENDPOINT UNIT TEST              ");

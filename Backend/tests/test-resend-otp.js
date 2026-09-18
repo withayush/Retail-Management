@@ -1,4 +1,4 @@
-const { resendPhoneOtpSchema } = require("./src/validations/auth.validation");
+const { resendPhoneOtpSchema } = require("../src/validations/auth.validation");
 
 console.log("=== 1. TEST VALIDATION ===");
 

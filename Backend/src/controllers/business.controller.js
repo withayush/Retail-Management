@@ -99,6 +99,22 @@ const saveOnboardingStep = async (req, res, next) => {
   }
 };
 
+const getActiveBusinessContext = async (req, res, next) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      data: {
+        businessId: req.businessId,
+        role: req.businessRole,
+        business: req.business,
+        membership: req.businessMember || null,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createBusiness,
   getMyBusinesses,
@@ -106,4 +122,5 @@ module.exports = {
   updateBusiness,
   getOnboardingStatus,
   saveOnboardingStep,
+  getActiveBusinessContext,
 };

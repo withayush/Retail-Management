@@ -8,7 +8,16 @@ const ALLOWED_RETAIL_SEGMENTS = [
   "General Retail",
   "Grocery",
   "Supermarket",
+  "FMCG",
   "FMCG Retail",
+  "Electronics",
+  "Clothing",
+  "Hardware",
+  "Pharmacy",
+  "Wholesale",
+  "Service",
+  "Manufacturing",
+  "Other",
 ];
 
 const createBusinessSchema = z.object({
@@ -28,7 +37,7 @@ const createBusinessSchema = z.object({
           (seg) => seg.toLowerCase() === val.toLowerCase()
         ),
       {
-        message: `Segmentation is restricted initially to Retail/Kirana. Allowed values: ${ALLOWED_RETAIL_SEGMENTS.join(", ")}.`,
+        message: `Allowed business segments: ${ALLOWED_RETAIL_SEGMENTS.join(", ")}.`,
       }
     ),
 
@@ -36,7 +45,8 @@ const createBusinessSchema = z.object({
     .string()
     .trim()
     .max(100)
-    .optional(),
+    .optional()
+    .default("Retail"),
 
   category: z
     .string()
@@ -93,6 +103,10 @@ const createBusinessSchema = z.object({
   website: z.string().trim().url("Please provide a valid website URL.").max(255).optional().or(z.literal("")),
   logoUrl: z.string().trim().url("Please provide a valid logo URL.").optional().or(z.literal("")),
 
+  currency: z.string().trim().default("INR").optional(),
+  taxMode: z.enum(["GST", "COMPOSITION", "NON_GST", "NONE", "VAT"]).default("GST").optional(),
+  inventoryTracking: z.boolean().default(true).optional(),
+
   operatingHours: z
     .object({
       open: z.string().trim().max(20).optional(),
@@ -109,6 +123,11 @@ const createBusinessSchema = z.object({
 
 const updateBusinessSchema = createBusinessSchema.partial();
 
+// ----------------------------------------------------
+// Wizard Step Schemas (Supports 3-step or 4-step wizard)
+// ----------------------------------------------------
+
+// Step 1: Business Identity & Segment
 const onboardingStep1Schema = z.object({
   businessName: z
     .string({ required_error: "Business name is required." })
@@ -126,14 +145,16 @@ const onboardingStep1Schema = z.object({
           (seg) => seg.toLowerCase() === val.toLowerCase()
         ),
       {
-        message: `Segmentation is restricted initially to Retail/Kirana. Allowed values: ${ALLOWED_RETAIL_SEGMENTS.join(", ")}.`,
+        message: `Allowed business segments: ${ALLOWED_RETAIL_SEGMENTS.join(", ")}.`,
       }
-    ),
+    )
+    .optional(),
 
-  businessType: z.string().trim().max(100).optional(),
+  businessType: z.string().trim().max(100).optional().default("Retail"),
   category: z.string().trim().max(100).optional(),
 });
 
+// Step 2: Location & Contact Details
 const onboardingStep2Schema = z.object({
   addressLine: z.string().trim().max(255).optional(),
   city: z.string().trim().max(100).optional(),
@@ -174,7 +195,11 @@ const onboardingStep2Schema = z.object({
     .or(z.literal("")),
 });
 
+// Step 3: Setup Preferences, Currency & Timings
 const onboardingStep3Schema = z.object({
+  currency: z.string().trim().default("INR").optional(),
+  taxMode: z.enum(["GST", "COMPOSITION", "NON_GST", "NONE", "VAT"]).default("GST").optional(),
+  inventoryTracking: z.boolean().default(true).optional(),
   operatingHours: z
     .object({
       open: z.string().trim().max(20).optional(),
@@ -189,8 +214,9 @@ const onboardingStep3Schema = z.object({
 });
 
 const saveOnboardingStepSchema = z.object({
-  step: z.number().int().min(1).max(3),
+  step: z.number().int().min(1).max(4),
   data: z.record(z.any()),
+  isFinalStep: z.boolean().optional(),
 });
 
 module.exports = {
@@ -202,4 +228,3 @@ module.exports = {
   onboardingStep3Schema,
   saveOnboardingStepSchema,
 };
-

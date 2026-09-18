@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-const { updateBusinessSchema } = require("./src/validations/business.validation");
-const businessService = require("./src/services/business.service");
+const { updateBusinessSchema } = require("../src/validations/business.validation");
+const businessService = require("../src/services/business.service");
 
 console.log("================================================================================");
 console.log("           PHASE 1 - TASK T4: UPDATE BUSINESS API ENDPOINT UNIT TEST            ");
@@ -13,6 +13,9 @@ const updatePayload = {
   city: "Lucknow",
   state: "Uttar Pradesh",
   pincode: "226010",
+  currency: "INR",
+  taxMode: "GST",
+  inventoryTracking: true,
   operatingHours: {
     open: "08:00 AM",
     close: "11:00 PM",

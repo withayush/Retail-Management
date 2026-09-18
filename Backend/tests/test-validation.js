@@ -1,4 +1,4 @@
-const { registerSchema } = require("./src/validations/auth.validation");
+const { registerSchema } = require("../src/validations/auth.validation");
 
 const validData = {
   fullName: "Ayush Sharma",

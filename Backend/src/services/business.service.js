@@ -1,15 +1,32 @@
 const mongoose = require("mongoose");
 const businessRepo = require("../repositories/business.repository");
 
+const UNLOCKED_MODULES = [
+  "DASHBOARD",
+  "PRODUCTS",
+  "CATEGORIES",
+  "INVENTORY",
+  "INVOICES",
+  "CUSTOMERS",
+  "REPORTS",
+];
+
+const {
+  onboardingStep1Schema,
+  onboardingStep2Schema,
+  onboardingStep3Schema,
+  createBusinessSchema,
+} = require("../validations/business.validation");
+
 const createBusiness = async ({ accountId, ...businessPayload }) => {
   const vendor = await businessRepo.findVendorByAccountId(accountId);
 
   const dbSession = await mongoose.startSession();
   try {
-    let result;
+    let createdBusiness;
     await dbSession.withTransaction(async () => {
       // 1. Create Business linked to User (ownerId) and Vendor
-      const business = await businessRepo.createBusiness(
+      createdBusiness = await businessRepo.createBusiness(
         {
           ...businessPayload,
           ownerId: accountId,
@@ -21,7 +38,7 @@ const createBusiness = async ({ accountId, ...businessPayload }) => {
       // 2. Automatically assign OWNER role in BusinessMember
       await businessRepo.createBusinessMember(
         {
-          businessId: business._id,
+          businessId: createdBusiness._id,
           accountId,
           role: "OWNER",
           status: "ACTIVE",
@@ -31,17 +48,16 @@ const createBusiness = async ({ accountId, ...businessPayload }) => {
 
       // 3. Update Vendor onboarding status to COMPLETED
       if (vendor && vendor.onboardingStatus !== "COMPLETED") {
-        await businessRepo.updateVendorOnboardingStatus(
-          vendor._id,
-          "COMPLETED",
-          dbSession
-        );
+        await businessRepo.finalizeVendorOnboarding(vendor._id, dbSession);
       }
-
-      result = business;
     });
 
-    return result;
+    return {
+      ...(createdBusiness.toObject ? createdBusiness.toObject() : createdBusiness),
+      role: "OWNER",
+      onboardingCompleted: true,
+      unlockedModules: UNLOCKED_MODULES,
+    };
   } finally {
     await dbSession.endSession();
   }
@@ -132,23 +148,6 @@ const updateBusiness = async ({ businessId, accountId, updatePayload }) => {
   return updatedBusiness;
 };
 
-const {
-  onboardingStep1Schema,
-  onboardingStep2Schema,
-  onboardingStep3Schema,
-  createBusinessSchema,
-} = require("../validations/business.validation");
-
-const UNLOCKED_MODULES = [
-  "DASHBOARD",
-  "PRODUCTS",
-  "CATEGORIES",
-  "INVENTORY",
-  "INVOICES",
-  "CUSTOMERS",
-  "REPORTS",
-];
-
 const getOnboardingStatus = async (accountId) => {
   const vendor = await businessRepo.findVendorByAccountId(accountId);
   const businesses = await businessRepo.findBusinessesByOwnerId(accountId);
@@ -159,6 +158,7 @@ const getOnboardingStatus = async (accountId) => {
 
   return {
     isCompleted,
+    onboardingCompleted: isCompleted,
     onboardingStatus: isCompleted
       ? "COMPLETED"
       : vendor?.onboardingStatus || "NOT_STARTED",
@@ -170,7 +170,7 @@ const getOnboardingStatus = async (accountId) => {
   };
 };
 
-const saveOnboardingStep = async ({ accountId, step, data }) => {
+const saveOnboardingStep = async ({ accountId, step, data, isFinalStep = false }) => {
   const vendor = await businessRepo.findVendorByAccountId(accountId);
   if (!vendor) {
     const error = new Error("Vendor profile not found.");
@@ -179,8 +179,7 @@ const saveOnboardingStep = async ({ accountId, step, data }) => {
     throw error;
   }
 
-  // 1. Step Validation
-  let validatedStepData;
+  // 1. Step 1 Validation
   if (step === 1) {
     const parsed = onboardingStep1Schema.safeParse(data);
     if (!parsed.success) {
@@ -191,7 +190,7 @@ const saveOnboardingStep = async ({ accountId, step, data }) => {
       error.code = "VALIDATION_ERROR";
       throw error;
     }
-    validatedStepData = parsed.data;
+    const validatedStepData = parsed.data;
 
     // Save step 1 draft
     const updatedDraft = { ...(vendor.onboardingData || {}), ...validatedStepData };
@@ -210,6 +209,7 @@ const saveOnboardingStep = async ({ accountId, step, data }) => {
     };
   }
 
+  // 2. Step 2 Validation
   if (step === 2) {
     const parsed = onboardingStep2Schema.safeParse(data);
     if (!parsed.success) {
@@ -220,7 +220,7 @@ const saveOnboardingStep = async ({ accountId, step, data }) => {
       error.code = "VALIDATION_ERROR";
       throw error;
     }
-    validatedStepData = parsed.data;
+    const validatedStepData = parsed.data;
 
     // Save step 2 draft
     const updatedDraft = { ...(vendor.onboardingData || {}), ...validatedStepData };
@@ -239,7 +239,8 @@ const saveOnboardingStep = async ({ accountId, step, data }) => {
     };
   }
 
-  if (step === 3) {
+  // 3. Step 3 Validation & Finalization
+  if (step === 3 || isFinalStep) {
     const parsed = onboardingStep3Schema.safeParse(data);
     if (!parsed.success) {
       const error = new Error(
@@ -249,7 +250,7 @@ const saveOnboardingStep = async ({ accountId, step, data }) => {
       error.code = "VALIDATION_ERROR";
       throw error;
     }
-    validatedStepData = parsed.data;
+    const validatedStepData = parsed.data;
 
     // Merge all wizard draft data + Step 3 data
     const completePayload = {
@@ -298,7 +299,9 @@ const saveOnboardingStep = async ({ accountId, step, data }) => {
       return {
         step: 3,
         isCompleted: true,
+        onboardingCompleted: true,
         onboardingStatus: "COMPLETED",
+        role: "OWNER",
         unlockedModules: UNLOCKED_MODULES,
         business: createdBusiness,
       };
@@ -320,4 +323,5 @@ module.exports = {
   updateBusiness,
   getOnboardingStatus,
   saveOnboardingStep,
+  UNLOCKED_MODULES,
 };

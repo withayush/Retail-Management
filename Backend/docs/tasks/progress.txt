@@ -12,8 +12,11 @@ API Base URL : http://localhost:5000/api
 ================================================================================
 [✓] Phase 0: Environment & Database Setup            --> 100% (DONE)
 [✓] Phase 0: Authentication & User Management        --> 100% (DONE)
-[✓] Phase 1: Business Foundation & Onboarding Wizard --> 100% (DONE)
-[ ] Phase 2: Inventory & Catalog Core                -->   0% (NEXT SPRINT)
+[✓] Phase 1: Business Foundation & Tenant Isolation  --> 100% (DONE)
+[✓] Phase 2: Category Foundation (T7)                --> 100% (DONE)
+[✓] Phase 2: Product Catalog & Barcode (T8)          --> 100% (DONE)
+[ ] Phase 2: Inventory Stock & Ledger Engine (T9)    -->   0% (NEXT)
+[ ] Phase 2: Low Stock & Expiry Alert Engine (T10)   -->   0% (PENDING)
 [ ] Phase 3: Billing, Invoicing & Khata Ledger       -->   0% (PENDING)
 [ ] Phase 4: Error Handling & System Monitoring      -->  40% (BASIC READY)
 
@@ -73,15 +76,16 @@ API Base URL : http://localhost:5000/api
 [✓] A16. CommonJS Model Syntax Standardization
     - Converted all 14 Mongoose models to pure CommonJS (`require` / `module.exports`).
 
---- [ PHASE 1 : BUSINESS FOUNDATION & ONBOARDING WIZARD ] ---
+--- [ PHASE 1 : BUSINESS FOUNDATION & TENANT ISOLATION ] ---
 [✓] B1. Business DB Schema Model (src/models/business.model.js)
-    - Physical Business table structure with ID, businessName, retailSegment, ownerId (User ref), vendorId, address & status.
-    - Designed as the core anchor linking User -> Business in a 1-to-many relationship.
+    - Physical Business table structure with ID, businessName, retailSegment, ownerId (User ref), vendorId, address, currency, taxMode, inventoryTracking & status.
+    - Designed as the core anchor linking User -> Business in a 1-to-many relationship (Multi-Tenant Isolation Foundation).
 
-[✓] B2. Create Business API Endpoint (POST /api/business)
-    - POST /api/business endpoint to register business details with model validations.
+[✓] B2. Create Business API Endpoint (POST /api/business & POST /api/business/onboarding)
+    - REST endpoint to register business details with model validations.
     - Sanitizes business metadata on creation (trimmed strings, phone/whatsapp canonical normalization, pincode format).
-    - Restricts segmentation initially to Retail/Kirana (e.g., 'Retail/Kirana', 'Kirana', 'Retail', 'Grocery', 'Supermarket', 'General Retail').
+    - Expanded business segmentation: Grocery, Electronics, Clothing, Hardware, Pharmacy, Retail/Kirana, Kirana, Retail, Supermarket, FMCG, Wholesale, Service, Manufacturing, Other.
+    - Configuration attributes: Currency (default 'INR'), Tax Mode ('GST', 'COMPOSITION', 'NON_GST', 'NONE', 'VAT'), Inventory Tracking (true/false).
     - Atomic lifecycle integration: Links User (ownerId) & Vendor, assigns OWNER role in BusinessMember, and auto-updates Vendor onboardingStatus to 'COMPLETED'.
     - Profile management: GET /me, GET /:id, PUT /:id with ownership access control.
 
@@ -91,38 +95,73 @@ API Base URL : http://localhost:5000/api
     - Returns full business metadata + membership role context (OWNER/MANAGER/STAFF).
 
 [✓] B4. Update Business API Endpoint (PUT /api/business/:id)
-    - PUT /api/business/:id to modify operating hours, address, and profile settings.
-    - Enables profile customization (operatingHours: open, close, days, notes, addressLine, city, state, pincode, logoUrl, status).
+    - PUT /api/business/:id to modify operating hours, address, preferences, and profile settings.
+    - Enables profile customization (operatingHours: open, close, days, notes, addressLine, city, state, pincode, currency, taxMode, inventoryTracking, logoUrl, status).
     - Enforces security to ensure only Owner can perform PUT (403 `ONLY_OWNER_CAN_UPDATE` rejection for non-owners).
 
-[✓] B5. Business Setup Onboarding Wizard (GET /api/business/onboarding/status & POST /api/business/onboarding/step)
-    - Multi-step UI wizard workflow designed specifically for React/Next.js frontend.
-    - Step 1: Store Basics & Retail/Kirana Segment selection.
+[✓] B5. Business Setup Onboarding Wizard & Gate (GET /api/business/onboarding/status, POST /api/business/onboarding/step, POST /api/business/onboarding)
+    - Step-by-step React/Next.js UI wizard workflow and onboarding gate before unlocking modules.
+    - Step 1: Store Basics & Segment Selection (Grocery, Electronics, Clothing, Hardware, Pharmacy, Retail/Kirana, etc.).
     - Step 2: Location, 6-digit Pincode & Normalized Contact info.
-    - Step 3: Operating Hours, Weekly Schedule & Business Profile Preferences.
+    - Step 3: Setup Preferences (Currency 'INR', Tax Mode 'GST', Inventory Tracking 'ON', Operating Hours & Schedule).
     - Step-by-Step Draft State Tracking: Vendor model retains intermediate step progress and partial data so users can resume anytime without losing input.
-    - Final Step Atomic Execution: On Step 3 completion, automatically provisions the Business document, creates the OWNER BusinessMember record, marks Vendor `onboardingStatus = 'COMPLETED'`, and unlocks operational modules (Dashboard, Inventory, Catalog, Invoices, Khata).
+    - Final Step Atomic Execution: On Step 3 completion (or 1-shot onboarding POST), automatically provisions the Business document, creates the OWNER BusinessMember record, marks Vendor `onboardingStatus = 'COMPLETED'`, and unlocks operational modules:
+      [DASHBOARD, PRODUCTS, CATEGORIES, INVENTORY, INVOICES, CUSTOMERS, REPORTS].
+
+[✓] B6. T6: User-Business Mapping Middleware (src/middlewares/business.middleware.js)
+    - Essential security boundary attaching trusted active `req.businessId`, `req.business`, `req.businessRole`, and `req.businessMember` to all downstream requests.
+    - Prevents cross-tenant data leakage between different businesses and profiles.
+    - Supports `X-Business-Id` header with DB membership authorization checks (rejection with 403 `NO_ACCESS_TO_BUSINESS` for unauthorized access).
+    - Auto-resolves default owned business when no header is supplied.
+    - Includes `requireBusinessRole(["OWNER", "MANAGER"])` role-gating helper for protected operations.
+    - Context inspection endpoint: `GET /api/business/active/context`.
+
+--- [ PHASE 2 : INVENTORY & CATALOG CORE ] ---
+[✓] C1. T7: Category Table Schema Model & Business-Scoped CRUD APIs (/api/categories)
+    - Category Mongoose DB Model (`_id`, `name`, `description`, `businessId`, timestamps).
+    - Multi-tenant Compound Unique Index: `{ businessId: 1, name: 1 }` (allows "Grocery" in different businesses, prevents duplicates in the same business).
+    - Strict `businessId` tenancy isolation: `businessId` is ALWAYS derived from verified `req.businessId` (never trusted from request body).
+    - Complete REST API Endpoints:
+      - `POST /api/categories`: Create category for active business.
+      - `GET /api/categories`: List all categories belonging to active business (with search filter).
+      - `GET /api/categories/:id`: Get single category with tenant boundary check.
+      - `PUT /api/categories/:id`: Update category with conflict check.
+      - `DELETE /api/categories/:id`: Delete category within active business.
+
+[✓] C2. T8: Product Schema DB Model & Business-Scoped Catalog APIs (/api/products)
+    - Product Mongoose DB Model (`_id`, `businessId`, `categoryId`, `name`, `sku`, `barcode`, `sellingPrice`, `costPrice`, `unit`, `description`, `isActive`, timestamps).
+    - Direct `businessId` tenancy isolation & Category ownership validation (blocks cross-business category injection with 400 `INVALID_CATEGORY`).
+    - Multi-tenant Compound Unique Indexes:
+      - `{ businessId: 1, sku: 1 }`: Scoped SKU uniqueness per business.
+      - `{ businessId: 1, barcode: 1 }`: Scoped Barcode uniqueness per business.
+    - Margin & COGS separation: Tracks `sellingPrice` and `costPrice` distinctly for accurate profit analytics.
+    - Fast Barcode Scanner Lookup endpoint for POS billing machines (`GET /api/products/barcode/:barcode`).
+    - Complete REST API Endpoints:
+      - `POST /api/products`: Create product with SKU auto-uppercase & category ownership validation.
+      - `GET /api/products`: List products with pagination, category filter & search.
+      - `GET /api/products/barcode/:barcode`: Quick lookup by barcode for POS checkout.
+      - `GET /api/products/:id`: Get single product by ID (Tenant isolated).
+      - `PUT /api/products/:id`: Update product info and prices.
+      - `DELETE /api/products/:id`: Delete product within active business.
 
 ================================================================================
 3. ROADMAP & UPCOMING TASKS (KYA BAAKI HAI)
 ================================================================================
 
 --- [PHASE 2 : INVENTORY & CATALOG CORE] ---
-[ ] T6. Category Management APIs (POST, GET, PUT, DELETE /api/categories).
-[ ] T7. Product Catalog APIs with Barcode & Variant support (/api/products).
-[ ] T8. Inventory Stock Tracking & Real-time Ledger Updates (/api/inventory).
-[ ] T9. Low Stock & Expiry Alert Engine (/api/inventory/alerts).
+[ ] T9. Inventory Stock Tracking & Real-time Ledger Updates (/api/inventory).
+[ ] T10. Low Stock & Expiry Alert Engine (/api/inventory/alerts).
 
 --- [PHASE 3 : BILLING, INVOICING & KHATA] ---
-[ ] T10. Fast Point-of-Sale (POS) & Invoice Generation (/api/invoices).
-[ ] T11. Customer Khata / Credit Ledger & Payment Tracking (/api/customers).
-[ ] T12. Daily Sales & Profit Summary Reports (/api/reports).
+[ ] T11. Fast Point-of-Sale (POS) & Invoice Generation (/api/invoices).
+[ ] T12. Customer Khata / Credit Ledger & Payment Tracking (/api/customers).
+[ ] T13. Daily Sales & Profit Summary Reports (/api/reports).
 
 ================================================================================
 4. CORE ARCHITECTURE & DATA FLOW
 ================================================================================
 
-1. AUTHENTICATION & ONBOARDING PIPELINE:
+1. AUTHENTICATION, ONBOARDING & TENANT CONTEXT PIPELINE:
    [Client App]
          │
          ▼ (1. Register / Login)
@@ -134,37 +173,49 @@ API Base URL : http://localhost:5000/api
          ▼ (3. Onboarding Wizard - Step 1, 2, 3)
    [POST /api/business/onboarding/step] ──► Validates Step Data & Saves Draft in Vendor Model
          │
-         ▼ (4. On Step 3 Completion)
+         ▼ (4. On Step 3 Completion / POST /api/business/onboarding)
    [Business Service] ──► Creates [Business] + Creates [BusinessMember (OWNER)] + Marks [Vendor: COMPLETED]
          │
-         ▼ (5. Modules Unlocked)
-   Unlocked Modules: DASHBOARD | PRODUCTS | CATEGORIES | INVENTORY | INVOICES | CUSTOMERS | REPORTS
+         ▼ (5. Tenant Isolation Layer - T6 Middleware)
+   [businessMiddleware] ──► Validates Membership & Injects `req.businessId` + `req.businessRole`
+         │
+         ├──────────────────────────────────────────────────────┐
+         ▼ (6. Category Management)                              ▼ (7. Product Catalog Management)
+   [Category Routes (/api/categories)]                   [Product Routes (/api/products)]
+   - Scoped strictly to `req.businessId`                  - Scoped strictly to `req.businessId`
+                                                         - Validates Category belongs to same Business
+                                                         - SKU & Barcode multi-tenant unique indexes
+                                                         - Fast POS Barcode scan lookup endpoint
 
 2. REQUEST-RESPONSE PATTERN:
-   HTTP Request (with Cookies/JWT)
+   HTTP Request (with Cookies/JWT + optional X-Business-Id)
          │
          ▼
-   `authMiddleware` (Verifies JWT + Validates active Account in DB)
+   `authMiddleware` (Verifies JWT + Validates active Account in DB -> req.user)
+         │
+         ▼
+   `businessMiddleware` (Validates Membership -> Attaches trusted req.businessId)
          │
          ▼
    `validateRequest(schema)` (Zod sanitization & strict validation)
          │
          ▼
-   `Controller Layer` (Extracts user context, orchestrates HTTP responses)
+   `Controller Layer` (Uses req.user & req.businessId context)
          │
          ▼
-   `Service Layer` (Executes business rules, permissions, transactional integrity)
+   `Service Layer` (Executes business rules scoped to businessId)
          │
          ▼
-   `Repository Layer` (Performs optimized MongoDB Mongoose queries)
+   `Repository Layer` (Performs queries strictly isolated by businessId)
          │
          ▼
    MongoDB Database (14 interconnected CommonJS schemas)
 
-================================================================================
+===============================================================================
 5. ACTION PLAN FOR NEXT SPRINT
-================================================================================
-Step 1: [DONE] Complete Phase 1 Business Setup Onboarding Wizard APIs & Verification.
-Step 2: [NEXT] Begin Phase 2: Category & Product Management APIs (`/api/categories`, `/api/products`).
-Step 3: [NEXT] Build Inventory Stock Movement & Ledger Engine (`/api/inventory`).
-================================================================================
+===============================================================================
+Step 1: [DONE] Complete Phase 1 Business Foundation & T6 User-Business Mapping Middleware.
+Step 2: [DONE] Complete Phase 2 Task T7: Category Table Schema Model & APIs.
+Step 3: [DONE] Complete Phase 2 Task T8: Product Catalog APIs with Barcode & Variant support (`/api/products`).
+Step 4: [NEXT] Build Phase 2 Task T9: Inventory Stock Movement & Real-time Ledger Engine (`/api/inventory`).
+===============================================================================

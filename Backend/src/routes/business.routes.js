@@ -1,5 +1,6 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/auth.middleware");
+const { businessMiddleware } = require("../middlewares/business.middleware");
 const validate = require("../middlewares/validate.middleware");
 const {
   createBusinessSchema,
@@ -13,6 +14,7 @@ const {
   updateBusiness,
   getOnboardingStatus,
   saveOnboardingStep,
+  getActiveBusinessContext,
 } = require("../controllers/business.controller");
 
 const router = express.Router();
@@ -25,6 +27,12 @@ router.use(authMiddleware);
 // ============================================
 router.get("/onboarding/status", getOnboardingStatus);
 router.post("/onboarding/step", validate(saveOnboardingStepSchema), saveOnboardingStep);
+router.post("/onboarding", validate(createBusinessSchema), createBusiness);
+
+// ============================================
+// T6: ACTIVE BUSINESS CONTEXT & TENANT MAPPING
+// ============================================
+router.get("/active/context", businessMiddleware, getActiveBusinessContext);
 
 // ============================================
 // BUSINESS CRUD & PROFILE MANAGEMENT

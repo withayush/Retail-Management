@@ -2,7 +2,7 @@ const {
   createBusinessSchema,
   updateBusinessSchema,
   ALLOWED_RETAIL_SEGMENTS,
-} = require("./src/validations/business.validation");
+} = require("../src/validations/business.validation");
 
 console.log("================================================================================");
 console.log("              PHASE 1 - TASK T2: CREATE BUSINESS API VALIDATION SUITE           ");
@@ -12,7 +12,7 @@ console.log("===================================================================
 const validCreate = {
   businessName: "   Ayush Kirana & General Store   ",
   retailSegment: "Kirana",
-  businessType: "RETAIL_STORE",
+  businessType: "Retail",
   category: "Grocery & FMCG",
   description: "Neighborhood Kirana store for groceries and daily essentials",
   businessEmail: "  STORE@KIRANA.COM  ",
@@ -22,6 +22,9 @@ const validCreate = {
   city: "Lucknow",
   state: "Uttar Pradesh",
   pincode: "226001",
+  currency: "INR",
+  taxMode: "GST",
+  inventoryTracking: true,
 };
 
 const res1 = createBusinessSchema.safeParse(validCreate);
@@ -43,13 +46,13 @@ console.log("\n[Test 2] Default Retail Segment Assignment:");
 console.log(" - Parse Status        :", res2.success ? "PASSED" : "FAILED");
 console.log(" - Assigned Segment    :", `"${res2.data?.retailSegment}"`);
 
-// Test 3: Segment Restriction Check (Disallowed Sector e.g. Aerospace / Mining)
+// Test 3: Segment Restriction Check (Disallowed Sector e.g. Aerospace)
 const invalidSegmentPayload = {
-  businessName: "Heavy Machinery & Mining Corp",
-  retailSegment: "Heavy Industrial Manufacturing",
+  businessName: "Heavy Machinery & Aerospace Corp",
+  retailSegment: "Aerospace Defense",
 };
 const res3 = createBusinessSchema.safeParse(invalidSegmentPayload);
-console.log("\n[Test 3] Non-Retail/Kirana Segment Rejection:");
+console.log("\n[Test 3] Non-Supported Segment Rejection:");
 console.log(" - Rejection Status    :", !res3.success ? "PASSED (Rejected Correctly)" : "FAILED");
 if (!res3.success) {
   console.log(" - Error Message       :", res3.error.issues[0]?.message);
@@ -85,4 +88,3 @@ console.log(" - Parse Status        :", res6.success ? "PASSED" : "FAILED");
 console.log("\n================================================================================");
 console.log("                  ALL BUSINESS API VALIDATION TESTS PASSED                      ");
 console.log("================================================================================");
-

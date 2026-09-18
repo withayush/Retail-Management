@@ -3,6 +3,8 @@ const cookieParser = require("cookie-parser");
 
 const authRoutes = require("./routes/auth.routes");
 const businessRoutes = require("./routes/business.routes");
+const categoryRoutes = require("./routes/category.routes");
+const productRoutes = require("./routes/product.routes");
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
@@ -19,6 +21,8 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/business", businessRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
 
 app.use(errorHandler);
 
