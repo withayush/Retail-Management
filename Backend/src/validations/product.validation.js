@@ -42,6 +42,19 @@ const createProductSchema = z.object({
     .optional()
     .default("pcs"),
 
+  packSize: z
+    .number()
+    .min(0, "Pack size cannot be negative.")
+    .optional()
+    .default(1),
+
+  packagingType: z
+    .string()
+    .trim()
+    .max(50)
+    .optional()
+    .default(""),
+
   description: z
     .string()
     .trim()

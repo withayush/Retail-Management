@@ -12,6 +12,8 @@ const {
   getProductById,
   getProductByBarcode,
   updateProduct,
+  archiveProduct,
+  restoreProduct,
   deleteProduct,
 } = require("../controllers/product.controller");
 
@@ -22,13 +24,15 @@ router.use(authMiddleware);
 router.use(businessMiddleware);
 
 // ============================================
-// PRODUCT CATALOG & POS LOOKUP ENDPOINTS (PHASE 2 - T8)
+// PRODUCT CATALOG & POS LOOKUP ENDPOINTS (PHASE 2 - T8, T9, T10, T11)
 // ============================================
 router.post("/", validate(createProductSchema), createProduct);
 router.get("/", getProducts);
 router.get("/barcode/:barcode", getProductByBarcode);
 router.get("/:id", getProductById);
 router.put("/:id", validate(updateProductSchema), updateProduct);
-router.delete("/:id", deleteProduct);
+router.post("/:id/archive", archiveProduct);
+router.post("/:id/restore", restoreProduct);
+router.delete("/:id", deleteProduct); // Soft-deletes and archives product
 
 module.exports = router;

@@ -59,6 +59,19 @@ const productSchema = new mongoose.Schema(
       maxlength: 30,
     },
 
+    packSize: {
+      type: Number,
+      default: 1,
+      min: [0, "Pack size cannot be negative."],
+    },
+
+    packagingType: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 50,
+    },
+
     description: {
       type: String,
       trim: true,
@@ -72,6 +85,18 @@ const productSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+
+    isArchived: {
+      type: Boolean,
+      required: true,
+      default: false,
+      index: true,
+    },
+
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -83,9 +108,10 @@ productSchema.index({ businessId: 1, sku: 1 }, { unique: true });
 // 2. Fast barcode lookup within the same business
 productSchema.index({ businessId: 1, barcode: 1 }, { sparse: true });
 
-// 3. Category filtering and creation timestamp sorting
-productSchema.index({ businessId: 1, categoryId: 1 });
-productSchema.index({ businessId: 1, createdAt: -1 });
+// 3. Business-scoped Active/Archived, Category and Cursor Pagination queries
+productSchema.index({ businessId: 1, isArchived: 1, _id: -1 });
+productSchema.index({ businessId: 1, isArchived: 1, createdAt: -1 });
+productSchema.index({ businessId: 1, categoryId: 1, isArchived: 1, _id: -1 });
 
 const Product = mongoose.model("Product", productSchema);
 

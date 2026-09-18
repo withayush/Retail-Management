@@ -52,7 +52,7 @@ VendorOS strict **6-Layer Architecture** follow karta hai jisse code organized, 
 
 ## 2. Active APIs List & Complete Details
 
-Abhi tak project me total **26 APIs** active hain:
+Abhi tak project me total **28 APIs** active hain:
 
 | # | Method | Endpoint | Auth Required | Description |
 |---|--------|----------|---------------|-------------|
@@ -77,11 +77,13 @@ Abhi tak project me total **26 APIs** active hain:
 | 19 | `PUT` | `/api/categories/:id` | ✅ Yes (JWT + T6) | Category name/description update karta hai (with conflict check) |
 | 20 | `DELETE` | `/api/categories/:id` | ✅ Yes (JWT + T6) | Category delete karta hai (Tenant-isolated) |
 | 21 | `POST` | `/api/products` | ✅ Yes (JWT + T6) | Naya Product create karta hai (Category ownership check + SKU auto-uppercase) |
-| 22 | `GET` | `/api/products` | ✅ Yes (JWT + T6) | Business-scoped products list karta hai (Pagination, search & category filters) |
+| 22 | `GET` | `/api/products` | ✅ Yes (JWT + T6) | Active products list karta hai (`?status=archived` se archived list karta hai) |
 | 23 | `GET` | `/api/products/barcode/:barcode` | ✅ Yes (JWT + T6) | Fast Barcode scan lookup endpoint for POS billing machines |
 | 24 | `GET` | `/api/products/:id` | ✅ Yes (JWT + T6) | Single product by ID fetch karta hai (Tenant isolated) |
-| 25 | `PUT` | `/api/products/:id` | ✅ Yes (JWT + T6) | Product details, selling/cost price & category update karta hai |
-| 26 | `DELETE` | `/api/products/:id` | ✅ Yes (JWT + T6) | Product delete karta hai (Tenant isolated) |
+| 25 | `PUT` | `/api/products/:id` | ✅ Yes (JWT + T6) | Product details, selling/cost price & packaging update karta hai |
+| 26 | `POST` | `/api/products/:id/archive` | ✅ Yes (JWT + T6) | Product archive/deactivate karta hai (Preserves historic invoices) |
+| 27 | `POST` | `/api/products/:id/restore` | ✅ Yes (JWT + T6) | Archived product ko wapas active catalog mein restore karta hai |
+| 28 | `DELETE` | `/api/products/:id` | ✅ Yes (JWT + T6) | Product soft-delete & archive karta hai (Hard delete restricted) |
 
 
 ---
@@ -305,6 +307,13 @@ Backend/
   - `hashOtp(otp)`: OTP ko database me plain-text ki jagah bcrypt hashed store karta hai.
   - `compareOtp(otp, otpHash)`: User ke enter kiye hue OTP ko hash se verify karta hai.
 
+#### `src/utils/pagination.js` (T12)
+- **Kaam:** Cursor-based pagination ke liye URL-safe base64 encoding & decoding.
+- **Kisse Connect Hai:** `product.service.js`, `product.repository.js`
+- **Code Breakdown:**
+  - `encodeCursor(data)`: Object `{ id }` ko URL-safe base64 opaque string me convert karta hai.
+  - `decodeCursor(cursorStr)`: Base64 string ko parse karke original object recover karta hai (invalid cursor par gracefully `null` deta hai).
+
 ---
 
 ### 4. Middleware Files (`src/middlewares/`)
@@ -474,8 +483,14 @@ Backend/
   - `getProducts()`: Paginated list with category filter and search query.
   - `getProductByBarcode()`: Quick POS lookup by barcode within active business context.
   - `getProductById()`: Tenant-isolated single product fetch.
-  - `updateProduct()`: Category ownership check + SKU/Barcode uniqueness check + update.
-  - `deleteProduct()`: Removes product strictly within active business.
+  - `updateProduct()`: 
+    1. Tenant check: Product strictly `req.businessId` ka hona chahiye.
+    2. Category ownership check: Agar category change ki gayi hai to ensure karta hai wo isi business ki ho.
+    3. SKU & Barcode uniqueness: Dusre products ke sath collision check karta hai, lekin self-SKU idempotency allow karta hai.
+    4. **Historic Invoice Preservation:** Base product price update karta hai without mutating historical `InvoiceItem` snapshots.
+  - `archiveProduct()`: Product ko soft-delete karke `isArchived = true` aur `archivedAt` timestamp set karta hai (preserves invoice links).
+  - `restoreProduct()`: Archived product ko wapas active catalog mein restore karta hai (`isArchived = false`, `archivedAt = null`).
+  - `deleteProduct()`: Safe soft-deletion execution jo invoice history aur stock ledger ko preserve karta hai.
 
 ---
 
@@ -495,7 +510,7 @@ Backend/
 
 #### `src/controllers/product.controller.js`
 - **Kaam:** Product catalog route handlers receiving `req.businessId`.
-- **Functions:** `createProduct`, `getProducts`, `getProductByBarcode`, `getProductById`, `updateProduct`, `deleteProduct`.
+- **Functions:** `createProduct`, `getProducts`, `getProductByBarcode`, `getProductById`, `updateProduct`, `archiveProduct`, `restoreProduct`, `deleteProduct`.
 
 ---
 
@@ -511,7 +526,7 @@ Backend/
 - Express Router jo `/api/categories` ke endpoints map karta hai. Protected by `authMiddleware` + `businessMiddleware` (T6).
 
 #### `src/routes/product.routes.js`
-- Express Router jo `/api/products` ke endpoints map karta hai. Protected by `authMiddleware` + `businessMiddleware` (T6).
+- Express Router jo `/api/products` ke endpoints map karta hai (`POST /`, `GET /`, `GET /barcode/:barcode`, `GET /:id`, `PUT /:id`, `POST /:id/archive`, `POST /:id/restore`, `DELETE /:id`). Protected by `authMiddleware` + `businessMiddleware` (T6).
 
 ---
 

@@ -12,6 +12,16 @@ const createProduct = async (productData) => {
 const findProductsByBusinessId = async (businessId, filters = {}) => {
   const query = { businessId };
 
+  // Status & Archival Filtering:
+  // - "archived": only archived products
+  // - "all": both active and archived products
+  // - default: only active, non-archived products
+  if (filters.status === "archived" || filters.isArchived === "true" || filters.isArchived === true) {
+    query.isArchived = true;
+  } else if (filters.status !== "all") {
+    query.isArchived = false;
+  }
+
   if (filters.categoryId) {
     query.categoryId = filters.categoryId;
   }
@@ -28,25 +38,26 @@ const findProductsByBusinessId = async (businessId, filters = {}) => {
     ];
   }
 
-  const page = parseInt(filters.page, 10) || 1;
-  const limit = parseInt(filters.limit, 10) || 50;
-  const skip = (page - 1) * limit;
+  // Cursor pagination seek: fetches records with _id < cursorId (Newest first)
+  if (filters.cursorId) {
+    query._id = { $lt: filters.cursorId };
+  }
 
-  const [products, total] = await Promise.all([
-    Product.find(query)
-      .populate("categoryId", "name description")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-    Product.countDocuments(query),
-  ]);
+  // Limit capped between 1 and 100 (Default: 20)
+  const limit = Math.min(Math.max(parseInt(filters.limit, 10) || 20, 1), 100);
+
+  // Fetch limit + 1 items to efficiently check if more records exist
+  const products = await Product.find(query)
+    .select(
+      "_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description isActive isArchived createdAt"
+    )
+    .populate("categoryId", "name description")
+    .sort({ _id: -1 })
+    .limit(limit + 1);
 
   return {
-    products,
-    total,
-    page,
+    rawProducts: products,
     limit,
-    totalPages: Math.ceil(total / limit),
   };
 };
 
@@ -82,11 +93,43 @@ const updateProductById = async (businessId, productId, updateData) => {
   ).populate("categoryId", "name description");
 };
 
+const archiveProductById = async (businessId, productId) => {
+  return await Product.findOneAndUpdate(
+    {
+      _id: productId,
+      businessId,
+    },
+    {
+      $set: {
+        isArchived: true,
+        isActive: false,
+        archivedAt: new Date(),
+      },
+    },
+    { new: true }
+  ).populate("categoryId", "name description");
+};
+
+const restoreProductById = async (businessId, productId) => {
+  return await Product.findOneAndUpdate(
+    {
+      _id: productId,
+      businessId,
+    },
+    {
+      $set: {
+        isArchived: false,
+        isActive: true,
+        archivedAt: null,
+      },
+    },
+    { new: true }
+  ).populate("categoryId", "name description");
+};
+
 const deleteProductById = async (businessId, productId) => {
-  return await Product.findOneAndDelete({
-    _id: productId,
-    businessId,
-  });
+  // Safe default: Soft-deletes / Archives product to preserve invoice history
+  return await archiveProductById(businessId, productId);
 };
 
 module.exports = {
@@ -96,5 +139,7 @@ module.exports = {
   findProductBySku,
   findProductByBarcode,
   updateProductById,
+  archiveProductById,
+  restoreProductById,
   deleteProductById,
 };

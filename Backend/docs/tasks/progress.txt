@@ -128,21 +128,41 @@ API Base URL : http://localhost:5000/api
       - `PUT /api/categories/:id`: Update category with conflict check.
       - `DELETE /api/categories/:id`: Delete category within active business.
 
-[✓] C2. T8: Product Schema DB Model & Business-Scoped Catalog APIs (/api/products)
-    - Product Mongoose DB Model (`_id`, `businessId`, `categoryId`, `name`, `sku`, `barcode`, `sellingPrice`, `costPrice`, `unit`, `description`, `isActive`, timestamps).
+[✓] C2. T8, T9, T10, T11 & T12: Product Catalog Lifecycle, Soft-Delete & Cursor Pagination
+    - Product Mongoose DB Model (`_id`, `businessId`, `categoryId`, `name`, `sku`, `barcode`, `sellingPrice`, `costPrice`, `unit`, `packSize`, `packagingType`, `description`, `isActive`, `isArchived`, `archivedAt`, timestamps).
     - Direct `businessId` tenancy isolation & Category ownership validation (blocks cross-business category injection with 400 `INVALID_CATEGORY`).
-    - Multi-tenant Compound Unique Indexes:
+    - Multi-tenant Compound Unique & Seek Indexes:
       - `{ businessId: 1, sku: 1 }`: Scoped SKU uniqueness per business.
       - `{ businessId: 1, barcode: 1 }`: Scoped Barcode uniqueness per business.
+      - `{ businessId: 1, isArchived: 1, _id: -1 }`: O(1) cursor seek pagination queries.
+      - `{ businessId: 1, isArchived: 1, createdAt: -1 }`: Fast active vs archived catalog queries.
     - Margin & COGS separation: Tracks `sellingPrice` and `costPrice` distinctly for accurate profit analytics.
+    - Safe Product Modification (T10):
+      - Mutable Product entity (Name, SKU, Barcode, SellingPrice, CostPrice, Category, Packaging details).
+      - Self-SKU Idempotency: Allows updating prices/names while keeping the existing SKU without false collision.
+      - **Historic Invoice Preservation Guarantee:** Product is mutable, but historical transactions snapshot `soldPrice` & `costPrice` on `InvoiceItem`. Changing product base price NEVER rewrites or mutates past invoice records!
+    - Soft-Deletion & Archiving Engine (T11):
+      - `DELETE /api/products/:id` performs safe soft-deletion (`isArchived: true`, `isActive: false`, `archivedAt: timestamp`). Hard deletes are strictly prevented.
+      - Normal product queries (`GET /api/products`) automatically exclude archived products.
+      - Explicit archived products query (`GET /api/products?status=archived`) enables viewing discontinued catalog.
+      - Product restoration endpoint (`POST /api/products/:id/restore`) reactivates archived items.
+      - **Historical Integrity:** Past sales invoices referencing the archived product remain 100% valid and unbroken.
+    - Cursor Pagination & Payload Shaping Engine (T12):
+      - `GET /api/products?limit=20&cursor=...` delivers ultra-fast, scalable infinite scrolling.
+      - Base64 URL-safe opaque cursor encoding & decoding (`src/utils/pagination.js`).
+      - Efficient `limit + 1` record seek avoiding expensive database skip offsets on large datasets.
+      - Strict limit controls (Default: `20`, Max: `100`) preventing memory exhaustion attacks.
+      - **Payload Shaping:** Returns lightweight, fast-rendering JSON projections tailored for mobile and web screens without heavy over-fetching.
     - Fast Barcode Scanner Lookup endpoint for POS billing machines (`GET /api/products/barcode/:barcode`).
     - Complete REST API Endpoints:
       - `POST /api/products`: Create product with SKU auto-uppercase & category ownership validation.
-      - `GET /api/products`: List products with pagination, category filter & search.
+      - `GET /api/products`: List active products with cursor pagination (`?limit=20&cursor=...`), category & search filter.
       - `GET /api/products/barcode/:barcode`: Quick lookup by barcode for POS checkout.
       - `GET /api/products/:id`: Get single product by ID (Tenant isolated).
-      - `PUT /api/products/:id`: Update product info and prices.
-      - `DELETE /api/products/:id`: Delete product within active business.
+      - `PUT /api/products/:id`: Update product info, packaging details & prices without rewriting historic sales.
+      - `POST /api/products/:id/archive`: Archive product from active catalog.
+      - `POST /api/products/:id/restore`: Restore archived product back to active catalog.
+      - `DELETE /api/products/:id`: Soft-delete product to preserve transaction history.
 
 ================================================================================
 3. ROADMAP & UPCOMING TASKS (KYA BAAKI HAI)

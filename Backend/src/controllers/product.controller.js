@@ -32,11 +32,8 @@ const getProducts = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      count: result.products.length,
-      total: result.total,
-      page: result.page,
-      totalPages: result.totalPages,
-      data: result.products,
+      data: result.data,
+      pagination: result.pagination,
     });
   } catch (error) {
     next(error);
@@ -93,6 +90,40 @@ const updateProduct = async (req, res, next) => {
   }
 };
 
+const archiveProduct = async (req, res, next) => {
+  try {
+    const product = await productService.archiveProduct(
+      req.businessId,
+      req.params.id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Product archived successfully.",
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const restoreProduct = async (req, res, next) => {
+  try {
+    const product = await productService.restoreProduct(
+      req.businessId,
+      req.params.id
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Product restored successfully.",
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deleteProduct = async (req, res, next) => {
   try {
     const result = await productService.deleteProduct(
@@ -103,7 +134,7 @@ const deleteProduct = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: result.message,
-      data: { id: result.deletedId },
+      data: result.data,
     });
   } catch (error) {
     next(error);
@@ -116,5 +147,7 @@ module.exports = {
   getProductById,
   getProductByBarcode,
   updateProduct,
+  archiveProduct,
+  restoreProduct,
   deleteProduct,
 };

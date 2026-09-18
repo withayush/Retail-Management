@@ -55,6 +55,8 @@ const createProduct = async (businessId, payload) => {
   });
 };
 
+const { encodeCursor, decodeCursor } = require("../utils/pagination");
+
 const getProducts = async (businessId, filters = {}) => {
   if (!mongoose.Types.ObjectId.isValid(businessId)) {
     const error = new Error("Invalid business ID.");
@@ -63,7 +65,64 @@ const getProducts = async (businessId, filters = {}) => {
     throw error;
   }
 
-  return await productRepo.findProductsByBusinessId(businessId, filters);
+  // 1. Decode Cursor if provided
+  let cursorId = null;
+  if (filters.cursor) {
+    const decoded = decodeCursor(filters.cursor);
+    if (decoded && decoded.id && mongoose.Types.ObjectId.isValid(decoded.id)) {
+      cursorId = new mongoose.Types.ObjectId(decoded.id);
+    } else if (mongoose.Types.ObjectId.isValid(filters.cursor)) {
+      cursorId = new mongoose.Types.ObjectId(filters.cursor);
+    }
+  }
+
+  // 2. Fetch limit + 1 items from Repository
+  const { rawProducts, limit } = await productRepo.findProductsByBusinessId(businessId, {
+    ...filters,
+    cursorId,
+  });
+
+  // 3. Determine if more items exist and slice results to requested limit
+  const hasMore = rawProducts.length > limit;
+  const products = hasMore ? rawProducts.slice(0, limit) : rawProducts;
+
+  // 4. Generate opaque nextCursor from the last item
+  const lastProduct = products.length > 0 ? products[products.length - 1] : null;
+  const nextCursor = hasMore && lastProduct
+    ? encodeCursor({ id: lastProduct._id.toString() })
+    : null;
+
+  // 5. Payload Shaping (Restricts return payload to lightweight, fast-rendering representation for mobile/web)
+  const data = products.map((prod) => ({
+    id: prod._id,
+    name: prod.name,
+    sku: prod.sku,
+    barcode: prod.barcode || null,
+    sellingPrice: prod.sellingPrice,
+    costPrice: prod.costPrice,
+    unit: prod.unit || "pcs",
+    packSize: prod.packSize || 1,
+    packagingType: prod.packagingType || "",
+    category: prod.categoryId
+      ? {
+          id: prod.categoryId._id || prod.categoryId,
+          name: prod.categoryId.name || "Uncategorized",
+        }
+      : null,
+    description: prod.description || "",
+    isActive: prod.isActive,
+    isArchived: prod.isArchived,
+    createdAt: prod.createdAt,
+  }));
+
+  return {
+    data,
+    pagination: {
+      limit,
+      nextCursor,
+      hasMore,
+    },
+  };
 };
 
 const getProductById = async (businessId, productId) => {
@@ -128,7 +187,15 @@ const updateProduct = async (businessId, productId, updatePayload) => {
     throw error;
   }
 
-  // 2. If Category is updated, verify it belongs to this business
+  // 2. Prevent updating an archived product without restoring it first
+  if (existingProduct.isArchived && updatePayload.isArchived === undefined) {
+    const error = new Error("Cannot update an archived product. Please restore the product first.");
+    error.statusCode = 400;
+    error.code = "CANNOT_UPDATE_ARCHIVED_PRODUCT";
+    throw error;
+  }
+
+  // 3. If Category is updated, verify it belongs to this business
   if (updatePayload.categoryId) {
     const category = await categoryRepo.findCategoryById(businessId, updatePayload.categoryId);
     if (!category) {
@@ -139,7 +206,7 @@ const updateProduct = async (businessId, productId, updatePayload) => {
     }
   }
 
-  // 3. If SKU is updated, verify uniqueness
+  // 4. If SKU is updated, verify uniqueness
   if (updatePayload.sku) {
     const cleanSku = updatePayload.sku.trim().toUpperCase();
     const duplicateSku = await productRepo.findProductBySku(businessId, cleanSku);
@@ -152,7 +219,7 @@ const updateProduct = async (businessId, productId, updatePayload) => {
     updatePayload.sku = cleanSku;
   }
 
-  // 4. If Barcode is updated, verify uniqueness
+  // 5. If Barcode is updated, verify uniqueness
   if (updatePayload.barcode) {
     const cleanBarcode = updatePayload.barcode.trim();
     const duplicateBarcode = await productRepo.findProductByBarcode(businessId, cleanBarcode);
@@ -168,7 +235,7 @@ const updateProduct = async (businessId, productId, updatePayload) => {
   return await productRepo.updateProductById(businessId, productId, updatePayload);
 };
 
-const deleteProduct = async (businessId, productId) => {
+const archiveProduct = async (businessId, productId) => {
   if (!mongoose.Types.ObjectId.isValid(businessId) || !mongoose.Types.ObjectId.isValid(productId)) {
     const error = new Error("Invalid ID format.");
     error.statusCode = 400;
@@ -176,18 +243,58 @@ const deleteProduct = async (businessId, productId) => {
     throw error;
   }
 
-  const deleted = await productRepo.deleteProductById(businessId, productId);
-  if (!deleted) {
+  const existingProduct = await productRepo.findProductById(businessId, productId);
+  if (!existingProduct) {
     const error = new Error("Product not found in this business.");
     error.statusCode = 404;
     error.code = "PRODUCT_NOT_FOUND";
     throw error;
   }
 
+  if (existingProduct.isArchived) {
+    const error = new Error("Product is already archived.");
+    error.statusCode = 400;
+    error.code = "PRODUCT_ALREADY_ARCHIVED";
+    throw error;
+  }
+
+  return await productRepo.archiveProductById(businessId, productId);
+};
+
+const restoreProduct = async (businessId, productId) => {
+  if (!mongoose.Types.ObjectId.isValid(businessId) || !mongoose.Types.ObjectId.isValid(productId)) {
+    const error = new Error("Invalid ID format.");
+    error.statusCode = 400;
+    error.code = "INVALID_ID";
+    throw error;
+  }
+
+  const existingProduct = await productRepo.findProductById(businessId, productId);
+  if (!existingProduct) {
+    const error = new Error("Product not found in this business.");
+    error.statusCode = 404;
+    error.code = "PRODUCT_NOT_FOUND";
+    throw error;
+  }
+
+  if (!existingProduct.isArchived) {
+    const error = new Error("Product is not archived.");
+    error.statusCode = 400;
+    error.code = "PRODUCT_NOT_ARCHIVED";
+    throw error;
+  }
+
+  return await productRepo.restoreProductById(businessId, productId);
+};
+
+const deleteProduct = async (businessId, productId) => {
+  // Soft-deletes / Archives product to preserve historic invoices and reporting data
+  const archived = await archiveProduct(businessId, productId);
+
   return {
     success: true,
-    message: "Product deleted successfully.",
-    deletedId: productId,
+    message: "Product soft-deleted (archived) successfully. Historical invoices remain intact.",
+    data: archived,
   };
 };
 
@@ -197,5 +304,7 @@ module.exports = {
   getProductById,
   getProductByBarcode,
   updateProduct,
+  archiveProduct,
+  restoreProduct,
   deleteProduct,
 };

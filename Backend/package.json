@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "node tests/test-validation.js && node tests/test-auth-utils.js && node tests/test-phone-norm.js && node tests/test-token.js && node tests/test-resend-otp.js && node tests/test-business-model.js && node tests/test-business-flow.js && node tests/test-onboarding-wizard.js && node tests/test-business-middleware.js && node tests/test-category.js && node tests/test-product.js",
+    "test": "node tests/test-validation.js && node tests/test-auth-utils.js && node tests/test-phone-norm.js && node tests/test-token.js && node tests/test-resend-otp.js && node tests/test-business-model.js && node tests/test-business-flow.js && node tests/test-onboarding-wizard.js && node tests/test-business-middleware.js && node tests/test-category.js && node tests/test-product.js && node tests/test-product-update.js && node tests/test-product-archive.js && node tests/test-product-pagination.js",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
