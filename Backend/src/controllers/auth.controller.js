@@ -70,6 +70,27 @@ const verifyPhone = async (req, res, next) => {
   }
 };
 
+// ============================================
+// RESEND PHONE OTP
+// ============================================
+
+const resendPhoneOtp = async (req, res, next) => {
+  try {
+    const result = await authService.resendPhoneOtp(req.body, {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP resent successfully.",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const login = async (req, res, next) => {
   try {
     const result =
@@ -192,6 +213,7 @@ const logout = async (
 module.exports = {
   register,
   verifyPhone,
+  resendPhoneOtp,
   login,
   getMe,
   refresh,

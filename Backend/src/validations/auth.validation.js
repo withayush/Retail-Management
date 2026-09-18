@@ -55,6 +55,16 @@ const verifyPhoneSchema = z.object({
 });
 
 
+const resendPhoneOtpSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(
+      /^(\+91|91)?[6-9]\d{9}$/,
+      "Please provide a valid Indian mobile number."
+    ),
+});
+
 const loginSchema = z.object({
   identifier: z
     .string()
@@ -69,5 +79,6 @@ const loginSchema = z.object({
 module.exports = {
   registerSchema, 
   verifyPhoneSchema,
+  resendPhoneOtpSchema,
   loginSchema
 };

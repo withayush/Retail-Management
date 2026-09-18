@@ -5,7 +5,7 @@ const OtpChallenge = require("../models/otpChallenge.model");
 const Vendor = require("../models/vendor.model");
 const Session = require("../models/session.model");
 
-const { AuthEvent } = require("../models/authLog.model");
+const { AuthEvent, AuthAttempt } = require("../models/authLog.model");
 
 // =====================================================
 // ACCOUNT
@@ -315,6 +315,26 @@ const logAuthEvent = async ({
 
 
 
+const logAuthAttempt = async ({
+  accountId = null,
+  identifier,
+  action = "LOGIN",
+  success = false,
+  reason = null,
+  ipAddress = null,
+  userAgent = null,
+}) => {
+  return await AuthAttempt.create({
+    accountId,
+    identifier,
+    action,
+    success,
+    reason,
+    ipAddress,
+    userAgent,
+  });
+};
+
 const updateOtpChallengeForResend = async ({
   challengeId,
   codeHash,
@@ -337,6 +357,10 @@ const updateOtpChallengeForResend = async ({
   );
 };
 
+const findVendorByAccountId = async (accountId) => {
+  return await Vendor.findOne({ accountId });
+};
+
 module.exports = {
   findAccountByEmail,
   findAccountByPhone,
@@ -356,7 +380,10 @@ module.exports = {
 
   completePhoneVerification,
 
+  findVendorByAccountId,
+
   logAuthEvent,
+  logAuthAttempt,
   updateOtpChallengeForResend,
 };
 

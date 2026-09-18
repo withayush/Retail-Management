@@ -294,7 +294,103 @@ const verifyPhone = async ({ phone, otp, ipAddress, userAgent }) => {
   };
 };
 
-const login = async ({ identifier, password, ipAddress, userAgent }) => {
+const resendPhoneOtp = async ({ phone }, meta = {}) => {
+  const cleanPhone = normalizePhone(phone);
+
+  // 1. Account check
+  const account = await authRepo.findAccountByPhone(cleanPhone);
+  if (!account) {
+    const error = new Error("Account not found with this phone number.");
+    error.statusCode = 404;
+    error.code = "ACCOUNT_NOT_FOUND";
+    throw error;
+  }
+
+  if (account.status === "ACTIVE") {
+    const error = new Error("Phone number is already verified.");
+    error.statusCode = 400;
+    error.code = "ACCOUNT_ALREADY_VERIFIED";
+    throw error;
+  }
+
+  // 2. Active challenge check
+  const challenge = await authRepo.findActiveOtpChallenge({
+    phone: cleanPhone,
+    purpose: "PHONE_VERIFICATION",
+  });
+
+  if (!challenge) {
+    const error = new Error("No active OTP challenge found. Please register first.");
+    error.statusCode = 400;
+    error.code = "OTP_NOT_FOUND";
+    throw error;
+  }
+
+  // 3. Max 3 resends limit check
+  const MAX_RESEND_COUNT = 3;
+  if (challenge.resendCount >= MAX_RESEND_COUNT) {
+    const error = new Error("Maximum OTP resend limit reached. Please try again later.");
+    error.statusCode = 429;
+    error.code = "OTP_RESEND_LIMIT_EXCEEDED";
+    throw error;
+  }
+
+  // 4. Cooldown check (60 seconds)
+  const RESEND_COOLDOWN_SECONDS = 60;
+  if (challenge.lastSentAt) {
+    const timeSinceLastSent = (Date.now() - new Date(challenge.lastSentAt).getTime()) / 1000;
+    if (timeSinceLastSent < RESEND_COOLDOWN_SECONDS) {
+      const waitSeconds = Math.ceil(RESEND_COOLDOWN_SECONDS - timeSinceLastSent);
+      const error = new Error(`Please wait ${waitSeconds} seconds before requesting a new OTP.`);
+      error.statusCode = 429;
+      error.code = "OTP_COOLDOWN";
+      throw error;
+    }
+  }
+
+  // 5. Generate and hash new OTP
+  const rawOtp = generateOtp();
+  const codeHash = await hashOtp(rawOtp);
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+  // 6. Update existing challenge in DB
+  const updatedChallenge = await authRepo.updateOtpChallengeForResend({
+    challengeId: challenge._id,
+    codeHash,
+    expiresAt,
+  });
+
+  // 7. Log auth event
+  await authRepo.logAuthEvent({
+    accountId: challenge.accountId,
+    eventType: "OTP_RESENT",
+    ipAddress: meta.ipAddress || null,
+    userAgent: meta.userAgent || null,
+    metadata: {
+      purpose: "PHONE_VERIFICATION",
+      resendCount: updatedChallenge.resendCount,
+    },
+  });
+
+  // 8. Dev OTP logging
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[DEV OTP RESEND] ${cleanPhone}: ${rawOtp}`);
+  }
+
+  return {
+    phone: cleanPhone,
+    resendCount: updatedChallenge.resendCount,
+    resendsLeft: MAX_RESEND_COUNT - updatedChallenge.resendCount,
+    ...(process.env.NODE_ENV !== "production" && {
+      debugOtp: rawOtp,
+    }),
+  };
+};
+
+const login = async ({ identifier, password }, meta = {}) => {
+  const ipAddress = meta.ipAddress || null;
+  const userAgent = meta.userAgent || null;
+
   // ============================================
   // 1. NORMALIZE IDENTIFIER (Email or Phone)
   // ============================================
@@ -320,6 +416,16 @@ const login = async ({ identifier, password, ipAddress, userAgent }) => {
   // ============================================
 
   if (!account) {
+    await authRepo.logAuthAttempt({
+      accountId: null,
+      identifier: cleanIdentifier,
+      action: "LOGIN",
+      success: false,
+      reason: "USER_NOT_FOUND",
+      ipAddress,
+      userAgent,
+    });
+
     const error = new Error("Invalid credentials.");
 
     error.statusCode = 401;
@@ -332,11 +438,45 @@ const login = async ({ identifier, password, ipAddress, userAgent }) => {
   // 4. CHECK ACCOUNT STATUS
   // ============================================
 
-  if (account.status !== "ACTIVE") {
-    const error = new Error("Account is not active.");
+  if (account.status === "PENDING_VERIFICATION") {
+    await authRepo.logAuthAttempt({
+      accountId: account._id,
+      identifier: cleanIdentifier,
+      action: "LOGIN",
+      success: false,
+      reason: "PHONE_VERIFICATION_REQUIRED",
+      ipAddress,
+      userAgent,
+    });
+
+    const error = new Error(
+      "Phone verification is required. Please verify your phone number to continue."
+    );
 
     error.statusCode = 403;
-    error.code = "ACCOUNT_NOT_ACTIVE";
+    error.code = "PHONE_VERIFICATION_REQUIRED";
+    error.data = {
+      phone: account.phone,
+    };
+
+    throw error;
+  }
+
+  if (account.status !== "ACTIVE") {
+    await authRepo.logAuthAttempt({
+      accountId: account._id,
+      identifier: cleanIdentifier,
+      action: "LOGIN",
+      success: false,
+      reason: `ACCOUNT_${account.status}`,
+      ipAddress,
+      userAgent,
+    });
+
+    const error = new Error(`Account is ${account.status.toLowerCase()}. Please contact support.`);
+
+    error.statusCode = 403;
+    error.code = `ACCOUNT_${account.status}`;
 
     throw error;
   }
@@ -348,6 +488,16 @@ const login = async ({ identifier, password, ipAddress, userAgent }) => {
   const passwordValid = await comparePassword(password, account.passwordHash);
 
   if (!passwordValid) {
+    await authRepo.logAuthAttempt({
+      accountId: account._id,
+      identifier: cleanIdentifier,
+      action: "LOGIN",
+      success: false,
+      reason: "WRONG_PASSWORD",
+      ipAddress,
+      userAgent,
+    });
+
     const error = new Error("Invalid credentials.");
 
     error.statusCode = 401;
@@ -357,13 +507,27 @@ const login = async ({ identifier, password, ipAddress, userAgent }) => {
   }
 
   // ============================================
-  // 6. GENERATE SESSION ID
+  // 6. LOG SUCCESSFUL LOGIN ATTEMPT
+  // ============================================
+
+  await authRepo.logAuthAttempt({
+    accountId: account._id,
+    identifier: cleanIdentifier,
+    action: "LOGIN",
+    success: true,
+    reason: "SUCCESS",
+    ipAddress,
+    userAgent,
+  });
+
+  // ============================================
+  // 7. GENERATE SESSION ID
   // ============================================
 
   const sessionId = new mongoose.Types.ObjectId();
 
   // ============================================
-  // 7. GENERATE ACCESS TOKEN
+  // 8. GENERATE ACCESS TOKEN
   // ============================================
 
   const accessToken = generateAccessToken({
@@ -371,7 +535,7 @@ const login = async ({ identifier, password, ipAddress, userAgent }) => {
   });
 
   // ============================================
-  // 8. GENERATE REFRESH TOKEN
+  // 9. GENERATE REFRESH TOKEN
   // ============================================
 
   const refreshToken = generateRefreshToken({
@@ -380,7 +544,7 @@ const login = async ({ identifier, password, ipAddress, userAgent }) => {
   });
 
   // ============================================
-  // 9. HASH REFRESH TOKEN
+  // 10. HASH REFRESH TOKEN
   // ============================================
 
   const refreshTokenHash = await hashPassword(refreshToken);
@@ -470,13 +634,24 @@ const getMe = async (accountId) => {
     throw error;
   }
 
+  const vendor = await authRepo.findVendorByAccountId(account._id);
+
   return {
-    accountId: account._id,
-    fullName: account.fullName,
-    email: account.email,
-    phone: account.phone,
-    status: account.status,
-    phoneVerifiedAt: account.phoneVerifiedAt,
+    account: {
+      accountId: account._id,
+      fullName: account.fullName,
+      email: account.email,
+      phone: account.phone,
+      status: account.status,
+      phoneVerifiedAt: account.phoneVerifiedAt,
+    },
+    vendor: vendor
+      ? {
+          vendorId: vendor._id,
+          status: vendor.status,
+          onboardingStatus: vendor.onboardingStatus,
+        }
+      : null,
   };
 };
 
@@ -621,6 +796,7 @@ const logout = async ({ refreshToken }) => {
 module.exports = {
   register,
   verifyPhone,
+  resendPhoneOtp,
   login,
   getMe,
   refreshSession,

@@ -8,6 +8,7 @@ const errorHandler = (err, req, res, next) => {
     code: err.code || "INTERNAL_SERVER_ERROR",
     message:
       err.message || "Something went wrong on the server.",
+    ...(err.data && { data: err.data }),
   });
 };
 

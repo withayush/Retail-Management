@@ -1,15 +1,17 @@
-const {
-  verifyAccessToken,
-} = require("../utils/token");
+const authRepo = require("../repositories/auth.repository");
+const { verifyAccessToken } = require("../utils/token");
 
-const authMiddleware = (
-  req,
-  res,
-  next
-) => {
+const authMiddleware = async (req, res, next) => {
   try {
-    const token =
-      req.cookies.accessToken;
+    let token = req.cookies?.accessToken;
+
+    if (
+      !token &&
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
+    }
 
     if (!token) {
       return res.status(401).json({
@@ -19,10 +21,9 @@ const authMiddleware = (
       });
     }
 
-    const payload =
-      verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
 
-    if (!payload.sub) {
+    if (!payload || !payload.sub) {
       return res.status(401).json({
         success: false,
         code: "INVALID_ACCESS_TOKEN",
@@ -30,9 +31,32 @@ const authMiddleware = (
       });
     }
 
+    const account = await authRepo.findAccountById(payload.sub);
+
+    if (!account) {
+      return res.status(401).json({
+        success: false,
+        code: "ACCOUNT_NOT_FOUND",
+        message: "Account no longer exists.",
+      });
+    }
+
+    if (account.status !== "ACTIVE") {
+      return res.status(403).json({
+        success: false,
+        code: `ACCOUNT_${account.status}`,
+        message: `Account is ${account.status.toLowerCase()}. Access denied.`,
+      });
+    }
+
     req.user = {
-      accountId: payload.sub,
+      accountId: account._id.toString(),
+      email: account.email,
+      phone: account.phone,
+      status: account.status,
     };
+
+    req.account = account;
 
     next();
   } catch (error) {

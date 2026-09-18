@@ -1,0 +1,120 @@
+================================================================================
+                         VENDOROS - PROJECT PROGRESS
+================================================================================
+Last Updated : 2026-09-17
+Stack        : Node.js (CommonJS), Express 5.x, MongoDB (Mongoose), JWT, Zod, Bcrypt
+Architecture : Controller -> Service -> Repository -> Database (Layered)
+Auth Model   : JWT (Access 15m + Refresh 7d) in Secure HttpOnly Cookies + Sessions
+
+================================================================================
+1. OVERALL PROGRESS SCORECARD
+================================================================================
+[✓] Task 1: Environment & Database Setup           --> 100% (DONE)
+[✓] Task 2: Authentication & User Management       --> 100% (DONE)
+[ ] Task 3: Vendor & Business CRUD / Inventory     -->  20% (SCHEMAS READY)
+[ ] Task 4: Error Handling & System Monitoring     -->  40% (BASIC READY)
+
+================================================================================
+2. COMPLETED WORK (KAISE & KYA-KYA HO GAYA HAI)
+================================================================================
+
+[✓] A1. Registration (POST /api/auth/register)
+    - Zod validation, strong password check, email & phone uniqueness check.
+    - Bcrypt password hashing (10 rounds), Account created (PENDING_VERIFICATION).
+
+[✓] A2. OTP Generation
+    - Crypto-secure 6-digit OTP, bcrypt hash storage, 10-minute expiry.
+
+[✓] A3. Phone OTP Verification (POST /api/auth/verify-phone)
+    - Atomic DB Transaction: OTP consume + Account ACTIVE + Vendor auto-provision.
+
+[✓] A4. Session & Dual Token Issuance
+    - JWT Access (15m) + Refresh (7d) in secure HttpOnly cookies.
+    - Session persisted in DB with hashed refresh token.
+
+[✓] A5. Login (POST /api/auth/login)
+    - Dual identifier: Email OR Mobile Phone login + Bcrypt verification.
+
+[✓] A6. Phone Normalization (src/utils/phone.js)
+    - Canonical `+91XXXXXXXXXX` conversion integrated across register, verify & login.
+
+[✓] A7. Token Refresh & Reuse Detection (POST /api/auth/refresh)
+    - Refresh Token Rotation (RTR). Stolen/reused token detection auto-revokes session.
+
+[✓] A8. Logout (POST /api/auth/logout)
+    - Inactivates DB session and clears client cookies.
+
+[✓] A9. Protected Route & Auth Middleware (GET /api/auth/me)
+    - Cookie-based JWT verification middleware.
+
+[✓] A10. Database Schemas Defined (14 Models)
+    - Account, OtpChallenge, Session, AuthLog, Vendor, Business, BusinessMember,
+      Category, Product, Inventory, InventoryAlert, Invoice, Payment, Customer.
+
+[✓] A11. Resend OTP API (POST /api/auth/resend-phone-otp)
+    - Max 3 resend attempts limit, 60s cooldown check, update existing challenge with new OTP.
+
+[✓] A12. Auth Attempts Logging (AuthAttempt Model)
+    - Track login attempts (USER_NOT_FOUND, WRONG_PASSWORD, PHONE_VERIFICATION_REQUIRED, ACCOUNT_SUSPENDED, SUCCESS) with IP & UserAgent.
+
+[✓] A13. Pending Account UX Response
+    - Return 403 `PHONE_VERIFICATION_REQUIRED` code with `phone` number for unverified user login.
+
+[✓] A14. /me Profile Enrichment (GET /api/auth/me)
+    - Return Account profile data alongside linked Vendor data (vendorId, status, onboardingStatus).
+
+[✓] A15. Auth Middleware Hardening
+    - Check active account status in DB on protected requests along with JWT token signature & Bearer token support.
+
+[✓] A16. CommonJS Model Syntax Standardization
+    - Converted all 14 Mongoose models to pure CommonJS (`require` / `module.exports`).
+
+================================================================================
+3. PENDING WORK & IMMEDIATE ROADMAP (KYA BAAKI HAI)
+================================================================================
+
+--- [PRIORITY P0 : AUTHENTICATION COMPLETION (100% DONE)] ---
+[✓] 1. Resend OTP API (POST /api/auth/resend-phone-otp)
+       - Limit to max 3 resends, cooldown check, update existing challenge.
+[✓] 2. Auth Attempts Logging (AuthAttempt Model)
+       - Track failed logins (wrong password, unknown user, locked account) with IP/Agent.
+[✓] 3. Pending Account UX Response
+       - Unverified user login par 403 `PHONE_VERIFICATION_REQUIRED` code + phone return.
+[✓] 4. /me Profile Enrichment
+       - Return Account data + linked Vendor data (vendorId, status, onboardingStatus).
+[✓] 5. Auth Middleware Hardening
+       - Check active account status in DB along with JWT token signature.
+[✓] 6. CommonJS Model Syntax Fix
+       - Convert remaining ES module (`import/export`) schemas to CommonJS (`require`).
+
+--- [PRIORITY P1 : SECURITY & SESSION MANAGEMENT] ---
+[ ] 7. Login Rate Limiting (Brute-force protection / temporary lock).
+[ ] 8. Multi-Device Management (GET /sessions, DELETE /sessions/:id, Revoke All).
+[ ] 9. Password Reset via OTP (Forgot Password & Reset Password APIs).
+
+--- [PRIORITY P2 : BUSINESS MODULES & CRUD (TASK 3)] ---
+[ ] 10. Vendor Onboarding & Business Profile CRUD (/api/business).
+[ ] 11. Product & Category Management APIs (/api/products, /api/categories).
+[ ] 12. Inventory Stock Adjustment & Ledger Tracking (/api/inventory).
+[ ] 13. Invoicing, Billing & Customer Credit (Khata) Ledger (/api/invoices).
+
+================================================================================
+4. CORE WORKFLOW SNAPSHOT
+================================================================================
+
+A. AUTHENTICATION FLOW:
+   Register -> Send OTP -> Verify Phone -> [Transaction: Account ACTIVE + Vendor Created + Session Created] 
+   -> Cookies Set (Access + Refresh) -> Authenticated Access -> Token Refresh (RTR) -> Logout
+
+B. BUSINESS OPERATIONS FLOW (Upcoming):
+   Auth -> Vendor Onboard -> Create Business -> Add Categories/Products -> Add Initial Stock
+   -> Create Invoices (Auto stock deduction) -> Manage Customer Khata & Payments
+
+================================================================================
+5. ACTION PLAN (NEXT IMMEDIATE STEPS)
+================================================================================
+Step 1: Implement Resend OTP API (`/resend-phone-otp`) with max 3 attempts limit.
+Step 2: Add Failed & Success `AuthAttempt` logging on login endpoint.
+Step 3: Enrich `/me` response with Vendor profile data & harden Auth Middleware.
+Step 4: Standardize all database models to CommonJS.
+================================================================================

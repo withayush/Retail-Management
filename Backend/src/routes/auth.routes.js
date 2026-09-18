@@ -3,6 +3,7 @@ const express = require("express");
 const {
   register,
   verifyPhone,
+  resendPhoneOtp,
   login,
   getMe,
   refresh,
@@ -16,6 +17,7 @@ const authMiddleware = require("../middlewares/auth.middleware");
 const {
   registerSchema,
   verifyPhoneSchema,
+  resendPhoneOtpSchema,
   loginSchema,
 } = require("../validations/auth.validation");
 
@@ -32,6 +34,12 @@ router.post("/register", validate(registerSchema), register);
 // ============================================
 
 router.post("/verify-phone", validate(verifyPhoneSchema), verifyPhone);
+
+// ============================================
+// RESEND PHONE OTP
+// ============================================
+
+router.post("/resend-phone-otp", validate(resendPhoneOtpSchema), resendPhoneOtp);
 
 // ============================================
 // LOGIN
