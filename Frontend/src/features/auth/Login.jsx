@@ -48,12 +48,15 @@ export default function Login() {
       navigate("/dashboard");
     } catch (err) {
       console.error("Login Error:", err);
-      const serverMessage = err.response?.data?.message;
+      const serverMessage = err.response?.data?.message || err.response?.data?.error;
       if (serverMessage) {
         setError(serverMessage);
       } else if (err.code === "ERR_NETWORK" || !err.response) {
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         setError(
-          "Unable to connect to backend server. If using Render free tier, the server may take 30-50 seconds to wake up from cold sleep. Please retry."
+          isLocal
+            ? "Cannot connect to Backend at http://localhost:3001. Please ensure your backend server ('npm run dev' in Backend folder) is running."
+            : "Unable to connect to server. If the server was sleeping, please wait a moment and try again."
         );
       } else {
         setError(err.message || "Invalid email or password.");

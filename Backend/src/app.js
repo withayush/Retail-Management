@@ -32,9 +32,6 @@ app.use(
   })
 );
 
-// Enable pre-flight across-the-board
-app.options("*", cors());
-
 app.use(express.json());
 app.use(cookieParser());
 
