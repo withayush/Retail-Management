@@ -1,0 +1,39 @@
+================================================================================
+                    VENDOROS - LOCAL ENVIRONMENT TRACKER                        
+================================================================================
+
+1. LOCAL SERVER CONFIGURATION:
+   - Frontend URL      : http://localhost:5173
+   - Frontend Port     : 5173 (Vite Live Dev Server)
+   - Backend URL       : http://localhost:3001
+   - Backend Port      : 3001 (Node.js Express 5 + Nodemon)
+   - Database          : MongoDB Atlas (Connected via Mongoose)
+
+2. LOCAL ENVIRONMENT VARIABLES (Frontend/.env):
+   VITE_API_URL=http://localhost:3001
+
+3. LOCAL ENVIRONMENT VARIABLES (Backend/.env):
+   PORT=3001
+   MONGO_URI=mongodb+srv://...
+   NODE_ENV=development
+   JWT_ACCESS_SECRET=your_super_secret_access_key
+   JWT_REFRESH_SECRET=your_super_secret_refresh_key
+   JWT_ACCESS_EXPIRES_IN=15m
+   JWT_REFRESH_EXPIRES_IN=7d
+
+4. HOW TO RUN LOCALLY:
+   - Terminal 1 (Backend) : cd Backend  && npm run dev
+   - Terminal 2 (Frontend): cd Frontend && npm run dev
+
+5. LOCAL FEATURES & STATUS:
+   [x] Auth Flow (Register, Phone OTP with debug code, Login)
+   [x] Business Onboarding Flow (Wizard, Multi-tenant setup)
+   [x] Dark Mode Theme System (Tailwind tokens, custom components)
+   [x] Product Catalog Page (KPI Stats, Filters, Table, Modals, Auto Category)
+   [x] React Hot Toast Notifications (Top-right dark styled)
+   [x] Multi-tenant Header Interceptor (x-business-id auto attached)
+
+6. LOCAL TESTING COMMANDS:
+   - Run Frontend Build Test : cd Frontend && npm run build
+   - Run Backend Test Suite  : cd Backend  && npm test
+================================================================================

@@ -1,0 +1,58 @@
+================================================================================
+                  VENDOROS - PRODUCTION ENVIRONMENT TRACKER                     
+================================================================================
+
+1. HOSTING & DEPLOYMENT PLATFORM:
+   - Hosting Provider  : Render (Cloud Web Services & Static Sites)
+   - Frontend Prod URL : https://vendor-os-frontend-xlqx.onrender.com
+   - Backend Prod URL  : https://vendoros-backend-XXXX.onrender.com (or Render Web Service URL)
+   - Git Repository    : https://github.com/withayush/Retail-Management.git (Branch: main)
+
+2. RENDER CONFIGURATION REQUIREMENTS:
+
+   A. FRONTEND STATIC SITE SETTINGS (Render Dashboard):
+      - Name              : vendor-os-frontend-xlqx
+      - Root Directory    : Frontend
+      - Build Command     : npm install && npm run build
+      - Publish Directory : dist
+      - Environment Variables:
+          VITE_API_URL = <YOUR_RENDER_BACKEND_URL> (e.g. https://your-backend.onrender.com)
+
+   B. BACKEND WEB SERVICE SETTINGS (Render Dashboard):
+      - Name              : vendoros-backend
+      - Root Directory    : Backend
+      - Build Command     : npm install
+      - Start Command     : node server.js (or npm start)
+      - Environment Variables:
+          PORT=3001
+          MONGO_URI=mongodb+srv://...
+          NODE_ENV=production
+          JWT_ACCESS_SECRET=your_super_secret_access_key
+          JWT_REFRESH_SECRET=your_super_secret_refresh_key
+          JWT_ACCESS_EXPIRES_IN=15m
+          JWT_REFRESH_EXPIRES_IN=7d
+
+3. WHY LOCAL VS PRODUCTION APPEAR DIFFERENT:
+   a) Build & Deploy Latency:
+      - Local: Code changes reflect in real-time via Vite Hot Module Replacement (HMR).
+      - Production: Render triggers a new build only after code is pushed to GitHub `main`. 
+        Building, bundling, and deploying on Render takes 2 to 4 minutes.
+   b) Browser Caching on Production URL:
+      - Browsers cache static JS/CSS assets of production domains.
+      - After a Render deployment completes, always do a Hard Reload (Ctrl + Shift + R or Ctrl + F5)
+        to download the newest bundled code.
+   c) Environment Variables (VITE_API_URL):
+      - In production, `VITE_API_URL` must point to your live Render Backend URL.
+      - If left blank or pointing to localhost, production API calls will fail.
+
+4. PRODUCTION SYNC CHECKLIST:
+   [x] 1. Code tested locally (`npm run build` in Frontend, `npm test` in Backend)
+   [x] 2. Changes committed and pushed to GitHub `main` (`git push origin main`)
+   [ ] 3. Render Dashboard -> Check Deploy Logs -> Verify status shows "Live"
+   [ ] 4. Open Production URL -> Press `Ctrl + Shift + R` (Hard Reload)
+
+5. PRODUCTION DEPLOYED FEATURES:
+   - Latest Commit: Synced with `main`
+   - Design System: Dark theme monochrome tokens
+   - Products Feature: New Product Catalog UI with Stats, Filters, Table, Modals
+================================================================================
