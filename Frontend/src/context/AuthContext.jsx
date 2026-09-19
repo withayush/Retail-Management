@@ -5,7 +5,17 @@ import { getMe, logoutUser } from "../services/auth.api";
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      return storedUser && storedUser !== "undefined" && storedUser !== "null"
+        ? JSON.parse(storedUser)
+        : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [hasBusiness, setHasBusiness] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -14,9 +24,9 @@ export const AuthProvider = ({ children }) => {
       const response = await getMyBusiness();
       console.log("Business check response:", response);
 
-      const data = response.data;
-      // Handle array of businesses or single business object
+      const data = response?.data;
       let businessData = null;
+
       if (Array.isArray(data) && data.length > 0) {
         businessData = data[0];
       } else if (data?.business) {
@@ -38,7 +48,7 @@ export const AuthProvider = ({ children }) => {
         return false;
       }
     } catch (err) {
-      console.error("Business check error:", err);
+      console.log("Business check info (user likely needs onboarding):", err?.response?.data?.message || err.message);
       setHasBusiness(false);
       return false;
     }
@@ -49,39 +59,61 @@ export const AuthProvider = ({ children }) => {
       const storedUser = localStorage.getItem("user");
       const token = localStorage.getItem("accessToken");
 
-      if (storedUser) {
+      if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
         try {
-          setUser(JSON.parse(storedUser));
+          const parsed = JSON.parse(storedUser);
+          setUser(parsed);
         } catch {
           setUser(null);
         }
       }
 
-      // Sync user profile from backend
-      try {
-        const meRes = await getMe();
-        if (meRes?.data) {
-          setUser(meRes.data);
-          localStorage.setItem("user", JSON.stringify(meRes.data));
-          await checkUserBusiness();
+      // If user is authenticated, sync profile and check business
+      if (token && token !== "undefined" && token !== "null") {
+        try {
+          const meRes = await getMe();
+          if (meRes?.data?.account || meRes?.data) {
+            const accountData = meRes.data.account || meRes.data;
+            setUser(accountData);
+            localStorage.setItem("user", JSON.stringify(accountData));
+          }
+        } catch (err) {
+          console.log("Sync profile check:", err?.response?.data?.message || err.message);
         }
-      } catch {
-        if (!token && !storedUser) {
-          setUser(null);
+
+        await checkUserBusiness();
+      } else {
+        // If no token exists, but cookies exist, try to fetch user
+        try {
+          const meRes = await getMe();
+          if (meRes?.data?.account || meRes?.data) {
+            const accountData = meRes.data.account || meRes.data;
+            setUser(accountData);
+            localStorage.setItem("user", JSON.stringify(accountData));
+            await checkUserBusiness();
+          }
+        } catch {
+          // Unauthenticated state
           setHasBusiness(false);
         }
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     };
 
     initializeAuth();
   }, []);
 
   const login = async (userData, accessToken, refreshToken) => {
-    if (accessToken) localStorage.setItem("accessToken", accessToken);
-    if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
-    if (userData) localStorage.setItem("user", JSON.stringify(userData));
+    if (accessToken && accessToken !== "undefined" && accessToken !== "null") {
+      localStorage.setItem("accessToken", accessToken);
+    }
+    if (refreshToken && refreshToken !== "undefined" && refreshToken !== "null") {
+      localStorage.setItem("refreshToken", refreshToken);
+    }
+    if (userData) {
+      localStorage.setItem("user", JSON.stringify(userData));
+    }
 
     setUser(userData);
     await checkUserBusiness();
@@ -99,7 +131,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Function to manually refresh business status after onboarding
   const refreshBusinessStatus = async () => {
     const status = await checkUserBusiness();
     return status;

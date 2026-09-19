@@ -18,9 +18,7 @@ const register = async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-
       message: "Registration successful. Verification OTP generated.",
-
       data: result,
     });
   } catch (error) {
@@ -52,17 +50,17 @@ const verifyPhone = async (req, res, next) => {
     res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
 
     // ========================================
-    // RESPONSE
+    // RESPONSE (with tokens in body for cross-domain support)
     // ========================================
 
     return res.status(200).json({
       success: true,
-
       message: "Phone verified successfully.",
-
       data: {
         account: result.account,
         vendor: result.vendor,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
       },
     });
   } catch (error) {
@@ -93,32 +91,21 @@ const resendPhoneOtp = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const result =
-      await authService.login(
-        req.body,
-        {
-          ipAddress: req.ip,
-          userAgent: req.get("user-agent"),
-        }
-      );
+    const result = await authService.login(req.body, {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
 
-    res.cookie(
-      "accessToken",
-      result.accessToken,
-      accessCookieOptions
-    );
-
-    res.cookie(
-      "refreshToken",
-      result.refreshToken,
-      refreshCookieOptions
-    );
+    res.cookie("accessToken", result.accessToken, accessCookieOptions);
+    res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
 
     return res.status(200).json({
       success: true,
       message: "Login successful.",
       data: {
         account: result.account,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
       },
     });
   } catch (error) {
@@ -128,10 +115,7 @@ const login = async (req, res, next) => {
 
 const getMe = async (req, res, next) => {
   try {
-    const account =
-      await authService.getMe(
-        req.user.accountId
-      );
+    const account = await authService.getMe(req.user.accountId);
 
     return res.status(200).json({
       success: true,
@@ -142,64 +126,41 @@ const getMe = async (req, res, next) => {
   }
 };
 
-
-const refresh = async (
-  req,
-  res,
-  next
-) => {
+const refresh = async (req, res, next) => {
   try {
-    const result =
-      await authService.refreshSession({
-        refreshToken:
-          req.cookies.refreshToken,
-        ipAddress: req.ip,
-        userAgent:
-          req.get("user-agent"),
-      });
+    const token = req.body?.refreshToken || req.cookies?.refreshToken;
 
-    res.cookie(
-      "accessToken",
-      result.accessToken,
-      accessCookieOptions
-    );
+    const result = await authService.refreshSession({
+      refreshToken: token,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
 
-    res.cookie(
-      "refreshToken",
-      result.refreshToken,
-      refreshCookieOptions
-    );
+    res.cookie("accessToken", result.accessToken, accessCookieOptions);
+    res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
 
     return res.status(200).json({
       success: true,
-      message:
-        "Session refreshed successfully.",
+      message: "Session refreshed successfully.",
+      data: {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      },
     });
   } catch (error) {
     next(error);
   }
 };
 
-const logout = async (
-  req,
-  res,
-  next
-) => {
+const logout = async (req, res, next) => {
   try {
+    const token = req.body?.refreshToken || req.cookies?.refreshToken;
     await authService.logout({
-      refreshToken:
-        req.cookies.refreshToken,
+      refreshToken: token,
     });
 
-    res.clearCookie(
-      "accessToken",
-      accessCookieOptions
-    );
-
-    res.clearCookie(
-      "refreshToken",
-      refreshCookieOptions
-    );
+    res.clearCookie("accessToken", accessCookieOptions);
+    res.clearCookie("refreshToken", refreshCookieOptions);
 
     return res.status(200).json({
       success: true,

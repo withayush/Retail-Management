@@ -6,14 +6,17 @@ const authMiddleware = async (req, res, next) => {
     let token = req.cookies?.accessToken;
 
     if (
-      !token &&
+      (!token || token === "undefined" || token === "null") &&
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer ")
     ) {
-      token = req.headers.authorization.split(" ")[1];
+      const headerToken = req.headers.authorization.split(" ")[1];
+      if (headerToken && headerToken !== "undefined" && headerToken !== "null") {
+        token = headerToken;
+      }
     }
 
-    if (!token) {
+    if (!token || token === "undefined" || token === "null") {
       return res.status(401).json({
         success: false,
         code: "ACCESS_TOKEN_MISSING",
