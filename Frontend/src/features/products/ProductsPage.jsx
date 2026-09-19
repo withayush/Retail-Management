@@ -208,6 +208,9 @@ export default function ProductsPage() {
         sellingPrice: parseFloat(form.sellingPrice),
         costPrice: form.costPrice ? parseFloat(form.costPrice) : 0,
         unit: form.unit.trim() || "pcs",
+        packSize: parseFloat(form.packSize) || 1,
+        packagingType: form.packagingType?.trim() || "",
+        description: form.description?.trim() || "",
       };
 
       if (form.openingStock !== "" && form.openingStock !== null) {
@@ -245,6 +248,9 @@ export default function ProductsPage() {
       sellingPrice: (product.sellingPrice ?? product.selling_price ?? "").toString(),
       costPrice: (product.costPrice ?? product.cost_price ?? "").toString(),
       unit: product.unit || "pcs",
+      packSize: product.packSize || 1,
+      packagingType: product.packagingType || "",
+      description: product.description || "",
       openingStock: "",
       openingStockNotes: "",
     });
@@ -270,6 +276,9 @@ export default function ProductsPage() {
         sellingPrice: parseFloat(form.sellingPrice),
         costPrice: form.costPrice ? parseFloat(form.costPrice) : 0,
         unit: form.unit.trim() || "pcs",
+        packSize: parseFloat(form.packSize) || 1,
+        packagingType: form.packagingType?.trim() || "",
+        description: form.description?.trim() || "",
       };
 
       await updateProduct(targetId, payload);

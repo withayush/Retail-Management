@@ -21,6 +21,9 @@ export const emptyForm = {
   sellingPrice: "",
   costPrice: "",
   unit: "pcs",
+  packSize: 1,
+  packagingType: "",
+  description: "",
   openingStock: "",
   openingStockNotes: "",
 };

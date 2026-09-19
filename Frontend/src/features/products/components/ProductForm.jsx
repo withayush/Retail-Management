@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Tag,
   Layers,
@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   Loader2,
   Sparkles,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { fmt, margin, inputCls } from "../utils/product.utils";
 
@@ -36,6 +39,8 @@ export default function ProductForm({
   isEdit,
   onCancel,
 }) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   const sellNum = parseFloat(form.sellingPrice) || 0;
   const costNum = parseFloat(form.costPrice) || 0;
   const profitMargin = margin(costNum, sellNum);
@@ -169,6 +174,57 @@ export default function ProductForm({
           </div>
         </div>
       )}
+
+      {/* Advanced Packaging & Description Accordion (Backend Model Sync) */}
+      <div className="border border-border rounded-xl overflow-hidden bg-secondary/20">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <span className="flex items-center gap-2">
+            <FileText className="w-3.5 h-3.5 text-primary" />
+            Packaging Details & Description (Optional)
+          </span>
+          {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+
+        {showAdvanced && (
+          <div className="p-4 border-t border-border space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Pack Size (Units/Pack)" icon={Boxes}>
+                <input
+                  type="number"
+                  min="1"
+                  className={inputCls}
+                  placeholder="1"
+                  value={form.packSize}
+                  onChange={(e) => setForm({ ...form, packSize: parseFloat(e.target.value) || 1 })}
+                />
+              </Field>
+
+              <Field label="Packaging Type" icon={Package}>
+                <input
+                  className={inputCls}
+                  placeholder="e.g. Plastic Pouch, Bottle, Box"
+                  value={form.packagingType}
+                  onChange={(e) => setForm({ ...form, packagingType: e.target.value })}
+                />
+              </Field>
+            </div>
+
+            <Field label="Product Description" icon={FileText}>
+              <textarea
+                rows={2}
+                className={`${inputCls} resize-none`}
+                placeholder="Add optional notes, specifications, or brand details..."
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </Field>
+          </div>
+        )}
+      </div>
 
       {/* Immutable ledger notification */}
       <div className="flex items-start gap-2 p-3 bg-secondary/40 border border-border rounded-xl text-xs text-muted-foreground">
