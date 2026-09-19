@@ -10,28 +10,30 @@ const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://vendor-os-frontend-xlox.onrender.com",
-];
+// Trust reverse proxy for Render / Cloudflare
+app.set("trust proxy", 1);
 
+// Robust CORS for production and cross-domain credentials
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith(".onrender.com") ||
-        origin.endsWith(".vercel.app")
-      ) {
-        return callback(null, true);
-      }
       return callback(null, true);
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-business-id",
+      "x-tenant-id",
+      "x-requested-with",
+    ],
+    optionsSuccessStatus: 200,
   })
 );
+
+// Enable pre-flight across-the-board
+app.options("*", cors());
 
 app.use(express.json());
 app.use(cookieParser());
@@ -40,6 +42,14 @@ app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
     message: "VendorOS API is running.",
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
   });
 });
 

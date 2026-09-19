@@ -47,9 +47,17 @@ export default function Login() {
 
       navigate("/dashboard");
     } catch (err) {
-      setError(
-        err.response?.data?.message || err.message || "Invalid email or password."
-      );
+      console.error("Login Error:", err);
+      const serverMessage = err.response?.data?.message;
+      if (serverMessage) {
+        setError(serverMessage);
+      } else if (err.code === "ERR_NETWORK" || !err.response) {
+        setError(
+          "Unable to connect to backend server. If using Render free tier, the server may take 30-50 seconds to wake up from cold sleep. Please retry."
+        );
+      } else {
+        setError(err.message || "Invalid email or password.");
+      }
     } finally {
       setLoading(false);
     }
