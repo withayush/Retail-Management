@@ -28,56 +28,77 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 2. Response Interceptor: Handle Token Expiration and Refresh Retries safely
+// Helper: Check if current route is already an authentication/public page
+const isPublicPage = () => {
+  const path = window.location.pathname;
+  return (
+    path.startsWith("/login") ||
+    path.startsWith("/register") ||
+    path.startsWith("/verify-otp")
+  );
+};
+
+// 2. Response Interceptor: Safe Token Refresh & loop-immune 401 handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // Handle 401 Unauthorized via Refresh Token if available
-    if (
-      error.response &&
-      error.response.status === 401 &&
-      originalRequest &&
-      !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/login") &&
-      !originalRequest.url?.includes("/auth/register") &&
-      !originalRequest.url?.includes("/auth/refresh")
-    ) {
+    // Guard against undefined response or network errors
+    if (!error.response || !originalRequest) {
+      return Promise.reject(error);
+    }
+
+    const isAuthRoute =
+      originalRequest.url?.includes("/auth/login") ||
+      originalRequest.url?.includes("/auth/register") ||
+      originalRequest.url?.includes("/auth/verify-phone") ||
+      originalRequest.url?.includes("/auth/resend-phone-otp") ||
+      originalRequest.url?.includes("/auth/refresh");
+
+    // Handle 401 Unauthorized only for protected endpoints (avoid infinite refresh loops)
+    if (error.response.status === 401 && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true;
 
-      try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        if (!refreshToken || refreshToken === "undefined" || refreshToken === "null") {
-          throw new Error("No refresh token stored");
-        }
+      const refreshToken = localStorage.getItem("refreshToken");
 
-        const response = await axios.post(
-          `${baseURL}/auth/refresh`,
-          { refreshToken },
-          { withCredentials: true }
-        );
+      if (refreshToken && refreshToken !== "undefined" && refreshToken !== "null") {
+        try {
+          const response = await axios.post(
+            `${baseURL}/auth/refresh`,
+            { refreshToken },
+            { withCredentials: true }
+          );
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data?.data || {};
+          const { accessToken, refreshToken: newRefreshToken } =
+            response.data?.data || response.data || {};
 
-        if (accessToken) {
-          localStorage.setItem("accessToken", accessToken);
-          if (newRefreshToken) {
-            localStorage.setItem("refreshToken", newRefreshToken);
+          if (accessToken) {
+            localStorage.setItem("accessToken", accessToken);
+            if (newRefreshToken) {
+              localStorage.setItem("refreshToken", newRefreshToken);
+            }
+
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            return api(originalRequest);
           }
-
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
+        } catch (refreshError) {
+          console.warn("Silent token refresh failed:", refreshError?.message);
         }
-      } catch (refreshError) {
-        // Only redirect to login if refreshToken itself failed during an authenticated action
-        console.warn("Session expired or refresh token invalid:", refreshError);
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        localStorage.removeItem("businessId");
-        window.location.href = "/login";
-        return Promise.reject(refreshError);
+      }
+
+      // If refresh is impossible or failed, clean up auth tokens gracefully
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("businessId");
+
+      // Notify window without destructive page reloads
+      window.dispatchEvent(new Event("auth:unauthorized"));
+
+      // Only redirect if user is currently on a protected route (never reload if already on /login)
+      if (!isPublicPage()) {
+        window.location.replace("/login");
       }
     }
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { getMyBusiness } from "../services/business.api";
 import { getMe, logoutUser } from "../services/auth.api";
 
@@ -16,14 +16,16 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  const [hasBusiness, setHasBusiness] = useState(false);
+  const [hasBusiness, setHasBusiness] = useState(() => {
+    const bId = localStorage.getItem("businessId");
+    return Boolean(bId && bId !== "undefined" && bId !== "null");
+  });
+
   const [loading, setLoading] = useState(true);
 
-  const checkUserBusiness = async () => {
+  const checkUserBusiness = useCallback(async () => {
     try {
       const response = await getMyBusiness();
-      console.log("Business check response:", response);
-
       const data = response?.data;
       let businessData = null;
 
@@ -48,61 +50,80 @@ export const AuthProvider = ({ children }) => {
         return false;
       }
     } catch (err) {
-      console.log("Business check info (user likely needs onboarding):", err?.response?.data?.message || err.message);
       setHasBusiness(false);
+      localStorage.removeItem("businessId");
       return false;
     }
-  };
+  }, []);
 
+  // Initialize Auth state without triggering speculative 401 loops
   useEffect(() => {
+    let isMounted = true;
+
     const initializeAuth = async () => {
-      const storedUser = localStorage.getItem("user");
       const token = localStorage.getItem("accessToken");
+      const storedUser = localStorage.getItem("user");
+
+      if (!token || token === "undefined" || token === "null") {
+        if (isMounted) {
+          setUser(null);
+          setHasBusiness(false);
+          setLoading(false);
+        }
+        return;
+      }
 
       if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
         try {
-          const parsed = JSON.parse(storedUser);
-          setUser(parsed);
+          setUser(JSON.parse(storedUser));
         } catch {
           setUser(null);
         }
       }
 
-      // If user is authenticated, sync profile and check business
-      if (token && token !== "undefined" && token !== "null") {
-        try {
-          const meRes = await getMe();
-          if (meRes?.data?.account || meRes?.data) {
-            const accountData = meRes.data.account || meRes.data;
-            setUser(accountData);
-            localStorage.setItem("user", JSON.stringify(accountData));
-          }
-        } catch (err) {
-          console.log("Sync profile check:", err?.response?.data?.message || err.message);
+      try {
+        const meRes = await getMe();
+        if (isMounted && (meRes?.data?.account || meRes?.data)) {
+          const accountData = meRes.data.account || meRes.data;
+          setUser(accountData);
+          localStorage.setItem("user", JSON.stringify(accountData));
+          await checkUserBusiness();
         }
-
-        await checkUserBusiness();
-      } else {
-        // If no token exists, but cookies exist, try to fetch user
-        try {
-          const meRes = await getMe();
-          if (meRes?.data?.account || meRes?.data) {
-            const accountData = meRes.data.account || meRes.data;
-            setUser(accountData);
-            localStorage.setItem("user", JSON.stringify(accountData));
-            await checkUserBusiness();
-          }
-        } catch {
-          // Unauthenticated state
+      } catch (err) {
+        console.warn("Auth initialization token check:", err?.response?.data?.message || err.message);
+        if (isMounted) {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          localStorage.removeItem("user");
+          localStorage.removeItem("businessId");
+          setUser(null);
           setHasBusiness(false);
         }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
 
     initializeAuth();
-  }, []);
+
+    // Listen to unauthorized event from api.js interceptor
+    const handleUnauthorized = () => {
+      if (isMounted) {
+        setUser(null);
+        setHasBusiness(false);
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("auth:unauthorized", handleUnauthorized);
+    };
+  }, [checkUserBusiness]);
 
   const login = async (userData, accessToken, refreshToken) => {
     if (accessToken && accessToken !== "undefined" && accessToken !== "null") {
@@ -116,7 +137,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     setUser(userData);
-    await checkUserBusiness();
+    const hasBiz = await checkUserBusiness();
+    return hasBiz;
   };
 
   const logout = async () => {

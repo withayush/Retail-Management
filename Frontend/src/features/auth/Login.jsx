@@ -7,7 +7,7 @@ import { Mail, Lock, Eye, EyeOff, LogIn } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, hasBusiness, loading: authLoading } = useAuth();
 
   const [form, setForm] = useState({
     email: "",
@@ -16,6 +16,12 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate(hasBusiness ? "/dashboard" : "/business-onboarding", { replace: true });
+    }
+  }, [isAuthenticated, hasBusiness, authLoading, navigate]);
 
   const handleChange = (e) => {
     setForm({
