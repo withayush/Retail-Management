@@ -39,3 +39,13 @@ export const deleteProduct = async (id) => {
   const response = await api.delete(`/api/products/${id}`);
   return response.data;
 };
+
+export const getProductCategories = async () => {
+  const response = await api.get("/api/categories");
+  return response.data;
+};
+
+export const createCategory = async (payload) => {
+  const response = await api.post("/api/categories", payload);
+  return response.data;
+};
