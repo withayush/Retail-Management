@@ -1,38 +1,36 @@
 import api from "./api";
 
-export const getOnboardingStatus = async () => {
-  const response = await api.get("/api/businesses/onboarding/status");
+// Naya business create karne ke liye (Onboarding submit)
+export const createBusiness = async (data) => {
+  const response = await api.post("/businesses", data);
+  console.log("createBusiness raw response:", response);
   return response.data;
 };
 
-export const saveOnboardingStep = async (payload) => {
-  const response = await api.post("/api/businesses/onboarding/step", payload);
-  return response.data;
-};
-
-export const completeOnboarding = async (payload) => {
-  const response = await api.post("/api/businesses/onboarding", payload);
-  return response.data;
-};
-
+// Logged-in vendor ka business fetch karne ke liye
 export const getMyBusiness = async () => {
-  const response = await api.get("/api/businesses/me");
+  const response = await api.get("/businesses/me");
+  console.log("getMyBusiness raw response:", response);
+  console.log("getMyBusiness data:", response.data);
   return response.data;
 };
 
 export const getMyBusinesses = getMyBusiness;
 
-export const getActiveBusinessContext = async () => {
-  const response = await api.get("/api/businesses/active/context");
+// Business profile update karne ke liye
+export const updateMyBusiness = async (businessId, data) => {
+  const response = await api.put(`/businesses/${businessId}`, data);
   return response.data;
 };
 
-export const getBusinessById = async (id) => {
-  const response = await api.get(`/api/businesses/${id}`);
+export const updateBusiness = updateMyBusiness;
+
+export const getOnboardingStatus = async () => {
+  const response = await api.get("/businesses/onboarding/status");
   return response.data;
 };
 
-export const updateBusiness = async (id, payload) => {
-  const response = await api.put(`/api/businesses/${id}`, payload);
+export const saveOnboardingStep = async (payload) => {
+  const response = await api.post("/businesses/onboarding/step", payload);
   return response.data;
 };

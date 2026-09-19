@@ -1,44 +1,45 @@
 import api from "./api";
 
-export const registerUser = async (payload) => {
-  const response = await api.post("/api/auth/register", payload);
+// Register API call
+export const registerUser = async (data) => {
+  const response = await api.post("/auth/register", data);
   return response.data;
 };
 
-export const verifyPhone = async (payload) => {
-  const response = await api.post("/api/auth/verify-phone", payload);
+// Verify OTP API call
+export const verifyOTP = async (data) => {
+  const response = await api.post("/auth/verify-phone", data);
   return response.data;
 };
 
-export const verifyOTP = verifyPhone;
+export const verifyPhone = verifyOTP;
 
-export const resendPhoneOtp = async (payload) => {
-  const response = await api.post("/api/auth/resend-phone-otp", payload);
-  return response.data;
-};
-
-export const resendOTP = resendPhoneOtp;
-
-export const loginUser = async (payload) => {
-  const body = {
-    identifier: payload.identifier || payload.email || payload.phone,
-    password: payload.password,
+// Login API call
+export const loginUser = async (data) => {
+  const payload = {
+    identifier: data.identifier || data.email || data.phone,
+    password: data.password,
   };
-  const response = await api.post("/api/auth/login", body);
+  const response = await api.post("/auth/login", payload);
   return response.data;
 };
 
+// Resend OTP API call
+export const resendOTP = async (data) => {
+  const response = await api.post("/auth/resend-phone-otp", data);
+  return response.data;
+};
+
+export const resendPhoneOtp = resendOTP;
+
+// Get Current User Profile
 export const getMe = async () => {
-  const response = await api.get("/api/auth/me");
+  const response = await api.get("/auth/me");
   return response.data;
 };
 
-export const refreshSession = async () => {
-  const response = await api.post("/api/auth/refresh");
-  return response.data;
-};
-
+// Logout API call
 export const logoutUser = async () => {
-  const response = await api.post("/api/auth/logout");
+  const response = await api.post("/auth/logout");
   return response.data;
 };
