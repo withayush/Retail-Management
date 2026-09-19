@@ -1,67 +1,63 @@
 import { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { verifyPhone, resendPhoneOtp } from "../../services/auth.api";
-import { useAuth } from "../../context/AuthContext";
+import { verifyOTP, resendOTP } from "../../services/auth.api";
 import { motion } from "framer-motion";
-import { KeyRound } from "lucide-react";
+import { Phone, CheckCircle, RotateCcw, ArrowLeft } from "lucide-react";
 
 export default function VerifyOTP() {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { refetchUser } = useAuth();
+  const location = useLocation();
 
-  const phone = location.state?.phone || "";
-  const debugOtp = location.state?.debugOtp || "";
+  const phoneFromRegister = location.state?.phone || "";
+  const initialDebugOtp = location.state?.debugOtp || "";
 
-  const [otp, setOtp] = useState(debugOtp || "");
+  const [phone, setPhone] = useState(phoneFromRegister);
+  const [otp, setOtp] = useState("");
+  const [debugOtp, setDebugOtp] = useState(initialDebugOtp);
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
   const handleVerify = async (e) => {
     e.preventDefault();
-    if (!phone) {
-      setError("Phone number missing. Please register or sign in again.");
-      return;
-    }
-
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      await verifyPhone({ phone, otp });
-      await refetchUser();
-      navigate("/onboarding");
+      const response = await verifyOTP({ phone, otp });
+      console.log("Verification Success:", response);
+
+      navigate("/login");
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Invalid or expired OTP.");
+      setError(
+        err.response?.data?.message || err.message || "Invalid OTP. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
-    if (!phone) return;
-    setResending(true);
     setError("");
     setMessage("");
 
     try {
-      const response = await resendPhoneOtp({ phone });
-      setMessage("A new OTP has been sent to your phone.");
+      const response = await resendOTP({ phone });
+      setMessage("New OTP sent successfully!");
+
       if (response?.data?.debugOtp) {
-        setOtp(response.data.debugOtp);
+        setDebugOtp(response.data.debugOtp);
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to resend OTP.");
-    } finally {
-      setResending(false);
+      setError(
+        err.response?.data?.message || err.message || "Failed to resend OTP. Try again later."
+      );
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 gradient-bg">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -70,37 +66,60 @@ export default function VerifyOTP() {
       >
         <div className="glass-card rounded-2xl p-8 md:p-10">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-secondary border border-border mb-4">
-              <KeyRound className="w-8 h-8 text-foreground" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-success mb-4">
+              <Phone className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold">Verify Phone</h1>
+            <h1 className="text-3xl font-bold gradient-text">Verify Phone</h1>
             <p className="text-muted-foreground mt-2">
-              Enter the OTP sent to <span className="font-semibold text-foreground">{phone || "your phone"}</span>
+              Enter the 6-digit code sent to your phone
             </p>
           </div>
 
-          <form onSubmit={handleVerify} className="space-y-4">
+          {debugOtp && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-6 p-4 bg-accent/10 border border-accent/20 rounded-xl"
+            >
+              <p className="text-sm text-accent font-medium">🔑 Development OTP</p>
+              <p className="text-2xl font-bold tracking-widest text-accent mt-1">{debugOtp}</p>
+            </motion.div>
+          )}
+
+          <form onSubmit={handleVerify} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                6-Digit OTP Code
+                Phone Number
               </label>
-              <input
-                type="text"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full text-center tracking-widest text-2xl py-3 bg-secondary/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 text-foreground placeholder:text-muted-foreground"
-                placeholder="000000"
-                required
-              />
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-secondary/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 text-foreground placeholder:text-muted-foreground"
+                  placeholder="+91XXXXXXXXXX"
+                  required
+                />
+              </div>
             </div>
 
-            {debugOtp && (
-              <div className="p-3 bg-secondary border border-border rounded-xl text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">Dev Note:</span> Auto-detected Test OTP:{" "}
-                <span className="font-mono text-foreground font-bold">{debugOtp}</span>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                OTP Code
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                  maxLength={6}
+                  className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 text-foreground text-center text-2xl tracking-[1em] placeholder:text-muted-foreground placeholder:text-base"
+                  placeholder="••••••"
+                  required
+                />
               </div>
-            )}
+            </div>
 
             {error && (
               <motion.div
@@ -113,31 +132,52 @@ export default function VerifyOTP() {
             )}
 
             {message && (
-              <div className="p-3 bg-success/10 border border-success/20 rounded-xl text-success text-sm">
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="p-3 bg-accent/10 border border-accent/20 rounded-xl text-accent text-sm"
+              >
                 {message}
-              </div>
+              </motion.div>
             )}
 
             <button
               type="submit"
-              disabled={loading || otp.length < 4}
-              className="w-full btn btn-primary py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              disabled={loading}
+              className="w-full gradient-success text-white py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-accent/25 transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              {loading ? "Verifying..." : "Verify & Continue"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Verifying...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  Verify OTP
+                </span>
+              )}
             </button>
           </form>
 
-          <div className="mt-6 flex items-center justify-between text-sm">
+          <div className="mt-6 flex items-center justify-between">
             <button
               type="button"
               onClick={handleResend}
-              disabled={resending}
-              className="text-primary hover:underline font-medium"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
             >
-              {resending ? "Sending..." : "Resend OTP"}
+              <RotateCcw className="w-4 h-4" />
+              Resend OTP
             </button>
-            <Link to="/register" className="text-muted-foreground hover:underline">
-              Change Number
+            <Link
+              to="/register"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Register
             </Link>
           </div>
         </div>

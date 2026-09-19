@@ -10,13 +10,21 @@ export const verifyPhone = async (payload) => {
   return response.data;
 };
 
+export const verifyOTP = verifyPhone;
+
 export const resendPhoneOtp = async (payload) => {
   const response = await api.post("/api/auth/resend-phone-otp", payload);
   return response.data;
 };
 
+export const resendOTP = resendPhoneOtp;
+
 export const loginUser = async (payload) => {
-  const response = await api.post("/api/auth/login", payload);
+  const body = {
+    identifier: payload.identifier || payload.email || payload.phone,
+    password: payload.password,
+  };
+  const response = await api.post("/api/auth/login", body);
   return response.data;
 };
 

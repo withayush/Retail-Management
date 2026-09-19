@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import ProtectedRoute from "./routes/ProtectedRoute";
+import { ProtectedRoute, OnboardingRoute } from "./routes/ProtectedRoute";
 
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
@@ -22,18 +22,68 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
 
+          {/* Onboarding Route */}
+          <Route
+            path="/business-onboarding"
+            element={
+              <OnboardingRoute>
+                <BusinessOnboarding />
+              </OnboardingRoute>
+            }
+          />
+          <Route
+            path="/onboarding"
+            element={
+              <OnboardingRoute>
+                <BusinessOnboarding />
+              </OnboardingRoute>
+            }
+          />
+
           {/* Protected Application Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/onboarding" element={<BusinessOnboarding />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/inventory" element={<InventoryAuditPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/pos" element={<POSTerminalPage />} />
-          </Route>
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <ProductsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute>
+                <InventoryAuditPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customers"
+            element={
+              <ProtectedRoute>
+                <CustomersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pos"
+            element={
+              <ProtectedRoute>
+                <POSTerminalPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Fallback default redirect */}
-          <Route path="*" element={<Navigate to="/register" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
