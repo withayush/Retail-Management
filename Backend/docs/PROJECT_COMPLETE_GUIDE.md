@@ -586,3 +586,15 @@ erDiagram
 3. **Reuse Detection (Anti-Theft):** Agar koi purana/stolen refresh token use karne ki koshish kare, to system session ko immediately revoke kar deta hai.
 4. **Bcrypt Hashing:** Passwords, OTPs aur Refresh tokens plain text me store nahi hote.
 5. **Atomic Transactions:** OTP verification aur Business creation `mongoose.startSession()` transaction me run hote hain taaki database inconsistent na rahe.
+
+---
+
+## 8. Frontend Authentication, Registration, Verification & Onboarding UX Standards
+
+1. **Explicit Field-Level Error Feedback:** Generic messages jaise "Validation failed" ki jagah user ko exact field ke niche pinpointed error aur solution milta hai (e.g. invalid email format, 10-digit mobile rule, password complexity rules).
+2. **Duplicate Conflict Mapping:** Backend se `EMAIL_ALREADY_EXISTS` ya `PHONE_ALREADY_EXISTS` aane par top-level vague error ki jagah direct respective input field par error display hota hai.
+3. **Smart Identifier Support (Login):** Login page par user standard email address ya 10-digit mobile number enter karke dashboard proceed kar sakta hai.
+4. **Seamless OTP Verification & Auto-Login:** Phone verification complete hone par user ko direct session initialize karke Dashboard / Onboarding wizard par redirect kiya jata hai (re-login step skipped).
+5. **Step-Aware Onboarding Validation:** Multi-step business onboarding (`BusinessOnboarding.jsx`) me user jab tak current step ki mandatory/format validation clear nahi karta tab tak next step prevent hota hai, aur backend Zod errors automatically respective step aur field par jump karke specific message show karte hain.
+
+
