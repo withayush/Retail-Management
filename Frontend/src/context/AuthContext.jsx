@@ -7,6 +7,8 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
+      const token = localStorage.getItem("accessToken");
+      if (!token || token === "undefined" || token === "null") return null;
       const storedUser = localStorage.getItem("user");
       return storedUser && storedUser !== "undefined" && storedUser !== "null"
         ? JSON.parse(storedUser)
@@ -17,6 +19,8 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [hasBusiness, setHasBusiness] = useState(() => {
+    const token = localStorage.getItem("accessToken");
+    if (!token || token === "undefined" || token === "null") return false;
     const bId = localStorage.getItem("businessId");
     return Boolean(bId && bId !== "undefined" && bId !== "null");
   });
