@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { verifyOTP, resendOTP } from "../../services/auth.api";
 import { motion } from "framer-motion";
-import { Phone, CheckCircle, RotateCcw, ArrowLeft } from "lucide-react";
+import { Phone, CheckCircle, RotateCcw, ArrowLeft, KeyRound } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function VerifyOTP() {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export default function VerifyOTP() {
   const initialDebugOtp = location.state?.debugOtp || "";
 
   const [phone, setPhone] = useState(phoneFromRegister);
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(initialDebugOtp ? String(initialDebugOtp) : "");
   const [debugOtp, setDebugOtp] = useState(initialDebugOtp);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -20,14 +21,17 @@ export default function VerifyOTP() {
 
   const handleVerify = async (e) => {
     e.preventDefault();
+    if (!otp.trim() || otp.trim().length !== 6) {
+      return setError("Please enter a valid 6-digit OTP code");
+    }
+
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      const response = await verifyOTP({ phone, otp });
-      console.log("Verification Success:", response);
-
+      await verifyOTP({ phone: phone.trim(), otp: otp.trim() });
+      toast.success("Phone verified successfully! Please sign in.");
       navigate("/login");
     } catch (err) {
       setError(
@@ -43,11 +47,14 @@ export default function VerifyOTP() {
     setMessage("");
 
     try {
-      const response = await resendOTP({ phone });
-      setMessage("New OTP sent successfully!");
+      const response = await resendOTP({ phone: phone.trim() });
+      const newDebugOtp = response?.data?.debugOtp;
+      toast.success("New OTP sent successfully!");
+      setMessage("New OTP generated!");
 
-      if (response?.data?.debugOtp) {
-        setDebugOtp(response.data.debugOtp);
+      if (newDebugOtp) {
+        setDebugOtp(newDebugOtp);
+        setOtp(String(newDebugOtp));
       }
     } catch (err) {
       setError(
