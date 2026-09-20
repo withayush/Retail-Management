@@ -9,6 +9,7 @@ const {
 const {
   createProduct,
   getProducts,
+  searchProducts,
   getProductById,
   getProductByBarcode,
   updateProduct,
@@ -24,10 +25,11 @@ router.use(authMiddleware);
 router.use(businessMiddleware);
 
 // ============================================
-// PRODUCT CATALOG & POS LOOKUP ENDPOINTS (PHASE 2 - T8, T9, T10, T11)
+// PRODUCT CATALOG & POS LOOKUP ENDPOINTS (PHASE 2 - T8, T9, T10, T11, T12, T14)
 // ============================================
 router.post("/", validate(createProductSchema), createProduct);
 router.get("/", getProducts);
+router.get("/search", searchProducts); // Task T14: Fast Search & POS Typeahead
 router.get("/barcode/:barcode", getProductByBarcode);
 router.get("/:id", getProductById);
 router.put("/:id", validate(updateProductSchema), updateProduct);

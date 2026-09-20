@@ -86,10 +86,9 @@ Backend (.env):
     - Product Data Table (`ProductTable.jsx`):
       * Columns: Product & Category, SKU / Barcode with 1-click Copy buttons, Cost Price, Selling Price, Margin pill indicator, Status badge, Edit and Archive actions.
       * Pagination Footer with page navigation.
-    - Archive & Soft-Delete Engine (`ArchiveProductModal.jsx` & `DELETE /api/products/:id`) [T11]:
-      * Non-destructive soft-delete (`isArchived: true`, `isActive: false`, `archivedAt: timestamp`).
-      * Historic invoice integrity preservation guarantee: Past invoices referencing archived items remain 100% intact.
-      * Instant Restore button for reactivating archived products (`POST /api/products/:id/restore`).
+    - Archive & Soft-Delete Engine (`ArchiveProductModal.jsx`):
+      * Non-destructive archiving modal preserving historical transaction records.
+      * Restore button for archived products.
 
 [✓] 5. POS CHECKOUT TERMINAL (/src/features/pos/POSTerminalPage.jsx)
     - Sub-millisecond Barcode scanner lookup integration (`/products/barcode/:barcode`).
@@ -110,17 +109,6 @@ Backend (.env):
 4. [Header Component] Updated `ProductHeader.jsx` with "Categories" button and live category count badge.
 5. [Products Page] Made `resolveCategoryId` in `ProductsPage.jsx` resilient for direct and nested object payload structures.
 6. [Multi-Tenancy] Guaranteed `x-business-id` header is attached via `api.js` request interceptor for all category and product queries.
-7. [Pagination & Payload Shaping - T12] Implemented O(1) Cursor-aware Seek Pagination (`nextCursor`, `hasMore`, `limit` selector [10/15/25/50]) in `ProductsPage.jsx` and `ProductTable.jsx` preventing browser lag on large catalogues.
-8. [Fix Runtime Error] Resolved `Uncaught ReferenceError: totalItems is not defined` in `ProductsPage.jsx` and corrected double `/api/` prefix in `inventory.api.js`.
-9. [Product Elastic Search & POS Terminal - T14] Implemented sub-15ms multi-field search (`GET /api/products/search`) matching SKU, Barcode, Name, and Category name. Revamped `POSTerminalPage.jsx` with category filter pills, barcode auto-scan enter handler, interactive product grid, and live cart checkout flow.
-10. [Inventory Store State & Reorder Thresholds - T15] Built `Inventory` Mongoose master model and APIs (`GET /api/inventory/summary`, `GET /api/inventory/store-state`, `PUT /reorder-level`, `POST /adjust`). Revamped `InventoryAuditPage.jsx` with real-time KPI metrics, stock status filter pills, asset valuation, and stock adjustment modals.
-11. [Inventory Ledger & Atomic Movement Engine - T16] Implemented complete movement audit ledger model (`InventoryLedger`) with signed quantity changes, balance snapshots, and multi-tenant isolation. Built dual-tab view in `InventoryAuditPage.jsx` with real-time "Movement Ledger Audit Trail", colored movement type badges (+IN, -OUT, ~ADJUST, *OPENING), and interactive Stock-In and Stock-Out action modals with instant ledger reconciliation.
-12. [Opening Stock Initialization API - T17] Enabled seamless initial physical stock seeding on product registration and standalone API (`POST /api/inventory/opening-stock`). Auto-writes first audited ledger log (`type: 'OPENING'`) without modifying stock directly, synchronizing live catalog forms and audit timelines.
-13. [Stock IN Addition Endpoint & Source Logs - T18] Enhanced `POST /api/inventory/stock-in` to accept source details (`PURCHASE`, `GOODS_RECEIPT`, `MANUAL`, `RETURN`, `TRANSFER`, `OTHER`), supplier name, purchase price per unit, and PO reference number. Upgraded `InventoryAuditPage.jsx` Stock-In modal with source selector and real-time ledger timeline chips (`IN • PURCHASE`, supplier info, unit cost).
-14. [Stock OUT Reduction Endpoint & Insufficient Stock Engine - T19] Implemented `POST /api/inventory/stock-out` and `POST /api/inventory/stock-out/batch` for single & multi-item checkout reductions. Added strict `INSUFFICIENT_STOCK` (HTTP 400) guard preventing negative inventory. Upgraded `InventoryAuditPage.jsx` Stock-Out modal with sources (`SALE`, `DAMAGE`, `EXPIRED`, `RETURN_TO_VENDOR`, `SAMPLE`, `MANUAL`, `OTHER`), invoice linking, customer name, and ledger badge display (`OUT • SALE`, linked invoice #).
-15. [Stock Reconciliation / Adjust API - T20] Enhanced `POST /api/inventory/adjust` supporting physical count reconciliation, auto-calculated discrepancies (`physicalCount - currentStock`), audit reference batch tracking, and reason logging (`AUDIT_RECONCILIATION`, `DAMAGE`, `EXPIRED`, `SPILLAGE`, `THEFT_SHRINKAGE`, `FOUND_STOCK`, `CORRECTION`). Upgraded `InventoryAuditPage.jsx` with real-time discrepancy comparison (+surplus / -shortage color badges), reason pickers, and live ledger trail updates.
-16. [Inventory Ledger Auditing Log UI & Stock Flow Engine - T21] Implemented complete "Who, When, Why, What" audit log viewing engine in `InventoryAuditPage.jsx`. Added multi-dimensional filter deck (Product selector, Movement Type pills, Source categories, Date presets [All, Today, 7D, 30D, Custom date ranges], and search input), Stock Flow Statement KPI summary cards (+Total Inflow, -Total Outflow, Net Stock Flow, Total Logged Transactions), 1-click CSV Statement export, and comprehensive audit table showing actor names, timestamps, product SKU/category, signed qty deltas, balance after snapshots, invoice/PO references, and unit cost.
-17. [Low-Stock Limit Notifications & Deterministic Alerts Queue - T22] Built deterministic business rule engine (`availableStock <= reorderLevel`) with zero duplicate spamming and auto-resolution on replenishment (`availableStock > reorderLevel`). Upgraded `InventoryAuditPage.jsx` with dedicated Tab 3 ("Low-Stock Alerts Queue"), live active trigger counter badge, KPI summary cards (Active, Critical OOS, Low Stock Warnings, Auto-Resolved), visual stock gauge bars with deficit chips, 1-click "Restock Now" shortcut, and inline Acknowledge/Resolve controls.
 
 ================================================================================
 6. TESTING & VALIDATION COMMANDS
@@ -128,4 +116,3 @@ Backend (.env):
 - Frontend Production Build Test : cd Frontend && npm run build (Passes with 0 errors)
 - Backend Unit & Integration Tests: cd Backend  && npm test (100% tests passing)
 ================================================================================
-

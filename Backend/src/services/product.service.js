@@ -47,12 +47,39 @@ const createProduct = async (businessId, payload) => {
   }
 
   // 4. Create Product with server-injected businessId
-  return await productRepo.createProduct({
+  const product = await productRepo.createProduct({
     ...payload,
     businessId,
     sku: cleanSku,
     barcode: cleanBarcode,
   });
+
+  // 5. Phase 3 - Task T17: Opening Stock Initialization with Immutable OPENING Ledger Entry
+  const customReorder = Number(payload.reorderLevel);
+  const defaultReorder = !isNaN(customReorder) && customReorder >= 0 ? customReorder : 5;
+  const initialStockQty = Number(payload.openingStock ?? payload.initialStock ?? payload.availableStock ?? 0);
+
+  const inventoryRepo = require("../repositories/inventory.repository");
+  if (!isNaN(initialStockQty) && initialStockQty > 0) {
+    // Record audited opening balance in ledger and set inventory availableStock
+    await inventoryRepo.recordStockMovement({
+      businessId,
+      productId: product._id,
+      qtyChange: initialStockQty,
+      type: "OPENING",
+      reason: "Opening Stock Initial Balance",
+      notes: payload.openingStockNotes || "Seeded upon product creation (T17)",
+    });
+
+    if (defaultReorder !== 5) {
+      await inventoryRepo.updateReorderLevel(businessId, product._id, defaultReorder);
+    }
+  } else {
+    // Establish base inventory store state with 0 availableStock and specified reorder threshold
+    await inventoryRepo.getOrCreateInventory(businessId, product._id, 0, defaultReorder);
+  }
+
+  return product;
 };
 
 const { encodeCursor, decodeCursor } = require("../utils/pagination");
@@ -122,6 +149,58 @@ const getProducts = async (businessId, filters = {}) => {
       nextCursor,
       hasMore,
     },
+  };
+};
+
+/**
+ * Task T14: Product Elastic Search & Rapid POS Lookup Service
+ */
+const searchProducts = async (businessId, queryParams = {}) => {
+  if (!mongoose.Types.ObjectId.isValid(businessId)) {
+    const error = new Error("Invalid business ID.");
+    error.statusCode = 400;
+    error.code = "INVALID_BUSINESS_ID";
+    throw error;
+  }
+
+  const query = queryParams.q || queryParams.query || queryParams.search || "";
+  const limit = Math.min(Math.max(parseInt(queryParams.limit, 10) || 20, 1), 100);
+  const categoryId = queryParams.categoryId && mongoose.Types.ObjectId.isValid(queryParams.categoryId)
+    ? queryParams.categoryId
+    : null;
+
+  const rawProducts = await productRepo.searchProducts(businessId, {
+    query,
+    limit,
+    categoryId,
+    includeArchived: queryParams.includeArchived === "true" || queryParams.includeArchived === true,
+  });
+
+  const data = rawProducts.map((prod) => ({
+    id: prod._id,
+    name: prod.name,
+    sku: prod.sku,
+    barcode: prod.barcode || null,
+    sellingPrice: prod.sellingPrice,
+    costPrice: prod.costPrice,
+    unit: prod.unit || "pcs",
+    packSize: prod.packSize || 1,
+    packagingType: prod.packagingType || "",
+    category: prod.categoryId
+      ? {
+          id: prod.categoryId._id || prod.categoryId,
+          name: prod.categoryId.name || "Uncategorized",
+        }
+      : null,
+    description: prod.description || "",
+    isActive: prod.isActive,
+    isArchived: prod.isArchived,
+  }));
+
+  return {
+    data,
+    count: data.length,
+    query,
   };
 };
 
@@ -301,6 +380,7 @@ const deleteProduct = async (businessId, productId) => {
 module.exports = {
   createProduct,
   getProducts,
+  searchProducts,
   getProductById,
   getProductByBarcode,
   updateProduct,

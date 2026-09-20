@@ -20,6 +20,7 @@ import ProductTable from "./components/ProductTable";
 import ProductForm from "./components/ProductForm";
 import ProductModal from "./components/ProductModal";
 import ArchiveProductModal from "./components/ArchiveProductModal";
+import CategoriesModal from "./components/CategoriesModal";
 
 export default function ProductsPage() {
   const navigate = useNavigate();
@@ -31,11 +32,11 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Pagination
+  // Pagination & Cursor Seek State
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const LIMIT = 12;
+  const [limit, setLimit] = useState(15);
+  const [hasMore, setHasMore] = useState(false);
+  const cursorsRef = useRef([null]);
 
   // Filters & Sorting
   const [search, setSearch] = useState("");
@@ -48,6 +49,7 @@ export default function ProductsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [archiveTarget, setArchiveTarget] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -56,6 +58,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState(emptyForm);
 
   // Stats derived
+  const totalItems = products.length;
   const activeCount = products.filter(
     (p) => (p.isActive ?? p.is_active ?? true) && !p.isArchived
   ).length;
@@ -89,15 +92,18 @@ export default function ProductsPage() {
     fetchCategories();
   }, [fetchCategories]);
 
-  // ── Fetch Products ──
+  // ── Fetch Products with Cursor Seek Pagination ──
   const fetchProducts = useCallback(
     async (pg = 1) => {
       setLoading(true);
       try {
+        const cursor = cursorsRef.current[pg - 1] || undefined;
+
         const queryParams = {
-          limit: LIMIT,
+          limit,
           search: search.trim() || undefined,
           categoryId: selectedCategory || undefined,
+          cursor,
         };
 
         if (statusFilter === "ARCHIVED") {
@@ -115,32 +121,41 @@ export default function ProductsPage() {
         const pagination = res.pagination || res.data?.pagination || {};
 
         setProducts(fetched);
-        setTotalPages(pagination.totalPages || (fetched.length < LIMIT ? 1 : Math.max(1, pg)));
-        setTotalItems(pagination.totalItems || fetched.length);
+        setHasMore(Boolean(pagination.hasMore));
+
+        // Save cursor for next page if available
+        if (pagination.nextCursor) {
+          cursorsRef.current[pg] = pagination.nextCursor;
+        }
       } catch (err) {
         toast.error(err?.response?.data?.message || "Failed to load products");
       } finally {
         setLoading(false);
       }
     },
-    [search, statusFilter, selectedCategory]
+    [search, statusFilter, selectedCategory, limit]
   );
 
   useEffect(() => {
     fetchProducts(page);
   }, [page, fetchProducts]);
 
+  // Reset pagination when filters change
   useEffect(() => {
     if (isFirst.current) {
       isFirst.current = false;
       return;
     }
     const t = setTimeout(() => {
-      if (page === 1) fetchProducts(1);
-      else setPage(1);
+      cursorsRef.current = [null];
+      if (page === 1) {
+        fetchProducts(1);
+      } else {
+        setPage(1);
+      }
     }, 250);
     return () => clearTimeout(t);
-  }, [search, statusFilter, selectedCategory, sortBy, sortDir, page, fetchProducts]);
+  }, [search, statusFilter, selectedCategory, sortBy, sortDir, limit, fetchProducts]);
 
   // ── Helper: Resolve or Create Category ──
   const resolveCategoryId = async (catName, existingCats) => {
@@ -148,14 +163,17 @@ export default function ProductsPage() {
     if (!trimmed) {
       // Find or create default General category
       const genCat = existingCats.find(
-        (c) => c.name.toLowerCase() === "general" || c.name.toLowerCase() === "uncategorized"
+        (c) => c.name?.toLowerCase() === "general" || c.name?.toLowerCase() === "uncategorized"
       );
       if (genCat) return genCat.id || genCat._id;
       try {
         const newCatRes = await createCategory({ name: "General", description: "General products" });
-        const createdCat = newCatRes.data;
-        setCategories((prev) => [createdCat, ...prev]);
-        return createdCat.id || createdCat._id;
+        const createdCat = newCatRes?.data || newCatRes;
+        const catId = createdCat?.id || createdCat?._id;
+        if (catId) {
+          setCategories((prev) => [createdCat, ...prev]);
+          return catId;
+        }
       } catch (e) {
         console.error("Auto category creation failed:", e);
       }
@@ -163,21 +181,25 @@ export default function ProductsPage() {
 
     // Match case-insensitively
     const match = existingCats.find(
-      (c) => c.name.toLowerCase() === trimmed.toLowerCase() || (c.id || c._id) === trimmed
+      (c) => c.name?.toLowerCase() === trimmed.toLowerCase() || (c.id || c._id) === trimmed
     );
     if (match) return match.id || match._id;
 
     // Create new category on the fly
     try {
       const newCatRes = await createCategory({ name: trimmed });
-      const createdCat = newCatRes.data;
-      setCategories((prev) => [createdCat, ...prev]);
-      return createdCat.id || createdCat._id;
+      const createdCat = newCatRes?.data || newCatRes;
+      const catId = createdCat?.id || createdCat?._id;
+      if (catId) {
+        setCategories((prev) => [createdCat, ...prev]);
+        return catId;
+      }
+      throw new Error("Invalid category creation response");
     } catch (err) {
       console.error("Category auto-creation failed:", err);
       // If error is duplicate, fetch again
       const refreshed = await fetchCategories();
-      const refMatch = refreshed.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+      const refMatch = refreshed.find((c) => c.name?.toLowerCase() === trimmed.toLowerCase());
       if (refMatch) return refMatch.id || refMatch._id;
       throw new Error("Could not assign or create category");
     }
@@ -213,11 +235,13 @@ export default function ProductsPage() {
         description: form.description?.trim() || "",
       };
 
-      if (form.openingStock !== "" && form.openingStock !== null) {
+      if (form.openingStock !== "" && form.openingStock !== null && form.openingStock !== undefined) {
         const openingQty = parseFloat(form.openingStock);
         if (!isNaN(openingQty) && openingQty >= 0) {
           payload.openingStock = openingQty;
-          payload.openingStockNotes = form.openingStockNotes.trim() || null;
+          if (form.openingStockNotes?.trim()) {
+            payload.openingStockNotes = form.openingStockNotes.trim();
+          }
         }
       }
 
@@ -339,6 +363,8 @@ export default function ProductsPage() {
           setForm(emptyForm);
           setShowAdd(true);
         }}
+        onOpenCategoriesModal={() => setShowCategoriesModal(true)}
+        categoryCount={categories.length}
       />
 
       {/* ── Stats Cards ─────────────────────────────────────────────────────── */}
@@ -382,8 +408,13 @@ export default function ProductsPage() {
         search={search}
         selectedCategory={selectedCategory}
         page={page}
-        totalPages={totalPages}
-        totalItems={totalItems}
+        hasMore={hasMore}
+        limit={limit}
+        onLimitChange={(newLimit) => {
+          cursorsRef.current = [null];
+          setLimit(newLimit);
+          setPage(1);
+        }}
         onPageChange={setPage}
         onEdit={openEdit}
         onArchive={confirmArchive}
@@ -457,6 +488,25 @@ export default function ProductsPage() {
             archiveTarget={archiveTarget}
             onArchive={handleArchive}
             submitting={submitting}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Categories Management Modal ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {showCategoriesModal && (
+          <CategoriesModal
+            isOpen={showCategoriesModal}
+            onClose={() => setShowCategoriesModal(false)}
+            categories={categories}
+            onCategoriesUpdated={async () => {
+              const updated = await fetchCategories();
+              fetchProducts(page);
+            }}
+            onSelectCategoryFilter={(catId) => {
+              setSelectedCategory(catId);
+              setPage(1);
+            }}
           />
         )}
       </AnimatePresence>

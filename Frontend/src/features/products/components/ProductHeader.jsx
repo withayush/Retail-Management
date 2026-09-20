@@ -1,8 +1,13 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, Plus, Sparkles, Box } from "lucide-react";
+import { ChevronLeft, Plus, Sparkles, Box, Layers } from "lucide-react";
 
-export default function ProductHeader({ onNavigateDashboard, onOpenAddModal }) {
+export default function ProductHeader({
+  onNavigateDashboard,
+  onOpenAddModal,
+  onOpenCategoriesModal,
+  categoryCount = 0,
+}) {
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
       <div>
@@ -28,14 +33,29 @@ export default function ProductHeader({ onNavigateDashboard, onOpenAddModal }) {
         </p>
       </div>
 
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={onOpenAddModal}
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 self-start md:self-auto cursor-pointer"
-      >
-        <Plus className="w-4 h-4" /> Add Product
-      </motion.button>
+      <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onOpenCategoriesModal}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-card border border-border text-foreground hover:bg-secondary rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
+        >
+          <Layers className="w-4 h-4 text-primary" />
+          <span>Categories</span>
+          <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+            {categoryCount}
+          </span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onOpenAddModal}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 cursor-pointer"
+        >
+          <Plus className="w-4 h-4" /> Add Product
+        </motion.button>
+      </div>
     </div>
   );
 }

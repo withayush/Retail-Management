@@ -117,60 +117,255 @@ API Base URL : http://localhost:5000/api
     - Context inspection endpoint: `GET /api/business/active/context`.
 
 --- [ PHASE 2 : INVENTORY & CATALOG CORE ] ---
-[✓] C1. T7: Category Table Schema Model & Business-Scoped CRUD APIs (/api/categories)
-    - Category Mongoose DB Model (`_id`, `name`, `description`, `businessId`, timestamps).
-    - Multi-tenant Compound Unique Index: `{ businessId: 1, name: 1 }` (allows "Grocery" in different businesses, prevents duplicates in the same business).
-    - Strict `businessId` tenancy isolation: `businessId` is ALWAYS derived from verified `req.businessId` (never trusted from request body).
-    - Complete REST API Endpoints:
-      - `POST /api/categories`: Create category for active business.
-      - `GET /api/categories`: List all categories belonging to active business (with search filter).
-      - `GET /api/categories/:id`: Get single category with tenant boundary check.
-      - `PUT /api/categories/:id`: Update category with conflict check.
-      - `DELETE /api/categories/:id`: Delete category within active business.
+[✓] C1. T7: Category Table Schema Model & Business-Scoped CRUD APIs (/api/categories) + Frontend UI Integration
+    - Backend Implementation (Pre-Built Core):
+      * Category Mongoose DB Model (`_id`, `name`, `description`, `businessId`, timestamps).
+      * Multi-tenant Compound Unique Index: `{ businessId: 1, name: 1 }` (prevents duplicate names within same store, allows same name across different stores).
+      * Strict `businessId` tenancy isolation: `businessId` is ALWAYS derived from verified `req.businessId` (never trusted from client body).
+      * Complete REST API Endpoints:
+        - `POST /api/categories`: Create category for active business with Zod validation.
+        - `GET /api/categories`: List all categories belonging to active business.
+        - `GET /api/categories/:id`: Get single category with tenant boundary check.
+        - `PUT /api/categories/:id`: Update category with conflict check.
+        - `DELETE /api/categories/:id`: Delete category within active business (with dependency protection against active products).
+    - Frontend Integration & UI Implementation (Newly Added):
+      * Dedicated API Client (`Frontend/src/services/category.api.js`):
+        - `getCategories()`, `getCategoryById(id)`, `createCategory(payload)`, `updateCategory(id, payload)`, `deleteCategory(id)`.
+        - Fixed double `/api/api/` prefix bug in `product.api.js`.
+      * Interactive Category Management Modal (`Frontend/src/features/products/components/CategoriesModal.jsx`):
+        - Real-time listing of all store categories with descriptions and badge counters.
+        - Inline New Category creation with instant validation and loading spinner.
+        - Inline editing of Category name and description with instant update.
+        - Safe category deletion with confirmation prompt and backend error handling.
+        - Instant search/filter and "Filter Catalog by Category" one-click action.
+      * Header & Page Wiring (`ProductHeader.jsx` & `ProductsPage.jsx`):
+        - Added "Categories" button with live counter badge to product catalog header.
+        - Integrated category selection and automatic re-sync with product forms and filters.
+      * Build & Test Verification:
+        - Frontend Vite build passed 100% (`npm run build` -> Exit code 0).
+        - Backend test suite passed 100% (`npm test` -> Exit code 0).
 
-[✓] C2. T8, T9, T10, T11 & T12: Product Catalog Lifecycle, Soft-Delete & Cursor Pagination
+[✓] C2. T8: Product Schema DB Model & Multi-Tenant Indexes
     - Product Mongoose DB Model (`_id`, `businessId`, `categoryId`, `name`, `sku`, `barcode`, `sellingPrice`, `costPrice`, `unit`, `packSize`, `packagingType`, `description`, `isActive`, `isArchived`, `archivedAt`, timestamps).
-    - Direct `businessId` tenancy isolation & Category ownership validation (blocks cross-business category injection with 400 `INVALID_CATEGORY`).
     - Multi-tenant Compound Unique & Seek Indexes:
-      - `{ businessId: 1, sku: 1 }`: Scoped SKU uniqueness per business.
-      - `{ businessId: 1, barcode: 1 }`: Scoped Barcode uniqueness per business.
-      - `{ businessId: 1, isArchived: 1, _id: -1 }`: O(1) cursor seek pagination queries.
-      - `{ businessId: 1, isArchived: 1, createdAt: -1 }`: Fast active vs archived catalog queries.
+      * `{ businessId: 1, sku: 1 }`: Scoped SKU uniqueness per business.
+      * `{ businessId: 1, barcode: 1 }`: Scoped Barcode uniqueness per business.
+      * `{ businessId: 1, isArchived: 1, _id: -1 }`: O(1) cursor seek pagination queries.
+      * `{ businessId: 1, isArchived: 1, createdAt: -1 }`: Fast active vs archived catalog queries.
     - Margin & COGS separation: Tracks `sellingPrice` and `costPrice` distinctly for accurate profit analytics.
-    - Safe Product Modification (T10):
-      - Mutable Product entity (Name, SKU, Barcode, SellingPrice, CostPrice, Category, Packaging details).
-      - Self-SKU Idempotency: Allows updating prices/names while keeping the existing SKU without false collision.
-      - **Historic Invoice Preservation Guarantee:** Product is mutable, but historical transactions snapshot `soldPrice` & `costPrice` on `InvoiceItem`. Changing product base price NEVER rewrites or mutates past invoice records!
-    - Soft-Deletion & Archiving Engine (T11):
-      - `DELETE /api/products/:id` performs safe soft-deletion (`isArchived: true`, `isActive: false`, `archivedAt: timestamp`). Hard deletes are strictly prevented.
-      - Normal product queries (`GET /api/products`) automatically exclude archived products.
-      - Explicit archived products query (`GET /api/products?status=archived`) enables viewing discontinued catalog.
-      - Product restoration endpoint (`POST /api/products/:id/restore`) reactivates archived items.
-      - **Historical Integrity:** Past sales invoices referencing the archived product remain 100% valid and unbroken.
-    - Cursor Pagination & Payload Shaping Engine (T12):
-      - `GET /api/products?limit=20&cursor=...` delivers ultra-fast, scalable infinite scrolling.
-      - Base64 URL-safe opaque cursor encoding & decoding (`src/utils/pagination.js`).
-      - Efficient `limit + 1` record seek avoiding expensive database skip offsets on large datasets.
-      - Strict limit controls (Default: `20`, Max: `100`) preventing memory exhaustion attacks.
-      - **Payload Shaping:** Returns lightweight, fast-rendering JSON projections tailored for mobile and web screens without heavy over-fetching.
-    - Fast Barcode Scanner Lookup endpoint for POS billing machines (`GET /api/products/barcode/:barcode`).
-    - Complete REST API Endpoints:
-      - `POST /api/products`: Create product with SKU auto-uppercase & category ownership validation.
-      - `GET /api/products`: List active products with cursor pagination (`?limit=20&cursor=...`), category & search filter.
-      - `GET /api/products/barcode/:barcode`: Quick lookup by barcode for POS checkout.
-      - `GET /api/products/:id`: Get single product by ID (Tenant isolated).
-      - `PUT /api/products/:id`: Update product info, packaging details & prices without rewriting historic sales.
-      - `POST /api/products/:id/archive`: Archive product from active catalog.
-      - `POST /api/products/:id/restore`: Restore archived product back to active catalog.
-      - `DELETE /api/products/:id`: Soft-delete product to preserve transaction history.
+
+[✓] C3. T9: Create Product API Endpoint (`POST /api/products`) + Validation & Write Handling
+    - Backend Validation & Controller/Service Pipeline:
+      * Zod Strict Schema (`createProductSchema`): Enforces non-negative prices, valid Indian/universal Barcodes, auto-uppercase SKUs, 24-char hex Category ObjectId, and packaging attributes.
+      * Business-Scoped SKU Uniqueness: Verifies `findProductBySku(businessId, sku)`. Rejects collisions with 409 `SKU_ALREADY_EXISTS`.
+      * Business-Scoped Barcode Uniqueness: Verifies `findProductByBarcode(businessId, barcode)`. Rejects duplicate barcodes with 409 `BARCODE_ALREADY_EXISTS`.
+      * Cross-Tenant Category Link Prevention: Verifies `categoryId` belongs strictly to active `req.businessId` before inserting product (blocks foreign category injection with 400 `INVALID_CATEGORY`).
+      * Server-injected Tenant Context: Injects verified `req.businessId` directly into product document (never trusts client-supplied tenant ID).
+    - Frontend Implementation & Form Handling:
+      * API Client: `createProduct(payload)` in `Frontend/src/services/product.api.js`.
+      * Real-Time Validation & Live Margin Preview in `ProductForm.jsx`.
+      * Smart SKU auto-generator & Category auto-resolution on create.
+      * Instant catalog cache invalidation & table re-fetch on successful creation.
+
+[✓] C4. T10: Update Product API Endpoint (`PUT /api/products/:id`) + Historic Preservation
+    - Backend Safe Modification Pipeline:
+      * Endpoint: `PUT /api/products/:id` with Zod partial schema validation.
+      * Self-SKU Idempotency: Allows revising sellingPrice, costPrice, packSize, description, or packagingType while retaining existing SKU without collision errors.
+      * Duplicate Conflict Guard: Checks other products in the same store to prevent SKU/Barcode collisions on edit (409 `SKU_ALREADY_EXISTS` / `BARCODE_ALREADY_EXISTS`).
+      * Category Tenant Ownership Guard: If categoryId is modified, verifies it belongs to the active store (400 `INVALID_CATEGORY`).
+      * Block Edit on Archived: Requires restoring an archived product before editing (400 `CANNOT_UPDATE_ARCHIVED_PRODUCT`).
+      * **Historic Invoice Preservation Guarantee:** Updating the product's base price modifies future billing defaults, while past `InvoiceItem` snapshots (`soldPrice`, `costPrice`) remain 100% immutable and unmutated.
+    - Frontend Implementation:
+      * API Client: `updateProduct(id, payload)` in `Frontend/src/services/product.api.js`.
+      * Edit Modal: `openEdit(product)` pre-fills all attributes into `ProductForm.jsx`.
+      * Live margin re-calculation on edit.
+      * In-place list re-fetch and toast confirmation upon save.
+
+[✓] C5. T11: Archive / Soft-Delete Product API (`DELETE /api/products/:id`, `POST /:id/archive`, `POST /:id/restore`)
+    - Backend Soft-Deletion & Integrity Architecture:
+      * Zero Data Loss Guarantee: Hard deletes (`Product.deleteOne` / `destroy`) are strictly forbidden across the core database.
+      * Safe Soft-Delete (`DELETE /api/products/:id` & `POST /api/products/:id/archive`): Marks `isArchived = true`, `isActive = false`, and records `archivedAt = timestamp`.
+      * Catalog Exclusion: Default product queries (`GET /api/products`) automatically exclude archived items from POS checkout and sales search.
+      * Restoration Endpoint (`POST /api/products/:id/restore`): Seamlessly unarchives and reactivates products (`isArchived = false`, `isActive = true`, `archivedAt = null`).
+      * **Historic Invoice Preservation Guarantee:** Historic sales invoices, credit notes, customer khata records, and audit logs that reference archived products remain 100% valid, accessible, and mathematically unbroken.
+    - Frontend Implementation:
+      * API Client: `archiveProduct(id)`, `restoreProduct(id)`, `deleteProduct(id)` in `Frontend/src/services/product.api.js`.
+      * Status Tabs: "Active", "All", and "Archived" toggle pills in `ProductFilters.jsx`.
+      * Confirmation Modal: `ArchiveProductModal.jsx` with warning notice on preserving historic invoices.
+      * Action Buttons: Archive button on active items, Restore button (`RotateCcw`) on archived items in `ProductTable.jsx`.
+
+[✓] C6. T12: Product Cursor Pagination & Payload Shaping Engine (`GET /api/products`)
+    - High-Performance Seek Query Architecture:
+      * `GET /api/products?limit=20&cursor=...` delivers ultra-fast infinite scrolling without expensive `skip()` offsets.
+      * Base64 URL-safe opaque cursor encoding & decoding (`src/utils/pagination.js`).
+      * Limit controls: Capped between 1 and 100 (Default: 20) preventing denial-of-service memory exhaustion.
+      * **Payload Shaping:** Returns lightweight JSON projections tailored for mobile and web screens without heavy over-fetching.
+    - Fast POS Barcode Scanner Lookup endpoint (`GET /api/products/barcode/:barcode`).
+
+[✓] C7. T14: Product Elastic Search & Instant POS Filter Engine (`GET /api/products/search` & `GET /api/products?search=...`)
+    - High-Speed Multi-Field Search Architecture:
+      * Fast matching across SKU, Barcode, Name, and Category names with zero delay.
+      * Category-aware search: Querying category names (e.g. "Dairy", "Beverages", "Snacks") automatically resolves category IDs and fetches all child products.
+      * Optimized Indexes in `product.model.js`:
+        - `{ businessId: 1, isArchived: 1, name: 1 }`
+        - `{ businessId: 1, isArchived: 1, sku: 1 }`
+        - `{ businessId: 1, isArchived: 1, barcode: 1 }`
+        - `{ name: "text", sku: "text", barcode: "text", description: "text" }`
+      * Dedicated POS Rapid Lookup endpoint (`GET /api/products/search?q=...&categoryId=...`).
+[✓] C8. T15: Inventory Store State Master Model & Reorder Engine (`/api/inventory`)
+    - Inventory Master Database Architecture:
+      * Mongoose Model `Inventory` linked directly to base `Product` (`productId`) with multi-tenant compound unique index `{ businessId: 1, productId: 1 }`.
+      * Physical current quantity tracking: `availableStock` (min 0), `reorderLevel` (min 0, default 5), `reservedStock` (default 0), and auto-calculated `lowStockAlert` (pre-save trigger).
+      * REST API Endpoints:
+        - `GET /api/inventory/summary`: Fast aggregate metrics (Total SKUs, In-Stock count, Low-Stock alerts, Out-of-Stock, Total Asset Valuation).
+        - `GET /api/inventory/store-state`: Full inventory list merging active products with their current physical quantities, reorder levels, and asset valuations.
+        - `GET /api/inventory/product/:productId`: Single product stock status.
+        - `PUT /api/inventory/product/:productId/reorder-level`: Update low stock threshold with auto-recalculated alert flag.
+        - `POST /api/inventory/adjust`: Direct physical stock adjustment with audit notes.
+
+[✓] C9. T16: Inventory Ledger Schema Model & Atomic Movement Engine (`/api/inventory/ledger`, `/stock-in`, `/stock-out`, `/adjust`)
+    - Core Architectural Rule: "Never overwrite stock directly. All stock movement written as ledger logs."
+    - Immutable Audit Model `InventoryLedger`:
+      * Tracks `businessId`, `productId`, `qtyChange` (signed +/-), `balanceAfter` (snapshot), `type` (`IN`, `OUT`, `ADJUST`, `OPENING`, `RETURN`), `reason`, `invoiceId`, `referenceId`, and `notes`.
+      * Compound Indexes: `{ businessId: 1, productId: 1, createdAt: -1 }`, `{ businessId: 1, type: 1, createdAt: -1 }`, `{ businessId: 1, createdAt: -1 }`, `{ businessId: 1, invoiceId: 1 }`.
+    - Atomic Movement Engine (`recordStockMovement`):
+      * Prevents negative stock overselling (`INSUFFICIENT_STOCK` 400 rejection).
+      * Creates immutable ledger log entry and atomically updates `Inventory.availableStock` & `lowStockAlert`.
+      * Mathematically verifiable: `availableStock === sum(all ledger qtyChanges)`.
+    - REST Endpoints:
+      * `POST /api/inventory/stock-in`: Record purchase / stock arrival (`+qty`, `type: 'IN'`).
+      * `POST /api/inventory/stock-out`: Record sale / dispatch (`-qty`, `type: 'OUT'`, invoice reference).
+      * `POST /api/inventory/adjust`: Record physical count reconciliation (`type: 'ADJUST'`, auto-computes delta).
+      * `GET /api/inventory/ledger`: Paginated timeline audit query filtered by type and date.
+      * `GET /api/inventory/product/:productId/ledger`: Product-specific movement history.
+    - Frontend Implementation (`InventoryAuditPage.jsx`):
+      * Multi-tab layout: "Current Stock State (T15)" and "Movement Ledger Audit Trail (T16)".
+      * Filter movements by type (`ALL`, `IN`, `OUT`, `ADJUST`, `OPENING`, `RETURN`).
+      * Colored badges for movement types (+IN green, -OUT red, ~ADJUST amber, *OPENING blue).
+      * Interactive Modals for Stock-In, Stock-Out, Adjust Stock, and Reorder Threshold with instant ledger synchronization.
+
+[✓] C10. T17: Opening Stock Initialization API (`POST /api/products` with `openingStock` & `POST /api/inventory/opening-stock`)
+    - Purpose & Core Rule: Establish official starting physical stock for newly cataloged or existing products, creating an audited first ledger log with `type: 'OPENING'`.
+    - Integrated Product Creation Pipeline:
+      * `POST /api/products` supports `openingStock`, `initialStock`, `reorderLevel`, and `openingStockNotes`.
+      * Automatically provisions `Inventory` master record and creates an immutable `OPENING` transaction in `InventoryLedger` with `qtyChange = openingStock` and `balanceAfter = openingStock`.
+      * Does not generate redundant 0-quantity logs when `openingStock = 0`.
+    - Standalone Initialization API Endpoint:
+      * `POST /api/inventory/opening-stock`: Directly initialize starting balance for existing catalog items.
+    - Mathematical Audit Verification:
+      * `availableStock === sum(all ledger qtyChanges)` where initial base starts with audited `OPENING` entry.
+    - Frontend Integration (`ProductForm.jsx` & `ProductsPage.jsx`):
+      * Clean input fields for "Opening Qty" and "Opening Note" with real-time balance badge.
+      * Auto-syncs with inventory ledger timeline and store state metrics.
+
+[✓] C11. T18: Stock IN (Addition) Endpoint with Detailed Source Logs (`POST /api/inventory/stock-in`)
+    - Purpose & Core Rule: Increments physical inventory count and writes detailed transaction logs with source details (Purchase, Goods Receipt, Manual, Return, Transfer, Other).
+    - Rich Source Details Model (`InventoryLedger`):
+      * Tracks `source` (`PURCHASE`, `GOODS_RECEIPT`, `MANUAL`, `RETURN`, `TRANSFER`, `OTHER`).
+      * Captures `supplierName`, `unitCost` (purchase price / unit), and `referenceNumber` (PO#, Bill#, GRN#).
+      * Compound Indexes: `{ businessId: 1, source: 1, createdAt: -1 }`.
+    - Atomic Execution Guarantee:
+      * Positively increments `Inventory.availableStock` (+qty), updates `lastRestockedAt = new Date()`, and auto-recalculates `lowStockAlert`.
+      * Mathematically verifiable: `availableStock === sum(all ledger qtyChanges)`.
+    - Frontend Stock In Modal & Ledger History UI (`InventoryAuditPage.jsx`):
+      * Source dropdown selector with supplier name, unit cost (₹), reference #, and remarks.
+      * Live ledger timeline displays `IN • PURCHASE` source badge, supplier info, unit purchase price, and PO reference.
 
 ================================================================================
 3. ROADMAP & UPCOMING TASKS (KYA BAAKI HAI)
 ================================================================================
 
---- [PHASE 2 : INVENTORY & CATALOG CORE] ---
-[ ] T9. Inventory Stock Tracking & Real-time Ledger Updates (/api/inventory).
-[ ] T10. Low Stock & Expiry Alert Engine (/api/inventory/alerts).
+[✓] C12. T19: Stock OUT (Reduction) Endpoint & Insufficient Stock Prevention Engine (`POST /api/inventory/stock-out`, `POST /api/inventory/stock-out/batch`)
+    - Purpose & Core Rule: "Deducts sold/used quantity and records an audited OUT transaction linked to sales invoices. Stock is never overwritten directly."
+    - Rich Sales & OUT Source Details:
+      * Tracks `source`: `SALE`, `POS_CHECKOUT`, `DAMAGE`, `EXPIRED`, `RETURN_TO_VENDOR`, `SAMPLE`, `MANUAL`, `OTHER`.
+      * Captures `invoiceId`, `invoiceNumber`, `customerName`, `referenceNumber`, and `reason`.
+      * Multi-tenant Compound Indexes: `{ businessId: 1, source: 1, createdAt: -1 }`, `{ businessId: 1, invoiceId: 1 }`.
+    - Strict Insufficient Stock Prevention:
+      * Validates `availableStock >= quantity`. If insufficient, instantly blocks deduction and throws 400 `INSUFFICIENT_STOCK` error (never allows negative stock).
+    - Batch POS Checkout API (`POST /api/inventory/stock-out/batch`):
+      * Enables automated POS checkout to deduct entire cart item arrays atomically with invoice linking.
+    - Mathematical Audit Verification:
+      * $\sum(\text{all ledger qtyChanges}) \equiv \text{availableStock}$.
+    - Frontend Stock Out Modal & Ledger Timeline UI (`InventoryAuditPage.jsx`):
+      * Interactive modal with source picker (`SALE`, `DAMAGE`, `EXPIRED`, `SAMPLE`, etc.), invoice # reference, customer name, and notes.
+      * Live ledger timeline displays `OUT • SALE` badges, linked invoice details, and exact balance snapshots.
+
+[✓] C13. T20: Stock Reconciliation / Adjust API & Reason Logging (`POST /api/inventory/adjust`)
+    - Purpose & Core Rule: "Reconciles physical store stock with system count and records adjustments (Audits, Damages, Spillages, Discrepancies) into an immutable ledger trail. Preserves mathematical integrity."
+    - Discrepancy & Reason Preservation:
+      * Accepts either `physicalCount` or `newStock` and auto-calculates delta (`qtyChange = physicalCount - previousStock`).
+      * Source categories: `AUDIT_RECONCILIATION`, `DAMAGE`, `EXPIRED`, `SPILLAGE`, `THEFT_SHRINKAGE`, `FOUND_STOCK`, `CORRECTION`, `MANUAL`, `OTHER`.
+      * Captures `referenceNumber` (Audit batch ID), `reason`, and `notes`.
+      * Multi-tenant Compound Indexes: `{ businessId: 1, source: 1, createdAt: -1 }`.
+    - Mathematical Audit Verification:
+      * $\sum(\text{all ledger qtyChanges}) \equiv \text{availableStock}$.
+    - Frontend Physical Reconciliation Modal (`InventoryAuditPage.jsx`):
+      * Real-time Discrepancy Calculator comparing System Stock vs Physical Count with live +surplus / -shortage color badges.
+      * Reason dropdown selector, audit reference batch ID, auditor notes, and instant store state + ledger timeline sync.
+
+[✓] C14. T21: Inventory Ledger Auditing Log UI & Stock Flow Statement Engine (`GET /api/inventory/ledger`)
+    - Purpose & Core Rule: "T16 saves stock movements to the DB; T21 displays that historical ledger as a readable, searchable 'Bank Statement' answering WHO, WHEN, WHY, and WHAT changed stock levels."
+    - Complete "Who, When, Why, What" Audit Schema:
+      * WHO: `createdBy` (ObjectId ref Account) + `createdByName` (Snapshot actor name).
+      * WHEN: `createdAt` (ISO timestamp).
+      * WHY: `type` (IN/OUT/ADJUST/OPENING/RETURN), `source`, `reason`, `referenceNumber` (INV#/PO#/Audit#), `unitCost`, `supplierName`.
+      * WHAT: `productId` (populated with name, sku, category, unit), `qtyChange` (+/- delta), and `balanceAfter`.
+    - Multi-dimensional Filtering & Search:
+      * Product Selector (`ALL` or specific product filter).
+      * Movement Type Pills (`ALL`, `IN (+)`, `OUT (-)`, `ADJUST (~)`, `OPENING (*)`, `RETURN (<)`).
+      * Source Categories (`PURCHASE`, `SALE`, `INITIAL`, `DAMAGE`, `CYCLE_COUNT`, `RETURN_IN`, `RETURN_OUT`, `AUDIT_CORRECTION`).
+      * Date Presets (`ALL`, `TODAY`, `LAST_7_DAYS`, `LAST_30_DAYS`, `CUSTOM` with date pickers).
+      * Full-text regex search over reference numbers, reasons, suppliers, actor names, and notes.
+    - Real-time Bank Statement Summary Strip:
+      * Aggregates Total Inflow (`totalInQty`), Total Outflow (`totalOutQty`), Net Flow (`netFlowQty`), and Total Entries (`totalEntries`).
+    - 1-Click Statement CSV Export:
+      * `handleExportCSV` creates downloadable spreadsheet statements for physical store audits.
+    - Automated Test Suite:
+      * `Backend/tests/test-inventory-ledger-ui.js` verifying schema persistence, multi-filter simulation, flow metric calculations, and mathematical audit checks.
+
+[✓] C15. T22: Low-Stock Limit Notifications & Deterministic Alerts Queue Engine (`/api/inventory/alerts`)
+    - Purpose & Core Rule: "Deterministic engine checking items falling below defined ReorderLevel. Sends low-stock triggers to alerts queue with zero duplicate spamming."
+    - Deterministic Rule Engine ($Input \to Deterministic Output$):
+      * $\text{IF availableStock} \le \text{reorderLevel} \implies \text{Trigger / Update Alert}$
+      * $\text{IF availableStock} > \text{reorderLevel} \implies \text{Auto-Resolve Active Alert}$
+    - Severity Differentiation:
+      * `availableStock <= 0` $\implies$ `CRITICAL (OUT_OF_STOCK)`
+      * `availableStock <= reorderLevel` $\implies$ `WARNING (LOW_STOCK)`
+      * Computes exact shortage deficit: `deficitQty = reorderLevel - availableStock`.
+    - Zero Duplicate Spamming (Deduplication Guarantee):
+      * Consecutive stock deductions update existing `UNREAD`/`ACKNOWLEDGED` alert's `currentStock`, `deficitQty`, and `severity` rather than creating duplicate rows.
+    - Replenishment Auto-Resolution:
+      * Stock In or physical adjustment bringing stock above threshold automatically sets `status: 'RESOLVED'` and records `resolvedAt`.
+    - Alert Queue APIs:
+      * `GET /api/inventory/alerts`: Filter by status (`ALL_ACTIVE`, `UNREAD`, `ACKNOWLEDGED`, `RESOLVED`, `ALL`), severity (`CRITICAL`, `WARNING`), product search, and pagination.
+      * `GET /api/inventory/alerts/summary`: Real-time KPI counter metrics.
+      * `PUT /api/inventory/alerts/:id/acknowledge`: Mark alert acknowledged with auditor stamp.
+      * `PUT /api/inventory/alerts/:id/resolve`: Manually resolve alert.
+      * `POST /api/inventory/alerts/sync`: Store-wide deterministic sweep.
+    - Frontend Alerts Queue Deck (`InventoryAuditPage.jsx` Tab 3):
+      * Live active notification badge in main tab switcher (`alertsSummary.totalActive`).
+      * KPI Cards (Active Triggers, Critical OOS, Low Stock Warnings, Auto-Resolved).
+      * Stock vs Reorder Level visual progress bar gauge with deficit pill.
+      * 1-Click **"Restock Now"** shortcut prefilling Stock-In modal with deficit quantity.
+      * "Ack" and "Resolve" inline action buttons.
+    - Automated Test Suite:
+      * `Backend/tests/test-low-stock-notifications.js` (100% tests passing).
+
+================================================================================
+3. ROADMAP & UPCOMING TASKS (KYA BAAKI HAI)
+================================================================================
+
+--- [PHASE 3 : INVENTORY FOUNDATION & ALERT ENGINE] ---
+[✓] T15. Inventory Store State Master Model (DONE)
+[✓] T16. Inventory Ledger Schema Model & Atomic Movement Engine (DONE)
+[✓] T17. Opening Stock Initialization API (DONE)
+[✓] T18. Stock IN (Addition) Endpoint & Source Logs (DONE)
+[✓] T19. Stock OUT (Reduction) Endpoint & Insufficient Stock Guard (DONE)
+[✓] T20. Stock Reconciliation / Adjust API & Reason Logging (DONE)
+[✓] T21. Inventory Ledger Auditing Log UI & Stock Flow Statement Engine (DONE)
+[✓] T22. Low-Stock Limit Notifications & Deterministic Alerts Queue Engine (DONE)
+
 
 --- [PHASE 3 : BILLING, INVOICING & KHATA] ---
 [ ] T11. Fast Point-of-Sale (POS) & Invoice Generation (/api/invoices).

@@ -40,6 +40,24 @@ const getProducts = async (req, res, next) => {
   }
 };
 
+const searchProducts = async (req, res, next) => {
+  try {
+    const result = await productService.searchProducts(
+      req.businessId,
+      req.query
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result.data,
+      count: result.count,
+      query: result.query,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getProductById = async (req, res, next) => {
   try {
     const product = await productService.getProductById(
@@ -144,6 +162,7 @@ const deleteProduct = async (req, res, next) => {
 module.exports = {
   createProduct,
   getProducts,
+  searchProducts,
   getProductById,
   getProductByBarcode,
   updateProduct,

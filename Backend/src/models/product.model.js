@@ -113,6 +113,15 @@ productSchema.index({ businessId: 1, isArchived: 1, _id: -1 });
 productSchema.index({ businessId: 1, isArchived: 1, createdAt: -1 });
 productSchema.index({ businessId: 1, categoryId: 1, isArchived: 1, _id: -1 });
 
+// 4. Task T14: Optimized Search & Instant Filter Indexes for POS & Catalog
+productSchema.index({ businessId: 1, isArchived: 1, name: 1 });
+productSchema.index({ businessId: 1, isArchived: 1, sku: 1 });
+productSchema.index({ businessId: 1, isArchived: 1, barcode: 1 });
+productSchema.index(
+  { name: "text", sku: "text", barcode: "text", description: "text" },
+  { weights: { name: 10, sku: 8, barcode: 5, description: 1 } }
+);
+
 const Product = mongoose.model("Product", productSchema);
 
 module.exports = Product;

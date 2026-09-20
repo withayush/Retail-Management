@@ -1,4 +1,5 @@
 const Product = require("../models/product.model");
+const Category = require("../models/category.model");
 
 /**
  * Product Repository Layer
@@ -30,12 +31,28 @@ const findProductsByBusinessId = async (businessId, filters = {}) => {
     query.isActive = filters.isActive === "true" || filters.isActive === true;
   }
 
-  if (filters.search) {
-    query.$or = [
-      { name: { $regex: filters.search, $options: "i" } },
-      { sku: { $regex: filters.search, $options: "i" } },
-      { barcode: { $regex: filters.search, $options: "i" } },
+  if (filters.search && filters.search.trim()) {
+    const searchTerm = filters.search.trim();
+
+    // 1. Check if the search term matches any category name in this business
+    const matchingCategories = await Category.find({
+      businessId,
+      name: { $regex: searchTerm, $options: "i" },
+    }).select("_id");
+
+    const categoryIds = matchingCategories.map((c) => c._id);
+
+    const searchConditions = [
+      { name: { $regex: searchTerm, $options: "i" } },
+      { sku: { $regex: searchTerm, $options: "i" } },
+      { barcode: { $regex: searchTerm, $options: "i" } },
     ];
+
+    if (categoryIds.length > 0) {
+      searchConditions.push({ categoryId: { $in: categoryIds } });
+    }
+
+    query.$or = searchConditions;
   }
 
   // Cursor pagination seek: fetches records with _id < cursorId (Newest first)
@@ -59,6 +76,57 @@ const findProductsByBusinessId = async (businessId, filters = {}) => {
     rawProducts: products,
     limit,
   };
+};
+
+/**
+ * Task T14: Fast Search & Filter for POS & Typeahead
+ * Rapidly matches SKU, Name, Barcode, or Category with high priority.
+ */
+const searchProducts = async (businessId, { query = "", limit = 20, categoryId = null, includeArchived = false }) => {
+  const dbQuery = { businessId };
+
+  if (!includeArchived) {
+    dbQuery.isArchived = false;
+    dbQuery.isActive = true;
+  }
+
+  if (categoryId) {
+    dbQuery.categoryId = categoryId;
+  }
+
+  const cleanTerm = (query || "").trim();
+
+  if (cleanTerm) {
+    // 1. Resolve matching categories
+    const matchingCategories = await Category.find({
+      businessId,
+      name: { $regex: cleanTerm, $options: "i" },
+    }).select("_id");
+
+    const matchedCategoryIds = matchingCategories.map((c) => c._id);
+
+    const searchConditions = [
+      { name: { $regex: cleanTerm, $options: "i" } },
+      { sku: { $regex: cleanTerm, $options: "i" } },
+      { barcode: { $regex: cleanTerm, $options: "i" } },
+    ];
+
+    if (matchedCategoryIds.length > 0) {
+      searchConditions.push({ categoryId: { $in: matchedCategoryIds } });
+    }
+
+    dbQuery.$or = searchConditions;
+  }
+
+  const cappedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+
+  return await Product.find(dbQuery)
+    .select(
+      "_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description isActive isArchived createdAt"
+    )
+    .populate("categoryId", "name description")
+    .sort({ updatedAt: -1, _id: -1 })
+    .limit(cappedLimit);
 };
 
 const findProductById = async (businessId, productId) => {
@@ -135,6 +203,7 @@ const deleteProductById = async (businessId, productId) => {
 module.exports = {
   createProduct,
   findProductsByBusinessId,
+  searchProducts,
   findProductById,
   findProductBySku,
   findProductByBarcode,

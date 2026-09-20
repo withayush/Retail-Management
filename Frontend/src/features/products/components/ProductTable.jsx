@@ -21,8 +21,9 @@ export default function ProductTable({
   search = "",
   selectedCategory = "",
   page = 1,
-  totalPages = 1,
-  totalItems = 0,
+  hasMore = false,
+  limit = 15,
+  onLimitChange,
   onPageChange,
   onEdit,
   onArchive,
@@ -244,15 +245,27 @@ export default function ProductTable({
         </table>
       </div>
 
-      {/* Pagination Footer */}
+      {/* Pagination Footer with Cursor Controls */}
       {!loading && products.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border bg-secondary/20 text-xs text-muted-foreground">
-          <div>
-            Showing <strong className="text-foreground">{products.length}</strong> items
-            {totalItems > 0 && (
-              <span>
-                {" "}of <strong className="text-foreground">{totalItems}</strong> total
-              </span>
+          <div className="flex items-center gap-3">
+            <span>
+              Showing <strong className="text-foreground">{products.length}</strong> products
+            </span>
+            {onLimitChange && (
+              <div className="flex items-center gap-1.5 pl-3 border-l border-border">
+                <span className="text-[11px]">Per page:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => onLimitChange(Number(e.target.value))}
+                  className="bg-background border border-border text-foreground rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
             )}
           </div>
 
@@ -265,13 +278,13 @@ export default function ProductTable({
               <ChevronLeft className="w-3.5 h-3.5" /> Prev
             </button>
 
-            <span className="px-2 font-mono text-foreground font-semibold">
-              Page {page} of {totalPages || 1}
+            <span className="px-2.5 py-1 rounded bg-secondary/80 border border-border font-mono text-foreground font-semibold text-xs">
+              Page {page}
             </span>
 
             <button
               onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
+              disabled={!hasMore}
               className="px-3 py-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1 cursor-pointer font-medium"
             >
               Next <ChevronRight className="w-3.5 h-3.5" />

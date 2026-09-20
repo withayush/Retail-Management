@@ -66,6 +66,29 @@ const createProductSchema = z.object({
     .boolean()
     .optional()
     .default(true),
+
+  openingStock: z
+    .number()
+    .min(0, "Opening stock cannot be negative.")
+    .optional()
+    .default(0),
+
+  initialStock: z
+    .number()
+    .min(0, "Initial stock cannot be negative.")
+    .optional(),
+
+  reorderLevel: z
+    .number()
+    .min(0, "Reorder level cannot be negative.")
+    .optional()
+    .default(5),
+
+  openingStockNotes: z
+    .string()
+    .trim()
+    .max(300)
+    .optional(),
 });
 
 const updateProductSchema = createProductSchema.partial();
