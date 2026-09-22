@@ -59,24 +59,26 @@ const createProduct = async (businessId, payload) => {
   const defaultReorder = !isNaN(customReorder) && customReorder >= 0 ? customReorder : 5;
   const initialStockQty = Number(payload.openingStock ?? payload.initialStock ?? payload.availableStock ?? 0);
 
-  const inventoryRepo = require("../repositories/inventory.repository");
-  if (!isNaN(initialStockQty) && initialStockQty > 0) {
-    // Record audited opening balance in ledger and set inventory availableStock
-    await inventoryRepo.recordStockMovement({
-      businessId,
-      productId: product._id,
-      qtyChange: initialStockQty,
-      type: "OPENING",
-      reason: "Opening Stock Initial Balance",
-      notes: payload.openingStockNotes || "Seeded upon product creation (T17)",
-    });
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    const inventoryRepo = require("../repositories/inventory.repository");
+    if (!isNaN(initialStockQty) && initialStockQty > 0) {
+      // Record audited opening balance in ledger and set inventory availableStock
+      await inventoryRepo.recordStockMovement({
+        businessId,
+        productId: product._id,
+        qtyChange: initialStockQty,
+        type: "OPENING",
+        reason: "Opening Stock Initial Balance",
+        notes: payload.openingStockNotes || "Seeded upon product creation (T17)",
+      });
 
-    if (defaultReorder !== 5) {
-      await inventoryRepo.updateReorderLevel(businessId, product._id, defaultReorder);
+      if (defaultReorder !== 5) {
+        await inventoryRepo.updateReorderLevel(businessId, product._id, defaultReorder);
+      }
+    } else {
+      // Establish base inventory store state with 0 availableStock and specified reorder threshold
+      await inventoryRepo.getOrCreateInventory(businessId, product._id, 0, defaultReorder);
     }
-  } else {
-    // Establish base inventory store state with 0 availableStock and specified reorder threshold
-    await inventoryRepo.getOrCreateInventory(businessId, product._id, 0, defaultReorder);
   }
 
   return product;
@@ -119,28 +121,62 @@ const getProducts = async (businessId, filters = {}) => {
     ? encodeCursor({ id: lastProduct._id.toString() })
     : null;
 
-  // 5. Payload Shaping (Restricts return payload to lightweight, fast-rendering representation for mobile/web)
-  const data = products.map((prod) => ({
-    id: prod._id,
-    name: prod.name,
-    sku: prod.sku,
-    barcode: prod.barcode || null,
-    sellingPrice: prod.sellingPrice,
-    costPrice: prod.costPrice,
-    unit: prod.unit || "pcs",
-    packSize: prod.packSize || 1,
-    packagingType: prod.packagingType || "",
-    category: prod.categoryId
-      ? {
-          id: prod.categoryId._id || prod.categoryId,
-          name: prod.categoryId.name || "Uncategorized",
-        }
-      : null,
-    description: prod.description || "",
-    isActive: prod.isActive,
-    isArchived: prod.isArchived,
-    createdAt: prod.createdAt,
-  }));
+  // 5. Fetch live inventory stock state for these products
+  const { Inventory } = require("../models/inventory.model");
+  const productIds = products.map((p) => p._id);
+  let inventories = [];
+  try {
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      inventories = await Inventory.find({
+        businessId,
+        productId: { $in: productIds },
+      }).lean();
+    }
+  } catch {
+    inventories = [];
+  }
+
+  const invMap = new Map();
+  for (const inv of inventories) {
+    invMap.set(inv.productId.toString(), inv);
+  }
+
+  // 6. Payload Shaping (Restricts return payload to lightweight, fast-rendering representation for mobile/web)
+  const data = products.map((prod) => {
+    const inv = invMap.get(prod._id.toString());
+    const availableStock = inv ? inv.availableStock : 0;
+    const reorderLevel = inv ? inv.reorderLevel : 5;
+    const lowStockAlert = availableStock <= reorderLevel;
+    let stockStatus = "IN_STOCK";
+    if (availableStock <= 0) stockStatus = "OUT_OF_STOCK";
+    else if (availableStock <= reorderLevel) stockStatus = "LOW_STOCK";
+
+    return {
+      id: prod._id,
+      name: prod.name,
+      sku: prod.sku,
+      barcode: prod.barcode || null,
+      sellingPrice: prod.sellingPrice,
+      costPrice: prod.costPrice,
+      unit: prod.unit || "pcs",
+      packSize: prod.packSize || 1,
+      packagingType: prod.packagingType || "",
+      category: prod.categoryId
+        ? {
+            id: prod.categoryId._id || prod.categoryId,
+            name: prod.categoryId.name || "Uncategorized",
+          }
+        : null,
+      description: prod.description || "",
+      availableStock,
+      reorderLevel,
+      lowStockAlert,
+      stockStatus,
+      isActive: prod.isActive,
+      isArchived: prod.isArchived,
+      createdAt: prod.createdAt,
+    };
+  });
 
   return {
     data,
@@ -176,26 +212,59 @@ const searchProducts = async (businessId, queryParams = {}) => {
     includeArchived: queryParams.includeArchived === "true" || queryParams.includeArchived === true,
   });
 
-  const data = rawProducts.map((prod) => ({
-    id: prod._id,
-    name: prod.name,
-    sku: prod.sku,
-    barcode: prod.barcode || null,
-    sellingPrice: prod.sellingPrice,
-    costPrice: prod.costPrice,
-    unit: prod.unit || "pcs",
-    packSize: prod.packSize || 1,
-    packagingType: prod.packagingType || "",
-    category: prod.categoryId
-      ? {
-          id: prod.categoryId._id || prod.categoryId,
-          name: prod.categoryId.name || "Uncategorized",
-        }
-      : null,
-    description: prod.description || "",
-    isActive: prod.isActive,
-    isArchived: prod.isArchived,
-  }));
+  const { Inventory } = require("../models/inventory.model");
+  const productIds = rawProducts.map((p) => p._id);
+  let inventories = [];
+  try {
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      inventories = await Inventory.find({
+        businessId,
+        productId: { $in: productIds },
+      }).lean();
+    }
+  } catch {
+    inventories = [];
+  }
+
+  const invMap = new Map();
+  for (const inv of inventories) {
+    invMap.set(inv.productId.toString(), inv);
+  }
+
+  const data = rawProducts.map((prod) => {
+    const inv = invMap.get(prod._id.toString());
+    const availableStock = inv ? inv.availableStock : 0;
+    const reorderLevel = inv ? inv.reorderLevel : 5;
+    const lowStockAlert = availableStock <= reorderLevel;
+    let stockStatus = "IN_STOCK";
+    if (availableStock <= 0) stockStatus = "OUT_OF_STOCK";
+    else if (availableStock <= reorderLevel) stockStatus = "LOW_STOCK";
+
+    return {
+      id: prod._id,
+      name: prod.name,
+      sku: prod.sku,
+      barcode: prod.barcode || null,
+      sellingPrice: prod.sellingPrice,
+      costPrice: prod.costPrice,
+      unit: prod.unit || "pcs",
+      packSize: prod.packSize || 1,
+      packagingType: prod.packagingType || "",
+      category: prod.categoryId
+        ? {
+            id: prod.categoryId._id || prod.categoryId,
+            name: prod.categoryId.name || "Uncategorized",
+          }
+        : null,
+      description: prod.description || "",
+      availableStock,
+      reorderLevel,
+      lowStockAlert,
+      stockStatus,
+      isActive: prod.isActive,
+      isArchived: prod.isArchived,
+    };
+  });
 
   return {
     data,

@@ -7,6 +7,7 @@ const Customer = require("./customer.model");
 const { Inventory, InventoryLedger } = require("./inventory.model");
 const InventoryAlert = require("./inventoryAlert.model");
 const Invoice = require("./invoice.model");
+const SaleItem = require("./saleItem.model");
 const OtpChallenge = require("./otpChallenge.model");
 const Payment = require("./payment.model");
 const Product = require("./product.model");
@@ -24,6 +25,8 @@ module.exports = {
   InventoryLedger,
   InventoryAlert,
   Invoice,
+  Sale: Invoice,
+  SaleItem,
   OtpChallenge,
   Payment,
   Product,

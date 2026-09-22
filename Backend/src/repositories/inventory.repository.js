@@ -414,6 +414,126 @@ const findLedgerEntries = async (businessId, filters = {}) => {
   };
 };
 
+/**
+ * Phase 4 - Task T26: Auto Inventory Deductions
+ * Service-level execution mapping Sale Line Items directly to atomic Stock OUT deductions and audited ledger logs.
+ */
+const autoDeductInventoryForSale = async (
+  businessId,
+  {
+    saleId,
+    invoiceNumber,
+    items = [],
+    createdBy = null,
+    createdByName = "",
+    source = "POS_CHECKOUT",
+    notes = "",
+  },
+  session = null
+) => {
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return { deductions: [], ledgerEntries: [] };
+  }
+
+  const sessionOpt = session ? { session } : {};
+  const productIds = items.map((it) => it.productId).filter(Boolean);
+
+  // 1. Fetch current inventory records
+  const dbInventories = await Inventory.find({
+    businessId,
+    productId: { $in: productIds },
+  }).session(session);
+
+  const inventoryMap = new Map();
+  for (const inv of dbInventories) {
+    inventoryMap.set(inv.productId.toString(), inv);
+  }
+
+  // 2. Pre-flight verification (prevent partial deduction / overselling)
+  for (const item of items) {
+    const prodIdStr = (item.productId?._id || item.productId || "").toString();
+    const existingInv = inventoryMap.get(prodIdStr);
+    const availableStock = existingInv ? existingInv.availableStock : 0;
+    const requestedQty = Number(item.quantity || item.qty || 1);
+
+    if (!existingInv || availableStock < requestedQty) {
+      const error = new Error(
+        `Insufficient stock for '${item.name || "Product"}'. Available: ${availableStock}, Requested: ${requestedQty}`
+      );
+      error.statusCode = 400;
+      error.code = "INSUFFICIENT_STOCK";
+      error.productId = item.productId;
+      error.productName = item.name;
+      error.availableStock = availableStock;
+      error.requestedQuantity = requestedQty;
+      throw error;
+    }
+  }
+
+  // 3. Execute atomic stock reductions and prepare ledger entries
+  const deductions = [];
+  const ledgerDocs = [];
+
+  for (const item of items) {
+    const prodIdStr = (item.productId?._id || item.productId || "").toString();
+    const existingInv = inventoryMap.get(prodIdStr);
+    const requestedQty = Number(item.quantity || item.qty || 1);
+    const newStock = existingInv.availableStock - requestedQty;
+
+    existingInv.availableStock = newStock;
+    existingInv.lowStockAlert = newStock <= existingInv.reorderLevel;
+    await existingInv.save(sessionOpt);
+
+    deductions.push({
+      productId: existingInv.productId,
+      previousStock: existingInv.availableStock + requestedQty,
+      newStock,
+      deductedQuantity: requestedQty,
+    });
+
+    ledgerDocs.push({
+      businessId,
+      productId: existingInv.productId,
+      qtyChange: -Math.abs(requestedQty),
+      balanceAfter: newStock,
+      type: "OUT",
+      source: source || "POS_CHECKOUT",
+      referenceNumber: invoiceNumber || "",
+      invoiceId: saleId || null,
+      reason: invoiceNumber ? `POS Sale Checkout #${invoiceNumber}` : "POS Sale Checkout",
+      createdBy,
+      createdByName,
+      notes: notes || `Auto-deducted for Invoice ${invoiceNumber || ""}`,
+    });
+  }
+
+  let createdLedgers = [];
+  if (ledgerDocs.length > 0) {
+    createdLedgers = await InventoryLedger.insertMany(ledgerDocs, sessionOpt);
+  }
+
+  // 4. Trigger low-stock alert evaluation
+  const { evaluateAndSyncProductLowStockAlert } = require("./inventoryAlert.repository");
+  for (const item of items) {
+    const prodIdStr = (item.productId?._id || item.productId || "").toString();
+    const existingInv = inventoryMap.get(prodIdStr);
+    if (existingInv) {
+      evaluateAndSyncProductLowStockAlert({
+        businessId,
+        productId: existingInv.productId,
+        availableStock: existingInv.availableStock,
+        reorderLevel: existingInv.reorderLevel,
+        productName: item.name,
+      }).catch((err) => console.warn(`[AutoDeduct AlertSync] Error:`, err.message));
+    }
+  }
+
+  return {
+    deductions,
+    ledgerEntries: createdLedgers,
+  };
+};
+
 module.exports = {
   getOrCreateInventory,
   findInventoryByProductId,
@@ -423,4 +543,6 @@ module.exports = {
   recordStockMovement,
   adjustStock,
   findLedgerEntries,
+  autoDeductInventoryForSale,
 };
+

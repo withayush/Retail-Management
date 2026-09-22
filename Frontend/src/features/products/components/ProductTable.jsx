@@ -9,8 +9,6 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
-  TrendingUp,
-  Tag,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { fmt, margin } from "../utils/product.utils";
@@ -40,45 +38,43 @@ export default function ProductTable({
   };
 
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-[#111113] border border-[#1f1f23] rounded-xl overflow-hidden flex flex-col shadow-xs">
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-sm">
+        <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-border bg-secondary/40 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              <th className="py-3.5 px-4">Product & Category</th>
-              <th className="py-3.5 px-4">SKU / Barcode</th>
-              <th className="py-3.5 px-4 text-right">Cost Price</th>
-              <th className="py-3.5 px-4 text-right">Selling Price</th>
-              <th className="py-3.5 px-4 text-center">Margin</th>
-              <th className="py-3.5 px-4 text-center">Status</th>
-              <th className="py-3.5 px-4 text-right">Actions</th>
+            <tr className="border-b border-[#1f1f23] bg-[#141417] text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
+              <th className="py-3 px-4">Product & Category</th>
+              <th className="py-3 px-4">SKU / Barcode</th>
+              <th className="py-3 px-4 text-right">Cost Price</th>
+              <th className="py-3 px-4 text-right">Selling Price</th>
+              <th className="py-3 px-4 text-center">Margin</th>
+              <th className="py-3 px-4 text-center">Status</th>
+              <th className="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-[#1f1f23]">
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-16 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                    <span className="text-sm font-medium">Fetching catalog records...</span>
+                <td colSpan={7} className="py-16 text-center text-zinc-500">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="w-7 h-7 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />
+                    <span className="text-xs">Loading products...</span>
                   </div>
                 </td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-16 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
-                    <div className="w-12 h-12 rounded-2xl bg-secondary/80 border border-border flex items-center justify-center text-muted-foreground">
-                      <Package className="w-6 h-6" />
+                <td colSpan={7} className="py-16 text-center text-zinc-500">
+                  <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                    <div className="w-10 h-10 rounded-xl bg-[#141417] border border-[#27272a] flex items-center justify-center">
+                      <Package className="w-5 h-5 text-zinc-400" />
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground text-base">No products found</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {search || selectedCategory
-                          ? "No matching products found with current filter criteria."
-                          : "Start building your catalog by adding your first product."}
-                      </p>
-                    </div>
+                    <p className="font-semibold text-zinc-200 text-xs">No products found</p>
+                    <p className="text-[11px] text-zinc-500">
+                      {search || selectedCategory
+                        ? "No products matching your search or category filter."
+                        : "Start adding products to your catalog."}
+                    </p>
                   </div>
                 </td>
               </tr>
@@ -89,28 +85,28 @@ export default function ProductTable({
                 const sell = parseFloat(p.sellingPrice ?? p.selling_price ?? 0);
                 const profMargin = margin(cost, sell);
                 const profNum = parseFloat(profMargin);
-                const categoryName = p.category?.name || p.category_name || "Uncategorized";
+                const categoryName = p.category?.name || p.category_name || "General";
                 const isArchived = p.isArchived || p.status === "ARCHIVED";
                 const isActive = p.isActive ?? p.is_active ?? !isArchived;
 
                 return (
                   <tr
                     key={id}
-                    className="hover:bg-secondary/30 transition-colors group"
+                    className="hover:bg-[#151518] transition-colors"
                   >
                     {/* Product Name & Category */}
-                    <td className="py-3.5 px-4 align-middle">
+                    <td className="py-3 px-4 align-middle">
                       <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        <span className="font-semibold text-xs text-zinc-100">
                           {p.name}
                         </span>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 text-[11px] bg-secondary px-2 py-0.5 rounded-md text-muted-foreground font-medium border border-border">
-                            <Layers className="w-3 h-3 text-primary" />
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-zinc-800/80 px-2 py-0.5 rounded text-zinc-400 font-medium border border-zinc-700/60">
+                            <Layers className="w-2.5 h-2.5 text-zinc-400" />
                             {categoryName}
                           </span>
                           {p.unit && (
-                            <span className="text-[11px] text-muted-foreground">
+                            <span className="text-[10px] text-zinc-500">
                               ({p.unit})
                             </span>
                           )}
@@ -119,41 +115,41 @@ export default function ProductTable({
                     </td>
 
                     {/* SKU & Barcode */}
-                    <td className="py-3.5 px-4 align-middle font-mono text-xs">
+                    <td className="py-3 px-4 align-middle font-mono text-xs">
                       <div className="flex flex-col gap-1">
                         {p.sku ? (
                           <div className="flex items-center gap-1.5">
-                            <span className="bg-secondary/80 px-2 py-0.5 rounded border border-border text-foreground font-semibold">
+                            <span className="bg-[#141417] px-1.5 py-0.5 rounded border border-[#27272a] text-zinc-300 font-medium">
                               {p.sku}
                             </span>
                             <button
                               type="button"
                               onClick={() => handleCopy(p.sku, `sku-${id}`)}
-                              className="text-muted-foreground hover:text-foreground transition-colors p-0.5 cursor-pointer"
+                              className="text-zinc-500 hover:text-zinc-200 transition-colors p-0.5 cursor-pointer"
                               title="Copy SKU"
                             >
                               {copiedId === `sku-${id}` ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <Check className="w-3 h-3 text-emerald-400" />
                               ) : (
                                 <Copy className="w-3 h-3" />
                               )}
                             </button>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground text-xs italic">No SKU</span>
+                          <span className="text-zinc-500 text-[11px] italic">No SKU</span>
                         )}
 
                         {p.barcode && (
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
                             <span>{p.barcode}</span>
                             <button
                               type="button"
                               onClick={() => handleCopy(p.barcode, `bar-${id}`)}
-                              className="text-muted-foreground hover:text-foreground transition-colors p-0.5 cursor-pointer"
+                              className="text-zinc-500 hover:text-zinc-200 transition-colors p-0.5 cursor-pointer"
                               title="Copy Barcode"
                             >
                               {copiedId === `bar-${id}` ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <Check className="w-3 h-3 text-emerald-400" />
                               ) : (
                                 <Copy className="w-3 h-3" />
                               )}
@@ -164,76 +160,78 @@ export default function ProductTable({
                     </td>
 
                     {/* Cost Price */}
-                    <td className="py-3.5 px-4 text-right align-middle font-mono text-xs text-muted-foreground">
+                    <td className="py-3 px-4 text-right align-middle font-mono text-xs text-zinc-400">
                       {fmt(cost)}
                     </td>
 
                     {/* Selling Price */}
-                    <td className="py-3.5 px-4 text-right align-middle font-mono text-xs font-bold text-foreground">
+                    <td className="py-3 px-4 text-right align-middle font-mono text-xs font-semibold text-white">
                       {fmt(sell)}
                     </td>
 
                     {/* Margin */}
-                    <td className="py-3.5 px-4 text-center align-middle">
+                    <td className="py-3 px-4 text-center align-middle">
                       <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full font-mono ${
+                        className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
                           profNum >= 25
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : profNum > 0
+                            : profNum >= 10
                             ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            : "bg-destructive/10 text-destructive border border-destructive/20"
+                            : "bg-red-500/10 text-red-400 border border-red-500/20"
                         }`}
                       >
-                        <TrendingUp className="w-3 h-3" />
                         {profMargin}%
                       </span>
                     </td>
 
                     {/* Status */}
-                    <td className="py-3.5 px-4 text-center align-middle">
+                    <td className="py-3 px-4 text-center align-middle">
                       {isArchived ? (
-                        <span className="inline-flex items-center text-[11px] font-semibold bg-muted px-2.5 py-0.5 rounded-full text-muted-foreground border border-border">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">
                           Archived
                         </span>
                       ) : isActive ? (
-                        <span className="inline-flex items-center text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                        <span className="inline-flex items-center text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center text-[11px] font-semibold bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">
                           Inactive
                         </span>
                       )}
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3.5 px-4 text-right align-middle">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => onEdit(p)}
-                          className="p-1.5 rounded-lg border border-transparent hover:border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-all cursor-pointer"
-                          title="Edit product"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                    <td className="py-3 px-4 text-right align-middle">
+                      <div className="inline-flex items-center gap-1">
                         {isArchived ? (
-                          onRestore && (
-                            <button
-                              onClick={() => onRestore(p)}
-                              className="p-1.5 rounded-lg border border-transparent hover:border-emerald-500/30 hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-400 transition-all cursor-pointer"
-                              title="Restore product"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                            </button>
-                          )
-                        ) : (
                           <button
-                            onClick={() => onArchive(p)}
-                            className="p-1.5 rounded-lg border border-transparent hover:border-amber-500/30 hover:bg-amber-500/10 text-muted-foreground hover:text-amber-400 transition-all cursor-pointer"
-                            title="Archive product"
+                            type="button"
+                            onClick={() => onRestore(p)}
+                            title="Restore Product"
+                            className="p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors cursor-pointer"
                           >
-                            <Archive className="w-4 h-4" />
+                            <RotateCcw className="w-3.5 h-3.5" />
                           </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => onEdit(p)}
+                              title="Edit Product"
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onArchive(p)}
+                              title="Archive Product"
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -245,53 +243,42 @@ export default function ProductTable({
         </table>
       </div>
 
-      {/* Pagination Footer with Cursor Controls */}
-      {!loading && products.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border bg-secondary/20 text-xs text-muted-foreground">
-          <div className="flex items-center gap-3">
-            <span>
-              Showing <strong className="text-foreground">{products.length}</strong> products
-            </span>
-            {onLimitChange && (
-              <div className="flex items-center gap-1.5 pl-3 border-l border-border">
-                <span className="text-[11px]">Per page:</span>
-                <select
-                  value={limit}
-                  onChange={(e) => onLimitChange(Number(e.target.value))}
-                  className="bg-background border border-border text-foreground rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  <option value={10}>10</option>
-                  <option value={15}>15</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-              </div>
-            )}
-          </div>
+      {/* Pagination Footer */}
+      <div className="p-3 bg-[#141417] border-t border-[#1f1f23] flex items-center justify-between gap-3 text-xs text-zinc-400">
+        <div className="flex items-center gap-2">
+          <span>Items per page:</span>
+          <select
+            value={limit}
+            onChange={(e) => onLimitChange(Number(e.target.value))}
+            className="bg-[#111113] border border-[#27272a] rounded px-2 py-1 text-xs text-zinc-200 outline-none cursor-pointer"
+          >
+            <option value={10}>10</option>
+            <option value={15}>15</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
 
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <span>Page {page}</span>
+          <div className="flex items-center gap-1">
             <button
-              onClick={() => onPageChange(Math.max(1, page - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1 cursor-pointer font-medium"
+              onClick={() => onPageChange(page - 1)}
+              disabled={page <= 1 || loading}
+              className="p-1 rounded bg-[#111113] border border-[#27272a] text-zinc-300 disabled:opacity-40 hover:bg-zinc-800 disabled:hover:bg-[#111113] cursor-pointer disabled:cursor-not-allowed"
             >
-              <ChevronLeft className="w-3.5 h-3.5" /> Prev
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-
-            <span className="px-2.5 py-1 rounded bg-secondary/80 border border-border font-mono text-foreground font-semibold text-xs">
-              Page {page}
-            </span>
-
             <button
               onClick={() => onPageChange(page + 1)}
-              disabled={!hasMore}
-              className="px-3 py-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1 cursor-pointer font-medium"
+              disabled={!hasMore || loading}
+              className="p-1 rounded bg-[#111113] border border-[#27272a] text-zinc-300 disabled:opacity-40 hover:bg-zinc-800 disabled:hover:bg-[#111113] cursor-pointer disabled:cursor-not-allowed"
             >
-              Next <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,56 +1,51 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Boxes, RefreshCw, Zap } from "lucide-react";
+import { Boxes, Plus, Minus, RefreshCw } from "lucide-react";
 
 export default function InventoryHeader({
-  syncingAlerts,
-  onSyncAlerts,
-  onRefresh,
   loading,
+  onStockIn,
+  onStockOut,
+  onRefresh,
 }) {
-  const navigate = useNavigate();
-
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-neutral-800 transition-all cursor-pointer"
-          title="Return to Dashboard"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <div>
-          <div className="flex items-center gap-2">
-            <Boxes className="w-5 h-5 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Inventory Store & Ledger System
-            </h1>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/80 flex items-center justify-center text-zinc-200">
+            <Boxes className="w-4 h-4" />
           </div>
-          <p className="text-xs text-muted-foreground">
-            Phase 3 T15/T16: Current physical stock & immutable movement audit ledger
-          </p>
+          <h1 className="text-lg md:text-xl font-bold text-white tracking-tight">
+            Inventory & Stock Ledger
+          </h1>
         </div>
+        <p className="text-xs text-zinc-400 mt-1">
+          Live stock levels, movement ledger audit trail, and low-stock alerts
+        </p>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2 shrink-0">
         <button
-          onClick={onSyncAlerts}
-          disabled={syncingAlerts}
-          className="btn btn-secondary text-xs flex items-center gap-1.5 py-2 px-3 disabled:opacity-50"
-          title="Run background deterministic stock alert scanner"
+          onClick={onStockIn}
+          className="px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
         >
-          <Zap className={`w-3.5 h-3.5 text-amber-400 ${syncingAlerts ? "animate-bounce" : ""}`} />
-          <span>{syncingAlerts ? "Evaluating Limits..." : "Sync Stock Limits"}</span>
+          <Plus className="w-3.5 h-3.5" />
+          <span>Stock In</span>
+        </button>
+
+        <button
+          onClick={onStockOut}
+          className="px-3.5 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+        >
+          <Minus className="w-3.5 h-3.5" />
+          <span>Stock Out</span>
         </button>
 
         <button
           onClick={onRefresh}
-          disabled={loading}
-          className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-neutral-800 transition-all cursor-pointer disabled:opacity-50"
-          title="Refresh Data"
+          className="px-3 py-2 rounded-xl bg-[#141417] border border-[#27272a] text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-primary" : ""}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-white" : ""}`} />
+          <span>Refresh</span>
         </button>
       </div>
     </div>

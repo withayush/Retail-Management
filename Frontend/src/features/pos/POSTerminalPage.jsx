@@ -2,20 +2,19 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 import { searchProducts, getProducts, getProductByBarcode } from "../../services/product.api";
 import { getCategories } from "../../services/category.api";
+import { createSale } from "../../services/sale.api";
 
-// Modular Sub-Components
-import POSHeader from "./components/POSHeader";
-import POSSearchBar from "./components/POSSearchBar";
-import POSCategoryFilter from "./components/POSCategoryFilter";
+// Sub-components
+import POSTerminalHeader from "./components/POSTerminalHeader";
+import POSProductSearch from "./components/POSProductSearch";
 import POSProductGrid from "./components/POSProductGrid";
 import POSCart from "./components/POSCart";
-import POSPaymentPanel from "./components/POSPaymentPanel";
 import POSReceiptModal from "./components/POSReceiptModal";
 
 export default function POSTerminalPage() {
   const searchInputRef = useRef(null);
 
-  // Products & Categories Data
+  // Products & Categories
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,9 +27,10 @@ export default function POSTerminalPage() {
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [paymentMode, setPaymentMode] = useState("CASH"); // CASH | UPI | CARD | UDHAR
+  const [paymentMode, setPaymentMode] = useState("CASH");
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [lastInvoice, setLastInvoice] = useState(null);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   // Auto-focus search input on mount
   useEffect(() => {
@@ -83,12 +83,22 @@ export default function POSTerminalPage() {
     return () => clearTimeout(delayDebounce);
   }, [fetchPOSProducts]);
 
-  // Add Product to Cart
+  // Add Product to Cart (Task T26 Floor Overselling Guard)
   const addToCart = (product) => {
     const prodId = product.id || product._id;
+    const stock = product.availableStock !== undefined ? Number(product.availableStock) : null;
+
+    if (stock !== null && stock <= 0) {
+      return toast.error(`Cannot add "${product.name}" - Item is Out of Stock!`, { id: `pos-oos-${prodId}` });
+    }
+
     setCart((prevCart) => {
       const existing = prevCart.find((item) => (item.id || item._id) === prodId);
       if (existing) {
+        if (stock !== null && existing.quantity >= stock) {
+          toast.error(`Only ${stock} units in stock for "${product.name}"`, { id: `pos-max-${prodId}` });
+          return prevCart;
+        }
         return prevCart.map((item) =>
           (item.id || item._id) === prodId
             ? { ...item, quantity: item.quantity + 1 }
@@ -103,8 +113,10 @@ export default function POSTerminalPage() {
           sku: product.sku,
           barcode: product.barcode,
           sellingPrice: Number(product.sellingPrice ?? product.selling_price ?? 0),
+          costPrice: Number(product.costPrice ?? product.cost_price ?? 0),
           unit: product.unit || "pcs",
           categoryName: product.category?.name || "General",
+          availableStock: stock,
           quantity: 1,
         },
       ];
@@ -112,7 +124,7 @@ export default function POSTerminalPage() {
     toast.success(`Added: ${product.name}`, { duration: 1200, id: `pos-add-${prodId}` });
   };
 
-  // Barcode Enter Key Scan Handler
+  // Barcode / Fast Enter Key Scan Handler
   const handleKeyDown = async (e) => {
     if (e.key === "Enter" && searchTerm.trim()) {
       e.preventDefault();
@@ -136,13 +148,17 @@ export default function POSTerminalPage() {
     }
   };
 
-  // Cart Actions
+  // Cart Actions with Floor Stock Guard
   const updateQuantity = (id, delta) => {
     setCart((prevCart) =>
       prevCart
         .map((item) => {
           if ((item.id || item._id) === id) {
             const newQty = item.quantity + delta;
+            if (delta > 0 && item.availableStock !== null && item.availableStock !== undefined && newQty > item.availableStock) {
+              toast.error(`Only ${item.availableStock} units available in stock!`, { id: `pos-limit-${id}` });
+              return item;
+            }
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
           return item;
@@ -164,106 +180,115 @@ export default function POSTerminalPage() {
     (sum, item) => sum + item.sellingPrice * item.quantity,
     0
   );
-  const gstRate = 0.05; // 5% GST
+  const gstRate = 0.05;
   const gstAmount = subtotal * gstRate;
   const grandTotal = subtotal + gstAmount;
 
-  // Checkout Handler
-  const handleCheckout = () => {
+  // Checkout Handler (Task T24 Integration)
+  const handleCheckout = async () => {
     if (cart.length === 0) {
       return toast.error("Cart is empty!");
     }
 
-    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
-    const invoice = {
-      invoiceNumber,
-      customerName: customerName.trim() || "Walk-in Customer",
-      customerPhone: customerPhone.trim() || "N/A",
-      items: [...cart],
-      subtotal,
-      gstAmount,
-      grandTotal,
-      paymentMode,
-      date: new Date().toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+    setCheckingOut(true);
+    try {
+      const payload = {
+        customerName: customerName.trim() || "Walk-in Customer",
+        customerPhone: customerPhone.trim() || "",
+        subtotal: Math.round(subtotal * 100) / 100,
+        tax: Math.round(gstAmount * 100) / 100,
+        discount: 0,
+        total: Math.round(grandTotal * 100) / 100,
+        paidAmount: Math.round(grandTotal * 100) / 100,
+        paymentStatus: "PAID",
+        paymentMode,
+        items: cart.map((it) => ({
+          productId: it.id || it._id,
+          name: it.name,
+          sku: it.sku || "",
+          unit: it.unit || "pcs",
+          soldPrice: it.sellingPrice,
+          costPrice: it.costPrice || 0,
+          quantity: it.quantity,
+          totalPrice: Math.round(it.sellingPrice * it.quantity * 100) / 100,
+        })),
+        notes: "Billed at POS Terminal",
+      };
 
-    setLastInvoice(invoice);
-    setCheckoutSuccess(true);
-    setCart([]);
-    setCustomerName("");
-    setCustomerPhone("");
-    toast.success(`Invoice ${invoiceNumber} billed successfully! 🎉`);
+      const res = await createSale(payload);
+      const createdSale = res.data || res;
+
+      setLastInvoice(createdSale);
+      setCheckoutSuccess(true);
+      setCart([]);
+      setCustomerName("");
+      setCustomerPhone("");
+      toast.success(`Invoice ${createdSale.invoiceNumber} billed successfully! 🎉`);
+      fetchPOSProducts();
+    } catch (err) {
+      console.error("POS Checkout error:", err);
+      const isStockError = err.response?.data?.code === "INSUFFICIENT_STOCK";
+      const errorMsg = err.response?.data?.message || err.message || "Failed to complete checkout.";
+      if (isStockError) {
+        toast.error(`⚠️ ${errorMsg}`, { duration: 4000 });
+      } else {
+        toast.error(errorMsg);
+      }
+    } finally {
+      setCheckingOut(false);
+    }
   };
 
   return (
-    <div className="h-screen flex flex-col md:flex-row bg-background text-foreground overflow-hidden font-sans">
+    <div className="h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-[#09090b] text-zinc-100 overflow-hidden font-sans">
       {/* ── Left Side: POS Product Catalog & Search ───────────────────────── */}
-      <div className="flex-1 flex flex-col border-r border-border h-full overflow-hidden">
-        {/* 1. Header */}
-        <POSHeader loading={loading} onRefresh={fetchPOSProducts} />
-
-        {/* 2. Search & Category Filters */}
-        <div className="p-4 bg-secondary/30 border-b border-border space-y-3">
-          <POSSearchBar
-            searchInputRef={searchInputRef}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onKeyDown={handleKeyDown}
-          />
-
-          <POSCategoryFilter
-            categories={categories}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-          />
-        </div>
-
-        {/* 3. Product Catalog Grid */}
-        <POSProductGrid
-          products={products}
+      <div className="flex-1 flex flex-col border-r border-[#1f1f23] h-full overflow-hidden">
+        <POSProductSearch
+          searchInputRef={searchInputRef}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onKeyDown={handleKeyDown}
+          categories={categories}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          onRefresh={fetchPOSProducts}
           loading={loading}
+        />
+        <POSProductGrid
+          loading={loading}
+          products={products}
           searchTerm={searchTerm}
           onAddToCart={addToCart}
         />
       </div>
 
       {/* ── Right Side: Live Cart & Billing Summary ─────────────────────── */}
-      <div className="w-full md:w-[420px] flex flex-col bg-card border-l border-border h-full justify-between shadow-lg">
-        {/* 4. Cart List */}
-        <POSCart
-          cart={cart}
-          customerName={customerName}
-          setCustomerName={setCustomerName}
-          customerPhone={customerPhone}
-          setCustomerPhone={setCustomerPhone}
-          onUpdateQuantity={updateQuantity}
-          onRemoveFromCart={removeFromCart}
-          onClearCart={clearCart}
-        />
+      <POSCart
+        cart={cart}
+        customerName={customerName}
+        setCustomerName={setCustomerName}
+        customerPhone={customerPhone}
+        setCustomerPhone={setCustomerPhone}
+        paymentMode={paymentMode}
+        setPaymentMode={setPaymentMode}
+        subtotal={subtotal}
+        gstAmount={gstAmount}
+        grandTotal={grandTotal}
+        checkingOut={checkingOut}
+        onUpdateQuantity={updateQuantity}
+        onRemoveItem={removeFromCart}
+        onClearCart={clearCart}
+        onCheckout={handleCheckout}
+      />
 
-        {/* 5. Payment & Calculations Panel */}
-        <POSPaymentPanel
-          subtotal={subtotal}
-          gstAmount={gstAmount}
-          grandTotal={grandTotal}
-          paymentMode={paymentMode}
-          setPaymentMode={setPaymentMode}
-          cartCount={cart.length}
-          onCheckout={handleCheckout}
-        />
-      </div>
-
-      {/* 6. Invoice Receipt Modal */}
+      {/* ── Invoice Receipt Modal ────────────────────────────────────────── */}
       <POSReceiptModal
         isOpen={checkoutSuccess}
-        onClose={() => setCheckoutSuccess(false)}
         invoice={lastInvoice}
+        onClose={() => {
+          setCheckoutSuccess(false);
+          if (searchInputRef.current) searchInputRef.current.focus();
+        }}
       />
     </div>
   );

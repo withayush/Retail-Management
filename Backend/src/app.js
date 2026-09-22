@@ -7,6 +7,8 @@ const businessRoutes = require("./routes/business.routes");
 const categoryRoutes = require("./routes/category.routes");
 const productRoutes = require("./routes/product.routes");
 const inventoryRoutes = require("./routes/inventory.routes");
+const saleRoutes = require("./routes/sale.routes");
+const paymentRoutes = require("./routes/payment.routes");
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
@@ -33,8 +35,11 @@ app.use(
   })
 );
 
+const path = require("path");
+
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -57,6 +62,9 @@ app.use("/api/businesses", businessRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/sales", saleRoutes);
+app.use("/api/invoices", saleRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.use(errorHandler);
 

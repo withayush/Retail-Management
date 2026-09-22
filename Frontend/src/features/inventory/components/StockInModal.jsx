@@ -5,7 +5,7 @@ export default function StockInModal({
   isOpen,
   onClose,
   activeItem,
-  storeState = [],
+  storeState,
   selectedProductId,
   setSelectedProductId,
   actionQuantity,
@@ -26,163 +26,161 @@ export default function StockInModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in-50 zoom-in-95">
-        <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <Plus className="w-4 h-4" />
-            <h3 className="font-bold text-sm text-foreground">Record Stock In / Purchase</h3>
-          </div>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-[#111113] border border-[#27272a] rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-[#1f1f23] pb-3">
+          <h3 className="font-semibold text-sm text-white flex items-center gap-2">
+            <Plus className="w-4 h-4 text-emerald-400" /> Stock In (Purchase / Restock)
+          </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
+            className="text-zinc-400 hover:text-white cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="p-4 space-y-3.5 text-xs">
-          {/* Target Product */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase">
-              Target Product *
-            </label>
-            {activeItem ? (
-              <div className="p-2.5 rounded-xl bg-secondary/50 border border-border flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-foreground text-xs">{activeItem.name}</p>
-                  <p className="text-[11px] text-muted-foreground font-mono">SKU: {activeItem.sku}</p>
-                </div>
-                <span className="text-xs font-mono font-bold text-primary">
-                  Current: {activeItem.availableStock} {activeItem.unit}
-                </span>
-              </div>
-            ) : (
+        <form onSubmit={onSubmit} className="space-y-3.5">
+          {/* Product Select if not preset */}
+          {!activeItem ? (
+            <div>
+              <label className="text-xs font-medium text-zinc-300 block mb-1">
+                Select Product:
+              </label>
               <select
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(e.target.value)}
                 required
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
               >
-                <option value="">Select a product...</option>
                 {storeState.map((p) => (
                   <option key={p.productId} value={p.productId}>
-                    {p.name} ({p.sku}) — {p.availableStock} in stock
+                    {p.name} ({p.sku}) — Available: {p.availableStock} {p.unit}
                   </option>
                 ))}
               </select>
-            )}
+            </div>
+          ) : (
+            <div className="bg-[#141417] border border-[#27272a] p-3 rounded-lg space-y-1 text-xs">
+              <p className="font-semibold text-white">{activeItem.name}</p>
+              <p className="text-zinc-400 font-mono">SKU: {activeItem.sku}</p>
+              <p className="text-zinc-400">
+                Current Stock: <strong className="text-white">{activeItem.availableStock} {activeItem.unit}</strong>
+              </p>
+            </div>
+          )}
+
+          {/* Source Type */}
+          <div>
+            <label className="text-xs font-medium text-zinc-300 block mb-1">
+              Stock-In Source:
+            </label>
+            <select
+              value={actionSource}
+              onChange={(e) => setActionSource(e.target.value)}
+              className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-500"
+            >
+              <option value="PURCHASE">Supplier Purchase / Invoice</option>
+              <option value="GOODS_RECEIPT">Goods Receipt Note (GRN)</option>
+              <option value="MANUAL">Manual Stock Addition</option>
+              <option value="RETURN">Customer Return Restock</option>
+              <option value="TRANSFER">Stock Transfer</option>
+              <option value="OTHER">Other / Miscellaneous</option>
+            </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Quantity */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase">
-                Stock In Qty *
-              </label>
-              <input
-                type="number"
-                step="any"
-                min="0.01"
-                required
-                placeholder="e.g. 50"
-                value={actionQuantity}
-                onChange={(e) => setActionQuantity(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            {/* Source Type */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase">
-                Source Type *
-              </label>
-              <select
-                value={actionSource}
-                onChange={(e) => setActionSource(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="PURCHASE">Supplier Purchase</option>
-                <option value="GOODS_RECEIPT">Goods Receipt</option>
-                <option value="MANUAL">Manual Addition</option>
-                <option value="RETURN">Customer Return</option>
-              </select>
-            </div>
+          {/* Quantity */}
+          <div>
+            <label className="text-xs font-medium text-zinc-300 block mb-1">
+              Stock In Quantity (+):
+            </label>
+            <input
+              type="number"
+              step="any"
+              min="0.01"
+              required
+              value={actionQuantity}
+              onChange={(e) => setActionQuantity(e.target.value)}
+              className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-500"
+              placeholder="e.g. 50"
+              autoFocus
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Supplier Name */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase">
-                Supplier Name
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Supplier */}
+            <div>
+              <label className="text-xs font-medium text-zinc-300 block mb-1">
+                Supplier Name (Optional):
               </label>
               <input
                 type="text"
-                placeholder="e.g. Metro Wholesalers"
                 value={actionSupplier}
                 onChange={(e) => setActionSupplier(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+                placeholder="e.g. Wholesaler"
               />
             </div>
 
-            {/* Unit Purchase Cost */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase">
-                Unit Cost (₹)
+            {/* Unit Cost */}
+            <div>
+              <label className="text-xs font-medium text-zinc-300 block mb-1">
+                Purchase Price / Unit (₹):
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="e.g. 45.00"
                 value={actionUnitCost}
                 onChange={(e) => setActionUnitCost(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-xs font-mono text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+                placeholder="e.g. 10.50"
               />
             </div>
           </div>
 
-          {/* Reference Number */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase">
-              Invoice / PO Reference #
+          {/* Reference # */}
+          <div>
+            <label className="text-xs font-medium text-zinc-300 block mb-1">
+              PO / Bill / Challan Ref # (Optional):
             </label>
             <input
               type="text"
-              placeholder="e.g. PO-2026-9811"
               value={actionReferenceNumber}
               onChange={(e) => setActionReferenceNumber(e.target.value)}
-              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+              placeholder="e.g. PO-8819 or INV-1002"
             />
           </div>
 
           {/* Notes */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase">Notes</label>
-            <textarea
-              rows={2}
-              placeholder="Optional shipment notes or batch details..."
+          <div>
+            <label className="text-xs font-medium text-zinc-300 block mb-1">
+              Additional Notes (Optional):
+            </label>
+            <input
+              type="text"
               value={actionNotes}
               onChange={(e) => setActionNotes(e.target.value)}
-              className="w-full bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+              placeholder="e.g. Good condition"
             />
           </div>
 
-          {/* Footer Actions */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
+          <div className="flex justify-end gap-2 pt-2 border-t border-[#1f1f23]">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-secondary cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg border border-[#27272a] bg-[#141417] hover:bg-zinc-800 text-zinc-300 font-medium text-xs transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-4 py-1.5 rounded-lg bg-emerald-500 text-zinc-950 font-semibold text-xs hover:bg-emerald-400 transition-colors cursor-pointer disabled:opacity-50"
             >
-              {submitting ? "Saving..." : "Add to Stock (+)"}
+              {submitting ? "Recording..." : "Record Stock In"}
             </button>
           </div>
         </form>

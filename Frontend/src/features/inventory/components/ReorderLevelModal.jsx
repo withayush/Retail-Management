@@ -1,5 +1,5 @@
 import React from "react";
-import { Edit2, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 
 export default function ReorderLevelModal({
   isOpen,
@@ -13,60 +13,63 @@ export default function ReorderLevelModal({
   if (!isOpen || !activeItem) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in-50 zoom-in-95">
-        <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
-          <div className="flex items-center gap-2 text-primary">
-            <Edit2 className="w-4 h-4" />
-            <h3 className="font-bold text-sm text-foreground">Set Reorder Threshold</h3>
-          </div>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-[#111113] border border-[#27272a] rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-[#1f1f23] pb-3">
+          <h3 className="font-semibold text-sm text-white flex items-center gap-2">
+            <SlidersHorizontal className="w-4 h-4 text-zinc-300" /> Low Stock Reorder Threshold
+          </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
+            className="text-zinc-400 hover:text-white cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="p-4 space-y-3.5 text-xs">
-          <div>
-            <p className="font-bold text-foreground text-xs">{activeItem.name}</p>
-            <p className="text-[11px] text-muted-foreground font-mono">SKU: {activeItem.sku}</p>
-          </div>
+        <div className="bg-[#141417] border border-[#27272a] p-3 rounded-lg space-y-1 text-xs">
+          <p className="font-semibold text-white">{activeItem.name}</p>
+          <p className="text-zinc-400 font-mono">SKU: {activeItem.sku}</p>
+          <p className="text-zinc-400">
+            Current Level: <strong className="text-white">{activeItem.reorderLevel} {activeItem.unit}</strong>
+          </p>
+        </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase">
-              Minimum Alert Level ({activeItem.unit}) *
+        <form onSubmit={onSubmit} className="space-y-3.5">
+          <div>
+            <label className="text-xs font-medium text-zinc-300 block mb-1">
+              Set Reorder Alert Threshold ({activeItem.unit}):
             </label>
+            <p className="text-[11px] text-zinc-500 mb-2">
+              When available physical stock drops to or below this quantity, a low stock warning will be triggered.
+            </p>
             <input
               type="number"
               step="any"
               min="0"
               required
-              placeholder="e.g. 10"
               value={newReorderValue}
               onChange={(e) => setNewReorderValue(e.target.value)}
-              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground font-mono font-bold focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-3 py-1.5 text-sm font-mono font-bold text-zinc-100 focus:outline-none focus:border-zinc-500"
+              placeholder="e.g. 10"
+              autoFocus
             />
-            <p className="text-[10px] text-muted-foreground">
-              When stock drops to or below this amount, low-stock warnings will trigger automatically.
-            </p>
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
+          <div className="flex justify-end gap-2 pt-2 border-t border-[#1f1f23]">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-secondary cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg border border-[#27272a] bg-[#141417] hover:bg-zinc-800 text-zinc-300 font-medium text-xs transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-sm cursor-pointer disabled:opacity-50"
+              className="px-4 py-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
             >
-              {submitting ? "Saving..." : "Update Threshold"}
+              {submitting ? "Updating..." : "Update Threshold"}
             </button>
           </div>
         </form>

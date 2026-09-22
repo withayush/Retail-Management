@@ -352,6 +352,44 @@ API Base URL : http://localhost:5000/api
     - Automated Test Suite:
       * `Backend/tests/test-low-stock-notifications.js` (100% tests passing).
 
+[✓] C17. T24: Sale Item Schema Model & Snapshot Preservation (`/api/sales/:id/items`, `/analytics/gross-profit`)
+    - Purpose & Core Rule: "T23 batata hai poori sale ka header kya hai; T24 batata hai us invoice mein exactly kaun-kaun se products bike, kis sold price aur cost price snapshot par bike, aur kitna gross profit generate hua."
+    - Immutable Historical Price Snapshot Architecture:
+      * Mongoose Model `SaleItem` stores `businessId`, `saleId`, `productId`, `name`, `sku`, `unit`, `soldPrice`, `costPrice`, `quantity`, `totalPrice`, `grossProfit`.
+      * Checkout moment price freeze: When product prices change in the master catalog in the future, past `SaleItem` records remain untouched, guaranteeing historical accuracy and audit fidelity.
+    - Gross Profit & Financial Equations:
+      * $\text{totalPrice} = \text{soldPrice} \times \text{quantity}$.
+      * $\text{grossProfit} = (\text{soldPrice} - \text{costPrice}) \times \text{quantity}$.
+      * $\text{Overall Gross Margin \%} = \frac{\text{Total Gross Profit}}{\text{Total Revenue}} \times 100$.
+    - Automated Inventory Deduction Link (T24 ➔ T19 Stock OUT ➔ T16 Ledger):
+      * POS Checkout automatically deducts stock via `inventoryService.stockOut` and appends audited `OUT` records to `InventoryLedger` referencing the `invoiceNumber`.
+    - Line Items & Profit Analytics Endpoints:
+      * `GET /api/sales/:id/items`: Returns line item snapshots with cost, price, and profit breakdown.
+      * `GET /api/sales/analytics/gross-profit`: Aggregates Revenue, COGS, Total Profit, Margin %, and Top Profitable Products.
+    - Frontend Implementation:
+      * `POSTerminalPage.jsx`: Real-time checkout integrated with `createSale` with live line item snapshots and inventory deduction.
+      * `SaleDetailModal.jsx`: Modal displaying invoice items, SKU, units, snapshot sold price, cost price, line total, and gross profit margin.
+      * `SalesHistoryTable.jsx`: Added "Items" inspection button on every invoice row.
+    - Automated Test Suite:
+      * `Backend/tests/test-sale-items-snapshot.js` (100% tests passing across 24 test suites).
+
+[✓] C18. T25: Create Sale (POS Checkout) API with Atomic Transaction & Rollback Controls (`POST /api/sales`)
+    - Purpose & Core Rule: "Customer checkout karta hai -> ek single API call poori sale ko atomically create karti hai, inventory deduct karti hai, invoice banati hai, ledger logs banati hai, aur agar beech mein koi error aaye (jaise insufficient stock), toh poora transaction rollback ho jata hai."
+    - ACID Atomic Transaction Execution Pipeline:
+      * Session Transaction Orchestrator with standalone fallback.
+      * **Pre-Flight Inventory Verification:** Checks stock availability for all cart items before mutations. If any product is short, instantly throws 400 `INSUFFICIENT_STOCK` with product details (e.g. "Insufficient stock for 'Maggi'. Available: 1, Requested: 2") and rolls back 100% of operations.
+      * **Invoice Creation (T23):** Generates sequential `INV-1001` identifier.
+      * **Sale Items Snapshotting (T24):** Bulk creates `SaleItem` records with frozen `soldPrice` and `costPrice`.
+      * **Atomic Inventory Reduction (T19):** Decrements `Inventory.availableStock` and updates alert flags.
+      * **Immutable Ledger Logs (T16):** Appends `OUT` logs in `InventoryLedger` with `invoiceNumber` reference.
+      * **Payment Linking:** Creates `Payment` record linking paid amounts to invoice.
+      * **Deterministic Alert Sync (T22):** Updates low-stock alerts queue for replenished or depleted items.
+    - Frontend Implementation (`POSTerminalPage.jsx`):
+      * Live checkout integrated with `createSale` with distinct `INSUFFICIENT_STOCK` warning banners and auto-refreshing product stock state.
+      * Interactive payment modes (`CASH`, `UPI`, `CARD`, `UDHAR`), charge button disabled during execution, and instant receipt modal.
+    - Automated Test Suite:
+      * `Backend/tests/test-pos-checkout-transaction.js` (100% tests passing across 25 test suites).
+
 ================================================================================
 3. ROADMAP & UPCOMING TASKS (KYA BAAKI HAI)
 ================================================================================
@@ -367,10 +405,12 @@ API Base URL : http://localhost:5000/api
 [✓] T22. Low-Stock Limit Notifications & Deterministic Alerts Queue Engine (DONE)
 
 
---- [PHASE 3 : BILLING, INVOICING & KHATA] ---
-[ ] T11. Fast Point-of-Sale (POS) & Invoice Generation (/api/invoices).
-[ ] T12. Customer Khata / Credit Ledger & Payment Tracking (/api/customers).
-[ ] T13. Daily Sales & Profit Summary Reports (/api/reports).
+--- [PHASE 4 : SALES, BILLING & KHATA] ---
+[✓] T23. Sale Transaction Schema Model & Invoicing Header Engine (DONE)
+[✓] T24. Sale Item Schema Model & Snapshot Preservation (DONE)
+[✓] T25. Create Sale (POS Checkout) API with Atomic Transaction Controls (DONE)
+[ ] T26. Customer Khata / Credit Ledger & Payment Tracking (/api/customers).
+[ ] T27. Daily Sales & Profit Summary Reports (/api/reports).
 
 ================================================================================
 4. CORE ARCHITECTURE & DATA FLOW

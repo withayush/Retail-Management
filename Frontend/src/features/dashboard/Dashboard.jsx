@@ -1,233 +1,185 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { Link } from "react-router-dom";
+import DashboardMetrics from "./components/DashboardMetrics";
+import { getSales, getSalesSummary } from "../../services/sale.api";
 import {
-  getInventorySummary,
-  getInventoryLedger,
-  getInventoryAlerts,
   getInventoryAlertsSummary,
+  getStoreState,
 } from "../../services/inventory.api";
-import { getProducts } from "../../services/product.api";
-import { getCustomers } from "../../services/customer.api";
-import { getMyBusiness } from "../../services/business.api";
-
-// Modular Sub-Components
-import DashboardSidebar from "./components/DashboardSidebar";
-import DashboardHeader from "./components/DashboardHeader";
-import DashboardStats from "./components/DashboardStats";
-import DashboardStockHealth from "./components/DashboardStockHealth";
-import DashboardQuickActions from "./components/DashboardQuickActions";
-import DashboardRecentLedger from "./components/DashboardRecentLedger";
-import DashboardPriorityAlerts from "./components/DashboardPriorityAlerts";
-import DashboardRecentProducts from "./components/DashboardRecentProducts";
+import {
+  getBusinessOutstandingTotals,
+  getCustomers,
+} from "../../services/customer.api";
+import { downloadInvoicePdf, previewInvoicePdf } from "../../services/sale.api";
+import { ExternalLink, Download } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  // Navigation / UI State
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Data States
-  const [business, setBusiness] = useState(null);
-  const [invSummary, setInvSummary] = useState({
-    totalProducts: 0,
-    inStockCount: 0,
-    lowStockCount: 0,
+  const [salesSummary, setSalesSummary] = useState(null);
+  const [recentSales, setRecentSales] = useState([]);
+  const [inventoryAlerts, setInventoryAlerts] = useState({
     outOfStockCount: 0,
-    totalStockQuantity: 0,
-    totalValuation: 0,
+    lowStockCount: 0,
   });
-  const [alertsSummary, setAlertsSummary] = useState({
-    totalActive: 0,
-    unreadCount: 0,
-    acknowledgedCount: 0,
-    criticalCount: 0,
-    warningCount: 0,
+  const [customerStats, setCustomerStats] = useState({
+    totalCustomers: 0,
+    totalOutstanding: 0,
   });
-  const [recentLedger, setRecentLedger] = useState([]);
-  const [activeAlerts, setActiveAlerts] = useState([]);
-  const [recentProducts, setRecentProducts] = useState([]);
-  const [customersCount, setCustomersCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
 
-  // Live Clock Tick
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Fetch all dashboard metrics
-  const fetchDashboardData = useCallback(async (isSilent = false) => {
-    if (!isSilent) setLoading(true);
-    else setRefreshing(true);
-
+  const loadDashboardData = useCallback(async () => {
     try {
-      const results = await Promise.allSettled([
-        getInventorySummary(),
+      const [
+        salesSummaryRes,
+        recentSalesRes,
+        alertsSummaryRes,
+        outstandingRes,
+        customersRes,
+      ] = await Promise.allSettled([
+        getSalesSummary(),
+        getSales({ limit: 5, page: 1 }),
         getInventoryAlertsSummary(),
-        getInventoryAlerts({ limit: 5 }),
-        getInventoryLedger({ limit: 6 }),
-        getProducts({ limit: 6 }),
+        getBusinessOutstandingTotals(),
         getCustomers(),
-        getMyBusiness(),
       ]);
 
-      // 1. Inventory Summary
-      if (results[0].status === "fulfilled" && results[0].value) {
-        const d = results[0].value.data || results[0].value;
-        setInvSummary({
-          totalProducts: d.totalProducts || 0,
-          inStockCount: d.inStockCount || 0,
-          lowStockCount: d.lowStockCount || 0,
-          outOfStockCount: d.outOfStockCount || 0,
-          totalStockQuantity: d.totalStockQuantity || 0,
-          totalValuation: d.totalValuation || 0,
-        });
+      if (salesSummaryRes.status === "fulfilled" && salesSummaryRes.value?.data) {
+        setSalesSummary(salesSummaryRes.value.data);
       }
 
-      // 2. Alerts Summary
-      if (results[1].status === "fulfilled" && results[1].value) {
-        const d = results[1].value.data || results[1].value;
-        setAlertsSummary({
-          totalActive: d.totalActive || 0,
-          unreadCount: d.unreadCount || 0,
-          acknowledgedCount: d.acknowledgedCount || 0,
-          criticalCount: d.criticalCount || 0,
-          warningCount: d.warningCount || 0,
-        });
+      if (recentSalesRes.status === "fulfilled" && recentSalesRes.value?.data) {
+        const salesData = Array.isArray(recentSalesRes.value.data)
+          ? recentSalesRes.value.data
+          : recentSalesRes.value.data?.sales || [];
+        setRecentSales(salesData);
       }
 
-      // 3. Priority Low-Stock Alerts
-      if (results[2].status === "fulfilled" && results[2].value) {
-        const d = results[2].value.data || results[2].value;
-        setActiveAlerts(Array.isArray(d) ? d : d?.alerts || []);
+      if (alertsSummaryRes.status === "fulfilled" && alertsSummaryRes.value?.data) {
+        setInventoryAlerts(alertsSummaryRes.value.data);
       }
 
-      // 4. Recent Stock Ledger Movements
-      if (results[3].status === "fulfilled" && results[3].value) {
-        const d = results[3].value.data || results[3].value;
-        setRecentLedger(Array.isArray(d) ? d : d?.entries || []);
+      let outstandingTotal = 0;
+      let totalCustCount = 0;
+
+      if (outstandingRes.status === "fulfilled" && outstandingRes.value?.data) {
+        outstandingTotal =
+          outstandingRes.value.data?.totalOutstanding ||
+          outstandingRes.value.data?.totalDebt ||
+          0;
       }
 
-      // 5. Recent Products
-      if (results[4].status === "fulfilled" && results[4].value) {
-        const d = results[4].value.data || results[4].value;
-        setRecentProducts(Array.isArray(d) ? d : d?.products || []);
+      if (customersRes.status === "fulfilled" && customersRes.value?.data) {
+        const cList = Array.isArray(customersRes.value.data)
+          ? customersRes.value.data
+          : customersRes.value.data?.customers || [];
+        totalCustCount = cList.length;
       }
 
-      // 6. Customers Count
-      if (results[5].status === "fulfilled" && results[5].value) {
-        const d = results[5].value.data || results[5].value;
-        const custs = Array.isArray(d) ? d : d?.customers || [];
-        setCustomersCount(custs.length);
-      }
-
-      // 7. Business Info
-      if (results[6].status === "fulfilled" && results[6].value) {
-        const d = results[6].value.data || results[6].value;
-        const biz = Array.isArray(d) ? d[0] : d?.business || d;
-        if (biz) setBusiness(biz);
-      }
+      setCustomerStats({
+        totalCustomers: totalCustCount,
+        totalOutstanding: outstandingTotal,
+      });
     } catch (err) {
-      console.error("Error loading dashboard metrics:", err);
-      toast.error("Failed to load some dashboard data.");
+      console.error("Dashboard fetch error:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    loadDashboardData();
+  }, [loadDashboardData]);
 
-  // Derived stock health percentages
-  const totalTracked = invSummary.totalProducts || 1;
-  const inStockPct = Math.round((invSummary.inStockCount / totalTracked) * 100) || 0;
-  const lowStockPct = Math.round((invSummary.lowStockCount / totalTracked) * 100) || 0;
-  const outOfStockPct = Math.round((invSummary.outOfStockCount / totalTracked) * 100) || 0;
+  const handleDownload = async (sale) => {
+    try {
+      await downloadInvoicePdf(sale._id, sale.invoiceNumber);
+    } catch (err) {
+      toast.error("Failed to download PDF");
+    }
+  };
 
-  // Handle Quick Product Search Jump
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+  const handlePreview = async (sale) => {
+    try {
+      await previewInvoicePdf(sale._id);
+    } catch (err) {
+      toast.error("Failed to preview PDF");
+    }
   };
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground selection:bg-primary/20">
-      {/* ── Sidebar (Desktop & Mobile Drawer) ── */}
-      <DashboardSidebar
-        user={user}
-        business={business}
-        totalProducts={invSummary.totalProducts}
-        hasAlerts={invSummary.lowStockCount + invSummary.outOfStockCount > 0}
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        onLogout={logout}
+    <div className="p-6 md:p-8 space-y-6 w-full">
+      {/* KPI Metrics */}
+      <DashboardMetrics
+        totalSalesAmount={salesSummary?.totalSalesAmount || 0}
+        totalInvoicesCount={salesSummary?.totalInvoicesCount || 0}
+        pendingCount={salesSummary?.pendingCount || 0}
+        lowStockAlerts={inventoryAlerts?.lowStockCount || 0}
+        outOfStockAlerts={inventoryAlerts?.outOfStockCount || 0}
+        totalCustomers={customerStats.totalCustomers}
+        totalOutstanding={customerStats.totalOutstanding}
+        loading={loading}
       />
 
-      {/* ── Main Content Area ── */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Top Sticky Header */}
-        <DashboardHeader
-          business={business}
-          currentTime={currentTime}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onSearchSubmit={handleSearchSubmit}
-          refreshing={refreshing}
-          onRefresh={() => fetchDashboardData(true)}
-          onOpenMobileMenu={() => setMobileMenuOpen(true)}
-        />
-
-        {/* Dashboard Body Content */}
-        <div className="p-4 md:p-8 space-y-6 max-w-7xl w-full mx-auto">
-          {/* 1. KPI Metric Cards */}
-          <DashboardStats
-            invSummary={invSummary}
-            customersCount={customersCount}
-            loading={loading}
-          />
-
-          {/* 2. Store Stock Health Visualizer */}
-          <DashboardStockHealth
-            invSummary={invSummary}
-            inStockPct={inStockPct}
-            lowStockPct={lowStockPct}
-            outOfStockPct={outOfStockPct}
-          />
-
-          {/* 3. Quick Action Hub */}
-          <DashboardQuickActions />
-
-          {/* 4. Split Grid: Recent Movements vs Priority Restock Queue */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <DashboardRecentLedger
-              recentLedger={recentLedger}
-              loading={loading}
-            />
-
-            <DashboardPriorityAlerts
-              activeAlerts={activeAlerts}
-              alertsSummary={alertsSummary}
-              loading={loading}
-            />
-          </div>
-
-          {/* 5. Recent Products Catalog Snapshot */}
-          <DashboardRecentProducts
-            recentProducts={recentProducts}
-            totalProducts={invSummary.totalProducts}
-            loading={loading}
-          />
+      {/* Recent Sales Table */}
+      <div className="p-4 bg-[#141416] border border-[#242427] rounded-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Recent Sales</h2>
+          <Link to="/sales" className="text-xs text-zinc-400 hover:text-white">
+            View all
+          </Link>
         </div>
-      </main>
+
+        <div className="overflow-x-auto">
+          {recentSales.length === 0 && !loading ? (
+            <p className="text-xs text-zinc-500 py-6 text-center">No sales recorded yet.</p>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#242427] text-zinc-400">
+                  <th className="pb-2 font-medium">Invoice</th>
+                  <th className="pb-2 font-medium">Customer</th>
+                  <th className="pb-2 font-medium">Total</th>
+                  <th className="pb-2 font-medium">Status</th>
+                  <th className="pb-2 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#222225]">
+                {recentSales.map((sale) => (
+                  <tr key={sale._id} className="hover:bg-zinc-800/30">
+                    <td className="py-2.5 font-mono text-zinc-300">{sale.invoiceNumber}</td>
+                    <td className="py-2.5 text-zinc-300">{sale.customerName || "Walk-in"}</td>
+                    <td className="py-2.5 font-medium text-white">₹{sale.total || 0}</td>
+                    <td className="py-2.5">
+                      <span className="text-[11px] text-zinc-300">
+                        {sale.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          onClick={() => handlePreview(sale)}
+                          title="Preview"
+                          className="p-1 rounded text-zinc-400 hover:text-white"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDownload(sale)}
+                          title="Download"
+                          className="p-1 rounded text-zinc-400 hover:text-white"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -14,22 +14,23 @@ import {
   updateReorderLevel,
   adjustStock,
 } from "../../services/inventory.api";
-import { exportLedgerToCSV } from "./utils/inventory.utils";
 
-// Modular Sub-Components
+// Sub-components
 import InventoryHeader from "./components/InventoryHeader";
-import InventorySummary from "./components/InventorySummary";
-import InventoryTabs from "./components/InventoryTabs";
-import StoreStateTab from "./components/StoreStateTab";
-import LedgerTab from "./components/LedgerTab";
-import LowStockTab from "./components/LowStockTab";
-
-// Action Modals
+import InventoryStats from "./components/InventoryStats";
+import InventoryTabsNav from "./components/InventoryTabsNav";
+import StockStateFilters from "./components/StockStateFilters";
+import StockStateTable from "./components/StockStateTable";
+import LedgerFilters from "./components/LedgerFilters";
+import LedgerFlowCards from "./components/LedgerFlowCards";
+import LedgerTable from "./components/LedgerTable";
+import AlertsSummaryCards from "./components/AlertsSummaryCards";
+import AlertsTable from "./components/AlertsTable";
 import StockInModal from "./components/StockInModal";
 import StockOutModal from "./components/StockOutModal";
-import AdjustStockModal from "./components/AdjustStockModal";
+import StockAdjustModal from "./components/StockAdjustModal";
 import ReorderLevelModal from "./components/ReorderLevelModal";
-import LedgerInspectorModal from "./components/LedgerInspectorModal";
+import { exportLedgerToCSV } from "./utils/inventory.utils";
 
 export default function InventoryAuditPage() {
   // Active Main Tab: "STORE_STATE" | "LEDGER_TRAIL" | "ALERTS_QUEUE"
@@ -39,19 +40,15 @@ export default function InventoryAuditPage() {
   const [summary, setSummary] = useState(null);
   const [storeState, setStoreState] = useState([]);
   const [ledgerEntries, setLedgerEntries] = useState([]);
-  const [ledgerSummary, setLedgerSummary] = useState({
-    totalEntries: 0,
-    totalInQty: 0,
-    totalOutQty: 0,
-    netFlowQty: 0,
-  });
+  const [ledgerSummary, setLedgerSummary] = useState({ totalEntries: 0, totalInQty: 0, totalOutQty: 0, netFlowQty: 0 });
   const [ledgerPagination, setLedgerPagination] = useState({ page: 1, totalPages: 1, total: 0 });
 
-  // Alerts Queue State
+  // Alert Queue State (Phase 3 - Task T22)
   const [alerts, setAlerts] = useState([]);
   const [alertsSummary, setAlertsSummary] = useState({
     totalActive: 0,
     unreadCount: 0,
+    acknowledgedCount: 0,
     criticalCount: 0,
     warningCount: 0,
     resolvedCount: 0,
@@ -68,7 +65,7 @@ export default function InventoryAuditPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [stockStatusFilter, setStockStatusFilter] = useState("ALL");
 
-  // Ledger Trail Filters
+  // Ledger Trail Filters (Phase 3 - Task T21)
   const [selectedProductFilter, setSelectedProductFilter] = useState("ALL");
   const [ledgerTypeFilter, setLedgerTypeFilter] = useState("ALL");
   const [ledgerSourceFilter, setLedgerSourceFilter] = useState("ALL");
@@ -83,7 +80,6 @@ export default function InventoryAuditPage() {
   const [showStockOutModal, setShowStockOutModal] = useState(false);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
   const [showReorderModal, setShowReorderModal] = useState(false);
-  const [showInspectorModal, setShowInspectorModal] = useState(false);
 
   const [activeItem, setActiveItem] = useState(null);
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -149,7 +145,7 @@ export default function InventoryAuditPage() {
     return { startDate: undefined, endDate: undefined };
   }, [ledgerDatePreset, customStartDate, customEndDate]);
 
-  // Fetch Inventory Ledger Trail
+  // Fetch Inventory Ledger Trail (Who, When, Why, What)
   const fetchLedgerData = useCallback(async () => {
     setLoading(true);
     try {
@@ -165,80 +161,144 @@ export default function InventoryAuditPage() {
         limit: 30,
       });
 
-      const list = res.data || res.entries || [];
-      setLedgerEntries(list);
-      if (res.summary) setLedgerSummary(res.summary);
-      if (res.pagination) setLedgerPagination(res.pagination);
+      setLedgerEntries(res.data || []);
+      setLedgerSummary(res.summary || { totalEntries: 0, totalInQty: 0, totalOutQty: 0, netFlowQty: 0 });
+      setLedgerPagination(res.pagination || { page: 1, totalPages: 1, total: 0 });
     } catch (err) {
       console.error("Failed to load inventory ledger history:", err);
-      toast.error(err?.response?.data?.message || "Failed to load audit ledger trail.");
+      toast.error(err?.response?.data?.message || "Failed to load ledger history.");
     } finally {
       setLoading(false);
     }
-  }, [
-    selectedProductFilter,
-    ledgerTypeFilter,
-    ledgerSourceFilter,
-    resolveDateRange,
-    ledgerSearchTerm,
-    ledgerPage,
-  ]);
+  }, [selectedProductFilter, ledgerTypeFilter, ledgerSourceFilter, resolveDateRange, ledgerSearchTerm, ledgerPage]);
 
-  // Fetch Alerts Data & Summary
+  // Fetch Alerts Data & Summary (Phase 3 - Task T22)
+  const fetchAlertsSummaryData = useCallback(async () => {
+    try {
+      const res = await getInventoryAlertsSummary();
+      setAlertsSummary(res.data || res || {
+        totalActive: 0,
+        unreadCount: 0,
+        acknowledgedCount: 0,
+        criticalCount: 0,
+        warningCount: 0,
+        resolvedCount: 0,
+      });
+    } catch (err) {
+      console.error("Failed to load alerts summary:", err);
+    }
+  }, []);
+
   const fetchAlertsData = useCallback(async () => {
     setLoading(true);
     try {
-      const [alertsRes, sumRes] = await Promise.all([
-        getInventoryAlerts({
-          status: alertStatusFilter !== "ALL" ? alertStatusFilter : undefined,
-          search: alertSearchTerm.trim() || undefined,
-          page: alertPage,
-          limit: 20,
-        }),
-        getInventoryAlertsSummary(),
-      ]);
+      const res = await getInventoryAlerts({
+        status: alertStatusFilter === "CRITICAL" || alertStatusFilter === "WARNING" ? "ALL_ACTIVE" : alertStatusFilter,
+        severity: alertStatusFilter === "CRITICAL" ? "CRITICAL" : alertStatusFilter === "WARNING" ? "WARNING" : undefined,
+        search: alertSearchTerm.trim() || undefined,
+        page: alertPage,
+        limit: 20,
+      });
 
-      const list = alertsRes.data?.data || alertsRes.data || [];
-      setAlerts(list);
-      if (alertsRes.data?.pagination) setAlertPagination(alertsRes.data.pagination);
-      setAlertsSummary(sumRes.data || sumRes || {});
+      setAlerts(res.data || []);
+      setAlertPagination(res.pagination || { page: 1, totalPages: 1, total: 0 });
+      await fetchAlertsSummaryData();
     } catch (err) {
-      console.error("Failed to load low-stock alerts:", err);
+      console.error("Failed to load inventory alerts queue:", err);
+      toast.error(err?.response?.data?.message || "Failed to load alerts queue.");
     } finally {
       setLoading(false);
     }
-  }, [alertStatusFilter, alertSearchTerm, alertPage]);
+  }, [alertStatusFilter, alertSearchTerm, alertPage, fetchAlertsSummaryData]);
 
-  // Sync background alerts engine
+  const handleAcknowledgeAlert = async (alertId) => {
+    try {
+      await acknowledgeAlert(alertId);
+      toast.success("Alert marked as acknowledged.");
+      fetchAlertsData();
+      fetchAlertsSummaryData();
+    } catch (err) {
+      console.error("Failed to acknowledge alert:", err);
+      toast.error(err?.response?.data?.message || "Failed to acknowledge alert.");
+    }
+  };
+
+  const handleResolveAlert = async (alertId) => {
+    try {
+      await resolveAlert(alertId);
+      toast.success("Alert marked as resolved.");
+      fetchAlertsData();
+      fetchAlertsSummaryData();
+    } catch (err) {
+      console.error("Failed to resolve alert:", err);
+      toast.error(err?.response?.data?.message || "Failed to resolve alert.");
+    }
+  };
+
   const handleSyncAlerts = async () => {
     setSyncingAlerts(true);
     try {
       const res = await syncInventoryAlerts();
-      toast.success(res.message || "Scanned store limits successfully!");
+      toast.success(`Synced alert queue! Scanned ${res?.data?.scannedProducts || 0} products.`);
       fetchAlertsData();
+      fetchAlertsSummaryData();
       fetchStoreData();
     } catch (err) {
+      console.error("Failed to sync inventory alerts:", err);
       toast.error("Failed to sync alerts.");
     } finally {
       setSyncingAlerts(false);
     }
   };
 
-  // Main effect based on active tab
+  const handleQuickRestockFromAlert = (alert) => {
+    const matchedProduct = storeState.find((item) => item.productId === alert.productId?._id);
+    setSelectedProductId(alert.productId?._id || "");
+    setActiveItem(matchedProduct || {
+      productId: alert.productId?._id,
+      name: alert.productId?.name,
+      sku: alert.productId?.sku,
+      unit: alert.productId?.unit,
+      costPrice: alert.productId?.costPrice,
+    });
+    setActionQuantity(alert.deficitQty ? alert.deficitQty.toString() : "10");
+    setActionSource("PURCHASE");
+    setActionSupplier("");
+    setActionUnitCost(alert.productId?.costPrice ? alert.productId.costPrice.toString() : "");
+    setActionReferenceNumber(`RESTOCK-${alert._id?.slice(-4)?.toUpperCase() || "ORD"}`);
+    setActionReason(`Low-Stock Alert Restock (${alert.alertType})`);
+    setActionNotes(`Quick restock initiated from Alert Queue.`);
+    setShowStockInModal(true);
+  };
+
+  // Main data sync effect
+  useEffect(() => {
+    fetchAlertsSummaryData();
+  }, [fetchAlertsSummaryData]);
+
   useEffect(() => {
     if (activeTab === "STORE_STATE") {
-      fetchStoreData();
+      const timer = setTimeout(() => {
+        fetchStoreData();
+      }, 200);
+      return () => clearTimeout(timer);
     } else if (activeTab === "LEDGER_TRAIL") {
-      fetchLedgerData();
+      const timer = setTimeout(() => {
+        fetchLedgerData();
+      }, 200);
+      return () => clearTimeout(timer);
     } else if (activeTab === "ALERTS_QUEUE") {
-      fetchAlertsData();
+      const timer = setTimeout(() => {
+        fetchAlertsData();
+      }, 200);
+      return () => clearTimeout(timer);
     }
   }, [activeTab, fetchStoreData, fetchLedgerData, fetchAlertsData]);
 
-  // Modals Open Handlers
+  // ── Stock-In Handlers (Phase 3 - Task T18) ──────────────────────────────────
   const handleOpenStockIn = (item = null) => {
     setActiveItem(item);
-    setSelectedProductId(item?.productId || "");
+    setSelectedProductId(item ? item.productId : (storeState[0]?.productId || ""));
     setActionQuantity("");
     setActionSource("PURCHASE");
     setActionSupplier("");
@@ -248,60 +308,32 @@ export default function InventoryAuditPage() {
     setShowStockInModal(true);
   };
 
-  const handleOpenStockOut = (item = null) => {
-    setActiveItem(item);
-    setSelectedProductId(item?.productId || "");
-    setActionQuantity("");
-    setActionSource("SALE");
-    setActionReferenceNumber("");
-    setActionReason("");
-    setActionNotes("");
-    setShowStockOutModal(true);
-  };
-
-  const handleOpenAdjust = (item) => {
-    setActiveItem(item);
-    setNewStockValue(item.availableStock.toString());
-    setActionSource("AUDIT_RECONCILIATION");
-    setActionReferenceNumber("");
-    setActionReason("");
-    setActionNotes("");
-    setShowAdjustModal(true);
-  };
-
-  const handleOpenReorder = (item) => {
-    setActiveItem(item);
-    setNewReorderValue(item.reorderLevel.toString());
-    setShowReorderModal(true);
-  };
-
-  const handleOpenInspectLedger = (item) => {
-    setActiveItem(item);
-    setShowInspectorModal(true);
-  };
-
-  // Form Submissions
-  const handleSubmitStockIn = async (e) => {
+  const handleSaveStockIn = async (e) => {
     e.preventDefault();
-    const prodId = activeItem?.productId || selectedProductId;
-    if (!prodId) return toast.error("Please select a product.");
-
     const qty = parseFloat(actionQuantity);
-    if (isNaN(qty) || qty <= 0) return toast.error("Please enter a valid stock-in quantity.");
+    if (isNaN(qty) || qty <= 0) {
+      return toast.error("Please enter a valid positive quantity to add.");
+    }
+    const targetProdId = activeItem ? activeItem.productId : selectedProductId;
+    if (!targetProdId) {
+      return toast.error("Please select a product.");
+    }
+
+    const unitCostNum = actionUnitCost ? parseFloat(actionUnitCost) : undefined;
 
     setSubmitting(true);
     try {
       await stockIn({
-        productId: prodId,
+        productId: targetProdId,
         quantity: qty,
         source: actionSource || "PURCHASE",
-        supplier: actionSupplier.trim() || undefined,
-        unitCost: actionUnitCost ? parseFloat(actionUnitCost) : undefined,
+        supplierName: actionSupplier.trim() || undefined,
+        unitCost: !isNaN(unitCostNum) && unitCostNum >= 0 ? unitCostNum : undefined,
         referenceNumber: actionReferenceNumber.trim() || undefined,
         notes: actionNotes.trim() || undefined,
       });
 
-      toast.success(`Recorded Stock In: +${qty} units in ledger.`);
+      toast.success(`Recorded Stock In: +${qty} units into ledger (${actionSource}).`);
       setShowStockInModal(false);
       fetchStoreData();
       if (activeTab === "LEDGER_TRAIL") fetchLedgerData();
@@ -312,26 +344,41 @@ export default function InventoryAuditPage() {
     }
   };
 
-  const handleSubmitStockOut = async (e) => {
-    e.preventDefault();
-    const prodId = activeItem?.productId || selectedProductId;
-    if (!prodId) return toast.error("Please select a product.");
+  // ── Stock-Out Handlers (Phase 3 - Task T19) ──────────────────────────────────
+  const handleOpenStockOut = (item = null) => {
+    setActiveItem(item);
+    setSelectedProductId(item ? item.productId : (storeState[0]?.productId || ""));
+    setActionQuantity("");
+    setActionSource("SALE");
+    setActionReason("Customer Sale");
+    setActionReferenceNumber("");
+    setActionNotes("");
+    setShowStockOutModal(true);
+  };
 
+  const handleSaveStockOut = async (e) => {
+    e.preventDefault();
     const qty = parseFloat(actionQuantity);
-    if (isNaN(qty) || qty <= 0) return toast.error("Please enter a valid stock-out quantity.");
+    if (isNaN(qty) || qty <= 0) {
+      return toast.error("Please enter a valid positive quantity to deduct.");
+    }
+    const targetProdId = activeItem ? activeItem.productId : selectedProductId;
+    if (!targetProdId) {
+      return toast.error("Please select a product.");
+    }
 
     setSubmitting(true);
     try {
       await stockOut({
-        productId: prodId,
+        productId: targetProdId,
         quantity: qty,
         source: actionSource || "SALE",
-        referenceNumber: actionReferenceNumber.trim() || undefined,
         reason: actionReason.trim() || undefined,
+        referenceNumber: actionReferenceNumber.trim() || undefined,
         notes: actionNotes.trim() || undefined,
       });
 
-      toast.success(`Recorded Stock Out: -${qty} units in ledger.`);
+      toast.success(`Recorded Stock Out: -${qty} units in ledger (${actionSource}).`);
       setShowStockOutModal(false);
       fetchStoreData();
       if (activeTab === "LEDGER_TRAIL") fetchLedgerData();
@@ -342,12 +389,26 @@ export default function InventoryAuditPage() {
     }
   };
 
-  const handleSubmitAdjust = async (e) => {
+  // ── Adjust Stock Handlers (Phase 3 - Task T20) ─────────────────────────────
+  const handleOpenAdjust = (item) => {
+    setActiveItem(item);
+    setNewStockValue(item.availableStock.toString());
+    setActionSource("AUDIT_RECONCILIATION");
+    setActionReferenceNumber("");
+    setActionReason("");
+    setActionNotes("");
+    setShowAdjustModal(true);
+  };
+
+  const handleSaveAdjust = async (e) => {
     e.preventDefault();
     const stockNum = parseFloat(newStockValue);
     if (isNaN(stockNum) || stockNum < 0) {
       return toast.error("Please enter a valid non-negative physical stock count.");
     }
+
+    const current = activeItem?.availableStock || 0;
+    const discrepancy = stockNum - current;
 
     setSubmitting(true);
     try {
@@ -360,8 +421,11 @@ export default function InventoryAuditPage() {
         notes: actionNotes.trim() || undefined,
       });
 
-      toast.success(`Reconciled stock for ${activeItem.name}.`);
+      toast.success(
+        `Reconciled ${activeItem.name}: ${stockNum} ${activeItem.unit} (${discrepancy >= 0 ? "+" : ""}${discrepancy} delta).`
+      );
       setShowAdjustModal(false);
+      setActiveItem(null);
       fetchStoreData();
       if (activeTab === "LEDGER_TRAIL") fetchLedgerData();
     } catch (err) {
@@ -371,7 +435,14 @@ export default function InventoryAuditPage() {
     }
   };
 
-  const handleSubmitReorder = async (e) => {
+  // ── Reorder Level Handlers ─────────────────────────────────────────────────
+  const handleOpenReorder = (item) => {
+    setActiveItem(item);
+    setNewReorderValue(item.reorderLevel.toString());
+    setShowReorderModal(true);
+  };
+
+  const handleSaveReorder = async (e) => {
     e.preventDefault();
     const reorderNum = parseFloat(newReorderValue);
     if (isNaN(reorderNum) || reorderNum < 0) {
@@ -386,6 +457,7 @@ export default function InventoryAuditPage() {
 
       toast.success(`Reorder threshold set to ${reorderNum} ${activeItem.unit}`);
       setShowReorderModal(false);
+      setActiveItem(null);
       fetchStoreData();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to update reorder level.");
@@ -394,118 +466,108 @@ export default function InventoryAuditPage() {
     }
   };
 
-  const handleAcknowledgeAlert = async (alertId) => {
-    try {
-      await acknowledgeAlert(alertId);
-      toast.success("Alert acknowledged.");
-      fetchAlertsData();
-    } catch {
-      toast.error("Failed to acknowledge alert.");
-    }
-  };
-
-  const handleResolveAlert = async (alertId) => {
-    try {
-      await resolveAlert(alertId);
-      toast.success("Alert marked as resolved.");
-      fetchAlertsData();
-    } catch {
-      toast.error("Failed to resolve alert.");
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      {/* 1. Header */}
+    <div className="w-full p-6 md:p-8 space-y-6 bg-[#09090b] text-zinc-100 min-h-[calc(100vh-4rem)]">
+      {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <InventoryHeader
-        syncingAlerts={syncingAlerts}
-        onSyncAlerts={handleSyncAlerts}
-        onRefresh={() => {
-          if (activeTab === "STORE_STATE") fetchStoreData();
-          else if (activeTab === "LEDGER_TRAIL") fetchLedgerData();
-          else fetchAlertsData();
-        }}
         loading={loading}
+        activeTab={activeTab}
+        onStockIn={() => handleOpenStockIn()}
+        onStockOut={() => handleOpenStockOut()}
+        onRefresh={activeTab === "STORE_STATE" ? fetchStoreData : fetchLedgerData}
       />
 
-      {/* 2. KPI Summary Cards */}
-      <InventorySummary summary={summary} />
+      {/* ── KPI Summary Cards ───────────────────────────────────────────────── */}
+      <InventoryStats summary={summary} loading={loading} />
 
-      {/* 3. Navigation Tabs */}
-      <InventoryTabs
+      {/* ── Main Tab Switcher ────────────────────────────────────────────────── */}
+      <InventoryTabsNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        alertsTotalActive={alertsSummary.totalActive}
+        alertsSummary={alertsSummary}
       />
 
-      {/* 4. Tab 1: Current Stock State (T15) */}
+      {/* ── TAB 1: CURRENT STORE STATE (T15) ────────────────────────────────── */}
       {activeTab === "STORE_STATE" && (
-        <StoreStateTab
-          storeState={storeState}
-          loading={loading}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          stockStatusFilter={stockStatusFilter}
-          setStockStatusFilter={setStockStatusFilter}
-          onOpenStockIn={handleOpenStockIn}
-          onOpenStockOut={handleOpenStockOut}
-          onOpenAdjust={handleOpenAdjust}
-          onOpenReorder={handleOpenReorder}
-          onOpenInspectLedger={handleOpenInspectLedger}
-        />
+        <div className="space-y-4">
+          <StockStateFilters
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            stockStatusFilter={stockStatusFilter}
+            setStockStatusFilter={setStockStatusFilter}
+          />
+          <StockStateTable
+            loading={loading}
+            storeState={storeState}
+            onOpenStockIn={handleOpenStockIn}
+            onOpenStockOut={handleOpenStockOut}
+            onOpenAdjust={handleOpenAdjust}
+            onOpenReorder={handleOpenReorder}
+          />
+        </div>
       )}
 
-      {/* 5. Tab 2: Movement Ledger Audit Trail (T16) */}
+      {/* ── TAB 2: MOVEMENT LEDGER AUDIT TRAIL (T16 / T21) ──────────────────── */}
       {activeTab === "LEDGER_TRAIL" && (
-        <LedgerTab
-          ledgerEntries={ledgerEntries}
-          ledgerSummary={ledgerSummary}
-          ledgerPagination={ledgerPagination}
-          storeState={storeState}
-          loading={loading}
-          ledgerSearchTerm={ledgerSearchTerm}
-          setLedgerSearchTerm={setLedgerSearchTerm}
-          selectedProductFilter={selectedProductFilter}
-          setSelectedProductFilter={setSelectedProductFilter}
-          ledgerSourceFilter={ledgerSourceFilter}
-          setLedgerSourceFilter={setLedgerSourceFilter}
-          ledgerTypeFilter={ledgerTypeFilter}
-          setLedgerTypeFilter={setLedgerTypeFilter}
-          ledgerDatePreset={ledgerDatePreset}
-          setLedgerDatePreset={setLedgerDatePreset}
-          customStartDate={customStartDate}
-          setCustomStartDate={setCustomStartDate}
-          customEndDate={customEndDate}
-          setCustomEndDate={setCustomEndDate}
-          ledgerPage={ledgerPage}
-          setLedgerPage={setLedgerPage}
-          onExportCSV={() => exportLedgerToCSV(ledgerEntries)}
-        />
+        <div className="space-y-4">
+          <LedgerFilters
+            ledgerSearchTerm={ledgerSearchTerm}
+            setLedgerSearchTerm={setLedgerSearchTerm}
+            selectedProductFilter={selectedProductFilter}
+            setSelectedProductFilter={setSelectedProductFilter}
+            storeState={storeState}
+            ledgerSourceFilter={ledgerSourceFilter}
+            setLedgerSourceFilter={setLedgerSourceFilter}
+            ledgerTypeFilter={ledgerTypeFilter}
+            setLedgerTypeFilter={setLedgerTypeFilter}
+            ledgerDatePreset={ledgerDatePreset}
+            setLedgerDatePreset={setLedgerDatePreset}
+            customStartDate={customStartDate}
+            setCustomStartDate={setCustomStartDate}
+            customEndDate={customEndDate}
+            setCustomEndDate={setCustomEndDate}
+            setLedgerPage={setLedgerPage}
+            onExportCSV={() => exportLedgerToCSV(ledgerEntries)}
+          />
+          <LedgerFlowCards
+            ledgerSummary={ledgerSummary}
+            ledgerPagination={ledgerPagination}
+          />
+          <LedgerTable
+            loading={loading}
+            ledgerEntries={ledgerEntries}
+            ledgerPagination={ledgerPagination}
+            ledgerPage={ledgerPage}
+            setLedgerPage={setLedgerPage}
+          />
+        </div>
       )}
 
-      {/* 6. Tab 3: Low-Stock Alerts Queue (T22) */}
+      {/* ── TAB 3: LOW-STOCK ALERTS QUEUE (T22) ─────────────────────────────── */}
       {activeTab === "ALERTS_QUEUE" && (
-        <LowStockTab
-          alerts={alerts}
-          alertsSummary={alertsSummary}
-          alertPagination={alertPagination}
-          loading={loading}
-          alertSearchTerm={alertSearchTerm}
-          setAlertSearchTerm={setAlertSearchTerm}
-          alertStatusFilter={alertStatusFilter}
-          setAlertStatusFilter={setAlertStatusFilter}
-          alertPage={alertPage}
-          setAlertPage={setAlertPage}
-          syncingAlerts={syncingAlerts}
-          onSyncAlerts={handleSyncAlerts}
-          onAcknowledgeAlert={handleAcknowledgeAlert}
-          onResolveAlert={handleResolveAlert}
-          onOpenStockIn={handleOpenStockIn}
-          onOpenAdjust={handleOpenAdjust}
-        />
+        <div className="space-y-4">
+          <AlertsSummaryCards alertsSummary={alertsSummary} />
+          <AlertsTable
+            loading={loading}
+            alerts={alerts}
+            alertsSummary={alertsSummary}
+            alertStatusFilter={alertStatusFilter}
+            setAlertStatusFilter={setAlertStatusFilter}
+            alertSearchTerm={alertSearchTerm}
+            setAlertSearchTerm={setAlertSearchTerm}
+            alertPage={alertPage}
+            setAlertPage={setAlertPage}
+            alertPagination={alertPagination}
+            syncingAlerts={syncingAlerts}
+            onSyncAlerts={handleSyncAlerts}
+            onQuickRestock={handleQuickRestockFromAlert}
+            onAcknowledge={handleAcknowledgeAlert}
+            onResolve={handleResolveAlert}
+          />
+        </div>
       )}
 
-      {/* ── Modals ── */}
+      {/* ── Modals ──────────────────────────────────────────────────────────── */}
       <StockInModal
         isOpen={showStockInModal}
         onClose={() => setShowStockInModal(false)}
@@ -526,7 +588,7 @@ export default function InventoryAuditPage() {
         actionNotes={actionNotes}
         setActionNotes={setActionNotes}
         submitting={submitting}
-        onSubmit={handleSubmitStockIn}
+        onSubmit={handleSaveStockIn}
       />
 
       <StockOutModal
@@ -540,17 +602,17 @@ export default function InventoryAuditPage() {
         setActionQuantity={setActionQuantity}
         actionSource={actionSource}
         setActionSource={setActionSource}
-        actionReferenceNumber={actionReferenceNumber}
-        setActionReferenceNumber={setActionReferenceNumber}
         actionReason={actionReason}
         setActionReason={setActionReason}
+        actionReferenceNumber={actionReferenceNumber}
+        setActionReferenceNumber={setActionReferenceNumber}
         actionNotes={actionNotes}
         setActionNotes={setActionNotes}
         submitting={submitting}
-        onSubmit={handleSubmitStockOut}
+        onSubmit={handleSaveStockOut}
       />
 
-      <AdjustStockModal
+      <StockAdjustModal
         isOpen={showAdjustModal}
         onClose={() => setShowAdjustModal(false)}
         activeItem={activeItem}
@@ -565,7 +627,7 @@ export default function InventoryAuditPage() {
         actionNotes={actionNotes}
         setActionNotes={setActionNotes}
         submitting={submitting}
-        onSubmit={handleSubmitAdjust}
+        onSubmit={handleSaveAdjust}
       />
 
       <ReorderLevelModal
@@ -575,13 +637,7 @@ export default function InventoryAuditPage() {
         newReorderValue={newReorderValue}
         setNewReorderValue={setNewReorderValue}
         submitting={submitting}
-        onSubmit={handleSubmitReorder}
-      />
-
-      <LedgerInspectorModal
-        isOpen={showInspectorModal}
-        onClose={() => setShowInspectorModal(false)}
-        product={activeItem}
+        onSubmit={handleSaveReorder}
       />
     </div>
   );

@@ -495,6 +495,17 @@ const syncAllInventoryAlerts = async (businessId) => {
   return await alertRepo.syncAllInventoryAlerts(businessId);
 };
 
+const autoDeductInventoryForSale = async (businessId, payload, session = null) => {
+  if (!mongoose.Types.ObjectId.isValid(businessId)) {
+    const error = new Error("Invalid business ID.");
+    error.statusCode = 400;
+    error.code = "INVALID_BUSINESS_ID";
+    throw error;
+  }
+
+  return await inventoryRepo.autoDeductInventoryForSale(businessId, payload, session);
+};
+
 module.exports = {
   getStoreState,
   getInventorySummary,
@@ -512,4 +523,6 @@ module.exports = {
   acknowledgeAlert,
   resolveAlert,
   syncAllInventoryAlerts,
+  autoDeductInventoryForSale,
 };
+

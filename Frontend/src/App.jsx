@@ -2,16 +2,19 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute, OnboardingRoute } from "./routes/ProtectedRoute";
+import AppLayout from "./components/layout/AppLayout";
 
 import Register from "./features/auth/Register";
 import Login from "./features/auth/Login";
 import VerifyOTP from "./features/auth/VerifyOTP";
 import BusinessOnboarding from "./features/business/BusinessOnboarding";
 import Dashboard from "./features/dashboard/Dashboard";
+import ProfilePage from "./features/profile/ProfilePage";
 import ProductsPage from "./features/products/ProductsPage";
 import InventoryAuditPage from "./features/inventory/InventoryAuditPage";
 import CustomersPage from "./features/customers/CustomersPage";
 import POSTerminalPage from "./features/pos/POSTerminalPage";
+import SalesHistoryPage from "./features/pos/SalesHistoryPage";
 
 export default function App() {
   return (
@@ -53,47 +56,23 @@ export default function App() {
             }
           />
 
-          {/* Protected Application Routes */}
+          {/* Protected Application Routes (with Shared Persistent Layout) */}
           <Route
-            path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <AppLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/products"
-            element={
-              <ProtectedRoute>
-                <ProductsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/inventory"
-            element={
-              <ProtectedRoute>
-                <InventoryAuditPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/customers"
-            element={
-              <ProtectedRoute>
-                <CustomersPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/pos"
-            element={
-              <ProtectedRoute>
-                <POSTerminalPage />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/inventory" element={<InventoryAuditPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/pos" element={<POSTerminalPage />} />
+            <Route path="/sales" element={<SalesHistoryPage />} />
+            <Route path="/invoices" element={<SalesHistoryPage />} />
+          </Route>
 
           {/* Fallback default redirect */}
           <Route path="*" element={<Navigate to="/login" replace />} />

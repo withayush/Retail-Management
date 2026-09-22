@@ -25,6 +25,15 @@ export const AuthProvider = ({ children }) => {
     return Boolean(bId && bId !== "undefined" && bId !== "null");
   });
 
+  const [business, setBusiness] = useState(() => {
+    try {
+      const stored = localStorage.getItem("business");
+      return stored && stored !== "undefined" && stored !== "null" ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [loading, setLoading] = useState(true);
 
   const checkUserBusiness = useCallback(async () => {
@@ -46,16 +55,22 @@ export const AuthProvider = ({ children }) => {
       const businessId = businessData?._id || businessData?.id;
       if (businessData && businessId) {
         setHasBusiness(true);
+        setBusiness(businessData);
         localStorage.setItem("businessId", businessId.toString());
+        localStorage.setItem("business", JSON.stringify(businessData));
         return true;
       } else {
         setHasBusiness(false);
+        setBusiness(null);
         localStorage.removeItem("businessId");
+        localStorage.removeItem("business");
         return false;
       }
     } catch (err) {
       setHasBusiness(false);
+      setBusiness(null);
       localStorage.removeItem("businessId");
+      localStorage.removeItem("business");
       return false;
     }
   }, []);
@@ -153,6 +168,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       localStorage.clear();
       setUser(null);
+      setBusiness(null);
       setHasBusiness(false);
     }
   };
@@ -166,6 +182,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
+        business,
         isAuthenticated: !!user,
         hasBusiness,
         login,

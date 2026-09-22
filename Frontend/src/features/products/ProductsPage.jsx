@@ -355,10 +355,9 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="w-full p-6 md:p-8 space-y-6 bg-[#09090b] text-zinc-100 min-h-[calc(100vh-4rem)]">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <ProductHeader
-        onNavigateDashboard={() => navigate("/dashboard")}
         onOpenAddModal={() => {
           setForm(emptyForm);
           setShowAdd(true);
