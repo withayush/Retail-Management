@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
@@ -51,6 +51,8 @@ export default function AppLayout({ children }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleCollapse, navigate]);
 
+  const location = useLocation();
+
   return (
     <div className="min-h-screen flex bg-[#09090b] text-zinc-100 antialiased font-sans">
       {/* Persistent Responsive Sidebar */}
@@ -73,8 +75,8 @@ export default function AppLayout({ children }) {
           onLogout={logout}
         />
 
-        {/* Dynamic Page View Area */}
-        <main className="flex-1 overflow-y-auto bg-[#09090b]">
+        {/* Dynamic Page View Area with Smooth Page Entry */}
+        <main key={location.pathname} className="flex-1 overflow-y-auto bg-[#09090b] page-enter">
           {children || <Outlet />}
         </main>
       </div>

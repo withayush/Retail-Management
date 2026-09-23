@@ -1,10 +1,11 @@
 const Invoice = require("../models/invoice.model");
 const SaleItem = require("../models/saleItem.model");
-const Customer = require("../models/customer.model");
+const { Customer } = require("../models/customer.model");
 const Product = require("../models/product.model");
 const { Inventory, InventoryLedger } = require("../models/inventory.model");
 const Payment = require("../models/payment.model");
 const alertRepo = require("./inventoryAlert.repository");
+const customerLedgerRepo = require("./customerLedger.repository");
 
 /**
  * Phase 4 - Tasks T23, T24 & T25: Sale Transaction, Line Items & POS Checkout Repository
@@ -171,24 +172,41 @@ const createSale = async (businessId, saleData, session = null) => {
 
   let calcPaid = Math.round(Number(paidAmount) * 100) / 100;
 
-  // If status is PAID and paidAmount was 0 or omitted, auto-set paidAmount = total
-  if (paymentStatus === "PAID" && (calcPaid === 0 || isNaN(calcPaid)) && calcTotal > 0) {
+  // Handle Credit / Udhar checkout mode defaults
+  const isCreditMode = paymentMode === "CREDIT" || paymentMode === "CREDIT_UDHAR" || paymentMode === "UDHAR";
+  if (isCreditMode) {
+    paymentMode = "CREDIT_UDHAR";
+    if (paidAmount === undefined || isNaN(calcPaid) || paidAmount === null) {
+      calcPaid = 0;
+    }
+  }
+
+  // If status is PAID and paidAmount was 0 or omitted (and not a credit sale), auto-set paidAmount = total
+  if (!isCreditMode && paymentStatus === "PAID" && (calcPaid === 0 || isNaN(calcPaid)) && calcTotal > 0) {
     calcPaid = calcTotal;
   }
 
   // Auto-resolve payment status from paid amount if not cancelled
   let resolvedPaymentStatus = paymentStatus;
   if (paymentStatus !== "CANCELLED" && paymentStatus !== "FAILED") {
-    if (calcPaid >= calcTotal) {
+    if (calcPaid >= calcTotal && !isCreditMode) {
       resolvedPaymentStatus = "PAID";
     } else if (calcPaid > 0 && calcPaid < calcTotal) {
       resolvedPaymentStatus = "PARTIAL";
-    } else if (calcPaid === 0) {
-      resolvedPaymentStatus = "PENDING";
+    } else if (calcPaid === 0 || isCreditMode) {
+      resolvedPaymentStatus = calcPaid > 0 ? "PARTIAL" : "PENDING";
     }
   }
 
   const calcDue = Math.max(0, Math.round((calcTotal - calcPaid) * 100) / 100);
+
+  // Validate that credit sales have customer information
+  if (isCreditMode && calcDue > 0 && !customerId && (!customerPhone || !customerPhone.trim())) {
+    const error = new Error("A registered customer or customer phone number is required for Credit / Udhaar sales.");
+    error.statusCode = 400;
+    error.code = "CUSTOMER_REQUIRED_FOR_CREDIT";
+    throw error;
+  }
 
   // If customerId is provided, enrich name/phone if empty
   if (customerId) {
@@ -282,26 +300,75 @@ const createSale = async (businessId, saleData, session = null) => {
     }
   }
 
-  // 5. Payment Transaction Linking
+  // 5. Payment Transaction Linking (Task T28)
   if (calcPaid > 0) {
     let paymentMethod = paymentMode;
-    if (paymentMode === "CREDIT_UDHAR") paymentMethod = "CREDIT";
+    if (paymentMode === "CREDIT_UDHAR") paymentMethod = "CASH";
 
     await Payment.create(
       [
         {
           businessId,
           invoiceId: invoice._id,
+          customerId: invoice.customerId || null,
           amount: calcPaid,
           method: paymentMethod,
           referenceId: invoice.invoiceNumber,
+          notes: `Initial checkout payment for #${invoice.invoiceNumber}`,
+          createdBy,
+          createdByName,
+        },
+      ],
+      sessionOpt
+    );
+  } else if (isCreditMode) {
+    await Payment.create(
+      [
+        {
+          businessId,
+          invoiceId: invoice._id,
+          customerId: invoice.customerId || null,
+          amount: calcDue,
+          method: "CREDIT",
+          referenceId: invoice.invoiceNumber,
+          status: "PENDING",
+          notes: `Credit / Udhaar purchase for #${invoice.invoiceNumber}`,
+          createdBy,
+          createdByName,
         },
       ],
       sessionOpt
     );
   }
 
-  // 6. Asynchronous Low-Stock Alerts Evaluation (T22)
+  // 6. Phase 4 - Task T29: Customer Credit Integration Engine
+  // If invoice has an outstanding due amount and customer is attached, route unpaid balance to Customer Ledger
+  if (calcDue > 0 && (customerId || (customerPhone && customerPhone.trim()))) {
+    const creditResult = await customerLedgerRepo.recordSaleCredit(
+      {
+        businessId,
+        customerId: invoice.customerId,
+        customerPhone: invoice.customerPhone,
+        customerName: invoice.customerName,
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        unpaidAmount: calcDue,
+        notes: notes || `Credit sale against Invoice #${invoice.invoiceNumber}`,
+        createdBy,
+        createdByName,
+      },
+      session
+    );
+
+    if (creditResult.customer?.id && (!invoice.customerId || invoice.customerId.toString() !== creditResult.customer.id.toString())) {
+      invoice.customerId = creditResult.customer.id;
+      invoice.customerName = creditResult.customer.name;
+      invoice.customerPhone = creditResult.customer.phone;
+      await invoice.save(sessionOpt);
+    }
+  }
+
+  // 7. Asynchronous Low-Stock Alerts Evaluation (T22)
   if (!skipInventoryDeduction && inventoryUpdates.length > 0) {
     for (const update of inventoryUpdates) {
       try {

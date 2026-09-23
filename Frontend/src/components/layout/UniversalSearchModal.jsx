@@ -97,14 +97,14 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+        className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity animate-fade-in"
         onClick={onClose}
       />
 
       {/* Modal content */}
-      <div className="relative w-full max-w-lg bg-[#141416] border border-[#242427] rounded-xl shadow-2xl z-10 overflow-hidden">
+      <div className="relative w-full max-w-lg bg-[#111113] border border-[#27272a] rounded-2xl shadow-2xl z-10 overflow-hidden animate-modal-pop">
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#242427]">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1f1f23]">
           <Search className="w-4 h-4 text-zinc-400 shrink-0" />
           <input
             ref={inputRef}

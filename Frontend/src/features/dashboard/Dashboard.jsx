@@ -122,10 +122,10 @@ export default function Dashboard() {
       />
 
       {/* Recent Sales Table */}
-      <div className="p-4 bg-[#141416] border border-[#242427] rounded-xl space-y-3">
+      <div className="p-4 bg-[#111113] border border-[#1f1f23] rounded-xl space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-white">Recent Sales</h2>
-          <Link to="/sales" className="text-xs text-zinc-400 hover:text-white">
+          <Link to="/sales" className="text-xs text-zinc-400 hover:text-white transition-colors">
             View all
           </Link>
         </div>
@@ -136,7 +136,7 @@ export default function Dashboard() {
           ) : (
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-[#242427] text-zinc-400">
+                <tr className="border-b border-[#1f1f23] text-zinc-400">
                   <th className="pb-2 font-medium">Invoice</th>
                   <th className="pb-2 font-medium">Customer</th>
                   <th className="pb-2 font-medium">Total</th>
@@ -144,9 +144,9 @@ export default function Dashboard() {
                   <th className="pb-2 font-medium text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#222225]">
+              <tbody className="divide-y divide-[#1f1f23]">
                 {recentSales.map((sale) => (
-                  <tr key={sale._id} className="hover:bg-zinc-800/30">
+                  <tr key={sale._id} className="hover:bg-zinc-800/30 transition-colors">
                     <td className="py-2.5 font-mono text-zinc-300">{sale.invoiceNumber}</td>
                     <td className="py-2.5 text-zinc-300">{sale.customerName || "Walk-in"}</td>
                     <td className="py-2.5 font-medium text-white">₹{sale.total || 0}</td>
@@ -160,14 +160,14 @@ export default function Dashboard() {
                         <button
                           onClick={() => handlePreview(sale)}
                           title="Preview"
-                          className="p-1 rounded text-zinc-400 hover:text-white"
+                          className="p-1 rounded text-zinc-400 hover:text-white transition-colors cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDownload(sale)}
                           title="Download"
-                          className="p-1 rounded text-zinc-400 hover:text-white"
+                          className="p-1 rounded text-zinc-400 hover:text-white transition-colors cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
                         </button>

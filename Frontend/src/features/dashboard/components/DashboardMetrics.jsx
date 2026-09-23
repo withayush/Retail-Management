@@ -59,7 +59,7 @@ export default function DashboardMetrics({
           <Link
             key={idx}
             to={card.link}
-            className="p-4 bg-[#141416] border border-[#242427] rounded-xl hover:bg-[#18181b] transition-colors"
+            className="p-4 bg-[#111113] border border-[#1f1f23] rounded-xl hover-lift transition-all"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs text-zinc-400 font-medium">

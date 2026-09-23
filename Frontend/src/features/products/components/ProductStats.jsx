@@ -34,7 +34,7 @@ export default function ProductStats({ totalItems, loading, activeCount, categor
         return (
           <div
             key={s.label}
-            className="bg-[#111113] border border-[#1f1f23] rounded-xl p-4 shadow-xs"
+            className="bg-[#111113] border border-[#1f1f23] rounded-xl p-4 shadow-xs hover-lift cursor-default"
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-zinc-400">

@@ -1,121 +1,149 @@
 # VendorOS Frontend Architecture & Implementation Documentation
 
-This document tracks all frontend features, component structures, state models, reasons for architectural choices, and the impact of each update.
+This document tracks all frontend features, component structures, custom hooks, state models, architectural choices, and the implementation details of all modules in VendorOS.
 
 ---
 
 ## 1. Overview of Frontend Architecture
 
-- **Framework**: React 19 + Vite 8
+- **Framework**: React 19 + Vite
 - **Routing**: React Router v7 (`react-router-dom`)
-- **Styling**: Tailwind CSS v3 with dark monochrome design tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`, etc.)
+- **Styling**: Tailwind CSS with dark monochrome palette and design tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`, etc.)
 - **Animations & Modals**: Framer Motion
 - **Icons**: Lucide React
 - **Notifications**: `react-hot-toast`
-- **HTTP Client**: Axios with centralized Request/Response interceptors & token refresh logic
+- **HTTP Client**: Axios with centralized Request/Response interceptors, bearer tokens, multi-tenant `x-business-id` header injection, and silent token refresh logic
 
 ---
 
-## 2. Implemented Features & Component Breakdown
+## 2. Directory Structure & Module Breakdown
 
-### A. Authentication & Onboarding Layer
-
-#### 1. `Register.jsx` (`Frontend/src/features/auth/Register.jsx`)
-- **Purpose**: New user account creation.
-- **Why Created**: Collects full name, email, phone number, and password with frontend validation.
-- **Why It's Necessary**: Establishes identity in the authentication database before business creation.
-- **What It Affects**: Routes to `/verify-otp` upon registration and passes phone number and debug OTP in navigation state.
-
-#### 2. `VerifyOTP.jsx` (`Frontend/src/features/auth/VerifyOTP.jsx`)
-- **Purpose**: Verifies 6-digit phone OTP and facilitates OTP resend with cooldown timer.
-- **Why Created**: Enforces phone verification security.
-- **Why It's Necessary**: Prevents unverified account logins.
-- **What It Affects**: Upon verification, redirects user to `/login` or onboarding.
-
-#### 3. `Login.jsx` (`Frontend/src/features/auth/Login.jsx`)
-- **Purpose**: User login via email/phone and password.
-- **Why Created**: Authenticates credentials, stores access token in memory/localStorage, and starts authenticated session.
-- **Why It's Necessary**: Gatekeeper for all protected application views.
-- **What It Affects**: Updates `AuthContext`, stores user & vendor objects, and redirects to `/dashboard` or `/business-onboarding`.
-
-#### 4. `BusinessOnboarding.jsx` (`Frontend/src/features/business/BusinessOnboarding.jsx`)
-- **Purpose**: Step-by-step business setup wizard.
-- **Why Created**: Collects business name, category/type, currency (INR), GSTIN, and business address.
-- **Why It's Necessary**: Every product, category, invoice, and customer in VendorOS is strictly multi-tenant and requires a valid `businessId`.
-- **What It Affects**: Creates business profile in backend, sets `businessId` in `localStorage`, updates `AuthContext.hasBusiness = true`, and unlocks dashboard.
-
-#### 5. `AuthContext.jsx` & `ProtectedRoute.jsx` (`Frontend/src/context/` & `Frontend/src/routes/`)
-- **Purpose**: Central state management for authenticated user, business verification, and route guarding.
-- **Why Created**: Prevents unauthorized access to dashboard and routes un-onboarded users directly to onboarding.
-- **What It Affects**: Entire routing lifecycle (`/dashboard`, `/products`, `/inventory`, `/customers`, `/pos`).
-
----
-
-### B. Product Catalog & Inventory Layer (`Frontend/src/features/products/`)
-
-#### 1. `ProductsPage.jsx`
-- **Purpose**: Main product management orchestrator.
-- **Why Created**: Centralizes product fetching, category management, filter syncing, and modal triggers.
-- **Why It's Necessary**: Connects the user interface to backend REST APIs (`/api/products`, `/api/categories`).
-- **What It Affects**: Coordinates `ProductHeader`, `ProductStats`, `ProductFilters`, `ProductTable`, `ProductModal`, `ProductForm`, and `ArchiveProductModal`.
-
-#### 2. `ProductHeader.jsx`
-- **Purpose**: Page header with breadcrumbs, system badge, and "Add Product" action button.
-- **Why Created**: Provides clear navigation hierarchy and primary action access.
-- **What It Affects**: Opens the Add Product modal and navigates back to Dashboard.
-
-#### 3. `ProductStats.jsx`
-- **Purpose**: Displays 4 live KPI cards:
-  1. *Total Products*
-  2. *Active In Catalog*
-  3. *Categories Count*
-  4. *Average Profit Margin (%)*
-- **Why Created**: Gives immediate high-level business intelligence on inventory health and margin viability.
-- **What It Affects**: Computed in real-time from active products list and backend pagination metadata.
-
-#### 4. `ProductFilters.jsx`
-- **Purpose**: Search and filter toolbar.
-- **Why Created**: Enables searching by Product Name, SKU, Barcode, filtering by Category, sorting (Newest, Name, Price, Margin), and toggling between Active/All/Archived status.
-- **Why It's Necessary**: Enables fast product retrieval in large retail catalogs.
-- **What It Affects**: Updates query parameters and triggers debounced backend search.
-
-#### 5. `ProductTable.jsx`
-- **Purpose**: High-density product listing table.
-- **Why Created**: Displays name, category tag, SKU/Barcode with one-click copy, formatted Cost Price, Selling Price, color-coded Profit Margin chips, status badges, and action buttons (Edit, Archive, Restore).
-- **Why It's Necessary**: Central interface for merchants to view and manage all catalog items.
-- **What It Affects**: Triggers edit modal, archive modal, copy-to-clipboard toast, and pagination controls.
-
-#### 6. `ProductForm.jsx`
-- **Purpose**: Add/Edit product form.
-- **Why Created**: Collects Name, Category (with datalist and auto-create support), Packaging Unit, SKU (with auto-generator button), Barcode, Cost Price, Selling Price, and Opening Stock.
-- **Why It's Necessary**: Guarantees all backend validation requirements are met without manual friction.
-- **What It Affects**: Communicates with `/api/products` (POST / PUT) and `/api/categories` (POST).
-
-#### 7. `ProductModal.jsx` & `ArchiveProductModal.jsx`
-- **Purpose**: Reusable animated modal backdrop and safe archival confirmation dialog.
-- **Why Created**: Confirms product archival without destructive deletion (preserving historical invoices).
-- **What It Affects**: Calls `POST /api/products/:id/archive`.
-
-#### 8. `product.utils.js`
-- **Purpose**: Shared formatting and margin calculation utility functions.
-- **Functions**: `fmt(number)` (Indian Rupee formatting), `margin(cost, sell)` (percentage calculation), `emptyForm` template, `inputCls` styling tokens.
+```text
+Frontend/src/
+├── context/
+│   └── AuthContext.jsx                # Global Auth & Business active state
+├── hooks/
+│   ├── useBarcodeScanner.js           # Sub-millisecond hardware barcode scanner listener
+│   └── usePOSKeyboard.js              # Global cashier hotkey management (F2, F4, F8, F9, Esc)
+├── routes/
+│   ├── AppRoutes.jsx                  # Main route mapping table
+│   ├── ProtectedRoute.jsx             # Auth & active session route gate
+│   └── OnboardingRoute.jsx            # Business onboarding status gate
+├── services/                          # API Communication Clients
+│   ├── api.js                         # Base Axios instance with interceptors
+│   ├── auth.api.js                    # Auth endpoints (register, login, OTP, me, logout)
+│   ├── business.api.js                # Business onboarding, settings, and context
+│   ├── category.api.js                # Category CRUD endpoints
+│   ├── customer.api.js                # Customer CRM, Khata ledger, and settlements
+│   ├── inventory.api.js               # Stock In/Out, adjustments, alerts, and ledgers
+│   ├── product.api.js                 # Products CRUD, barcode lookup, search, and archival
+│   └── sale.api.js                    # POS checkout, sales history, and gross profit analytics
+├── features/
+│   ├── auth/                          # Authentication Views
+│   │   ├── Login.jsx
+│   │   ├── Register.jsx
+│   │   └── VerifyOTP.jsx
+│   ├── business/                      # Multi-Step Business Onboarding
+│   │   └── BusinessOnboarding.jsx
+│   ├── dashboard/                     # Vendor Dashboard
+│   │   └── DashboardPage.jsx
+│   ├── products/                      # Product Catalog Management
+│   │   ├── ProductsPage.jsx
+│   │   ├── components/
+│   │   │   ├── CategoriesModal.jsx
+│   │   │   ├── ProductForm.jsx
+│   │   │   ├── ProductTable.jsx
+│   │   │   ├── ProductFilters.jsx
+│   │   │   ├── ProductStats.jsx
+│   │   │   ├── ProductHeader.jsx
+│   │   │   └── ArchiveProductModal.jsx
+│   ├── inventory/                     # Store Stock State & Movement Ledger (T15-T22)
+│   │   ├── InventoryAuditPage.jsx
+│   │   └── components/
+│   │       ├── InventoryTabsNav.jsx
+│   │       ├── StoreStateTable.jsx
+│   │       ├── InventoryLedgerTable.jsx
+│   │       ├── InventoryAlertsTable.jsx
+│   │       ├── StockInModal.jsx
+│   │       ├── StockOutModal.jsx
+│   │       ├── AdjustStockModal.jsx
+│   │       └── ReorderModal.jsx
+│   ├── pos/                           # POS Cashier Terminal & Billing Screen (T30)
+│   │   ├── POSTerminalPage.jsx
+│   │   └── components/
+│   │       ├── POSHeader.jsx
+│   │       ├── POSProductsGrid.jsx
+│   │       ├── POSCart.jsx
+│   │       ├── POSCustomerModal.jsx
+│   │       ├── SettlePaymentModal.jsx
+│   │       ├── PrintReceiptModal.jsx
+│   │       └── POSKeyboardShortcutsModal.jsx
+│   ├── customers/                     # Customer Profiles & Khata (Udhaar) CRM (T29)
+│   │   ├── CustomersPage.jsx
+│   │   └── components/
+│   │       ├── CustomersStatsCards.jsx
+│   │       ├── CustomersTable.jsx
+│   │       ├── CustomerLedgerModal.jsx
+│   │       ├── SettleKhataModal.jsx
+│   │       └── AddCustomerModal.jsx
+│   └── sales/                         # Invoices & Billing History
+│       ├── SalesHistoryPage.jsx
+│       └── components/
+│           ├── SalesHistoryTable.jsx
+│           └── SaleDetailModal.jsx
+```
 
 ---
 
-### C. Services & API Communication Layer (`Frontend/src/services/`)
+## 3. Implemented Modules Detailed Breakdown
 
-1. **`api.js`**: Axios instance configured with base URL, bearer token interceptor, `x-business-id` multi-tenant header, and silent token refresh logic.
-2. **`auth.api.js`**: Endpoints for `registerUser`, `verifyOTP`, `resendOTP`, `loginUser`, `getMe`, `refreshToken`.
-3. **`business.api.js`**: Endpoints for `createBusiness`, `getMyBusiness`, `switchBusiness`.
-4. **`product.api.js`**: Endpoints for `getProducts`, `getProductById`, `getProductByBarcode`, `createProduct`, `updateProduct`, `archiveProduct`, `restoreProduct`, `deleteProduct`, `getProductCategories`, `createCategory`.
-5. **`customer.api.js`**: Endpoints for customer management and ledger tracking.
-6. **`inventory.api.js`**: Endpoints for stock adjustments and immutable inventory audit ledger.
+### A. POS Billing Checkout Terminal (`Frontend/src/features/pos/`) [T30]
+- **Hardware Barcode Scanner Listener (`useBarcodeScanner.js`)**: Auto-detects fast keystroke bursts (< 50ms interval) from USB/Bluetooth handheld barcode scanners and automatically appends matching products to the active cart.
+- **Global Cashier Keyboard Hotkeys (`usePOSKeyboard.js`)**:
+  - `F2`: Auto-focus product search box
+  - `F4`: Open Customer selection / Khata modal
+  - `F8`: Reset and clear active cart
+  - `F9`: Proceed to payment / Settle modal
+  - `F1`: Open shortcuts help cheat sheet
+  - `Esc`: Close any open modal dialog
+- **Quick Cart (`POSCart.jsx`)**: Real-time computation of subtotal, product-level discounts, GST tax amounts, and grand total.
+- **Payment & Settle Modal (`SettlePaymentModal.jsx`)**:
+  - Supports `CASH`, `UPI` (with reference ID), `CARD`, and `CREDIT/UDHAAR`.
+  - Supports partial payments with automatic live Udhaar debt calculation.
+- **Print Receipt Modal (`PrintReceiptModal.jsx`)**: Thermal receipt preview formatted for 80mm/58mm POS receipt printers.
+
+### B. Customer Credit (Khata) & CRM (`Frontend/src/features/customers/`) [T29]
+- **KPI Summary (`CustomersStatsCards.jsx`)**: Displays Total Customers, Total Udhaar (₹), and Count of Customers with Pending Dues.
+- **Customer Directory (`CustomersTable.jsx`)**: Real-time search, phone numbers, credit limits, and balance indicators with action buttons.
+- **Khata Ledger Statement (`CustomerLedgerModal.jsx`)**: Chronological audit trail showing every credit sale (`SALE_CREDIT`) and cash repayment (`PAYMENT_RECEIVED`) with before/after balance snapshots.
+- **Settle Khata Modal (`SettleKhataModal.jsx`)**: Quick modal to record customer debt settlements.
+
+### C. Inventory Movement & Store State (`Frontend/src/features/inventory/`) [T15–T22]
+- **Store State Tab**: Real-time physical quantities, reorder thresholds, low stock status, and total inventory asset valuation.
+- **Movement Ledger Tab**: Bank-statement format showing WHO (actor), WHEN (timestamp), WHY (purchase, sale, damage, audit), and WHAT (product & delta).
+- **Alerts Queue Tab**: Deterministic low-stock notifications with 1-click **"Restock Now"** shortcuts.
+- **Action Modals**: Stock In, Stock Out (with insufficient stock guard), Physical Reconciliation Adjustment, and Reorder Limits.
+
+### D. Product Catalog Management (`Frontend/src/features/products/`) [T7–T14]
+- **Products Page (`ProductsPage.jsx`)**: Real-time multi-field search (Name, SKU, Barcode), category filters, and active/archived status toggles.
+- **Product Lifecycle Form (`ProductForm.jsx`)**: Live profit margin (%) calculator, smart SKU generator, packaging specifications, and opening stock seeding.
+- **Categories Modal (`CategoriesModal.jsx`)**: Modal to create, edit, search, and delete categories with live product counter badges.
+- **Archival Protection (`ArchiveProductModal.jsx`)**: Safe soft-deletion preserving historical invoices and credit ledgers.
 
 ---
 
-## 3. Maintenance & Change Impact Guidelines
+## 4. API Communication Layer (`Frontend/src/services/`)
+- `api.js`: Central Axios instance handling bearer tokens, `x-business-id` header injection, and 401 token refresh interceptors.
+- `auth.api.js`: Full authentication and session management.
+- `business.api.js`: Store configuration and onboarding wizard APIs.
+- `category.api.js`: Category CRUD operations.
+- `product.api.js`: Product catalog queries, seek pagination, and barcode lookups.
+- `inventory.api.js`: Stock movements, reconciliations, alerts, and audit ledgers.
+- `sale.api.js`: POS checkout creation, sales history, line snapshots, and PDF invoice downloads.
+- `customer.api.js`: Customer profiles, Khata statements, and debt settlements.
 
-When modifying any frontend file:
-1. **Always maintain Dark Theme tokens** (`bg-background`, `text-foreground`, `border-border`, `bg-card`).
-2. **Always test backend schema compatibility** (e.g. check field naming: `sellingPrice` vs `costPrice`).
-3. **Verify build before pushing**: Run `npm run build` to catch bundling and syntax errors before deploying to production.
+---
+
+## 5. Development & Verification Commands
+- Run development server: `npm run dev` (Starts Vite on http://localhost:5173)
+- Run production build: `npm run build` (Ensures zero compilation/type errors)

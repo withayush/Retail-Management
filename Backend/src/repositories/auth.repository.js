@@ -121,6 +121,7 @@ const revokeSession = async (sessionId) => {
       },
     },
     {
+      returnDocument: "after",
       new: true,
     }
   );
@@ -144,6 +145,7 @@ const updateSessionRefreshToken = async ({
       },
     },
     {
+      returnDocument: "after",
       new: true,
     }
   );
@@ -182,6 +184,7 @@ const completePhoneVerification = async ({
             },
           },
           {
+            returnDocument: "after",
             new: true,
             session: dbSession,
           }
@@ -215,6 +218,7 @@ const completePhoneVerification = async ({
             },
           },
           {
+            returnDocument: "after",
             new: true,
             session: dbSession,
           }
@@ -248,6 +252,7 @@ const completePhoneVerification = async ({
             },
           },
           {
+            returnDocument: "after",
             new: true,
             upsert: true,
             session: dbSession,
@@ -353,7 +358,7 @@ const updateOtpChallengeForResend = async ({
         resendCount: 1,
       },
     },
-    { new: true }
+    { returnDocument: "after", new: true }
   );
 };
 

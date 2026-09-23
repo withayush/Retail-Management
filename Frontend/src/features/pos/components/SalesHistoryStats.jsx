@@ -5,7 +5,7 @@ export default function SalesHistoryStats({ summary }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {/* Total Billed Revenue */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400">
           Total Sales Billed
         </span>
@@ -18,7 +18,7 @@ export default function SalesHistoryStats({ summary }) {
       </div>
 
       {/* Total Paid / Collected */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400">
           Collected Revenue
         </span>
@@ -31,7 +31,7 @@ export default function SalesHistoryStats({ summary }) {
       </div>
 
       {/* Total Outstanding Udhar */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400">
           Pending / Udhar Balance
         </span>
@@ -44,7 +44,7 @@ export default function SalesHistoryStats({ summary }) {
       </div>
 
       {/* Invoice Count Breakdown */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400">
           Invoice Status
         </span>

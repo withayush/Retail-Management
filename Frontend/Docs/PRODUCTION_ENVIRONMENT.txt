@@ -1,58 +1,155 @@
 ================================================================================
-                  VENDOROS - PRODUCTION ENVIRONMENT TRACKER                     
+                  VENDOROS - PRODUCTION ENVIRONMENT & DEPLOYMENT GUIDE          
+================================================================================
+Last Updated : 2026-09-23
+Live Status  : Production Ready (Phase 0 through Phase 4 Fully Integrated)
+Platform     : Render (Cloud Web Services & Static Sites)
+Repository   : https://github.com/withayush/Retail-Management.git (Branch: main)
+
+================================================================================
+1. HOSTING & DEPLOYMENT ARCHITECTURE
+================================================================================
+Frontend App : https://vendor-os-frontend-xlqx.onrender.com (Render Static Site)
+Backend API  : https://vendoros-backend-XXXX.onrender.com (Render Web Service)
+Database     : MongoDB Atlas (Multi-Tenant Replica Set with Compound Indexes)
+
+Deployment Pipeline Flow:
+  Local Commits -> Push to `main` -> Render Webhook Trigger -> Automatic Build -> Zero-Downtime Rollout
+
+================================================================================
+2. RENDER PRODUCTION CONFIGURATION SETTINGS
 ================================================================================
 
-1. HOSTING & DEPLOYMENT PLATFORM:
-   - Hosting Provider  : Render (Cloud Web Services & Static Sites)
-   - Frontend Prod URL : https://vendor-os-frontend-xlqx.onrender.com
-   - Backend Prod URL  : https://vendoros-backend-XXXX.onrender.com (or Render Web Service URL)
-   - Git Repository    : https://github.com/withayush/Retail-Management.git (Branch: main)
+A. FRONTEND STATIC SITE (Render Dashboard):
+   - Service Name      : vendor-os-frontend-xlqx
+   - Root Directory    : Frontend
+   - Build Command     : npm install && npm run build
+   - Publish Directory : dist
+   - Node Version      : >= 20.x
+   - Environment Variables:
+       VITE_API_URL = https://your-backend-service.onrender.com
 
-2. RENDER CONFIGURATION REQUIREMENTS:
+B. BACKEND WEB SERVICE (Render Dashboard):
+   - Service Name      : vendoros-backend
+   - Root Directory    : Backend
+   - Environment       : Node
+   - Build Command     : npm install
+   - Start Command     : node server.js
+   - Plan              : Starter / Standard
+   - Auto-Deploy       : Yes (on push to `main`)
+   - Environment Variables:
+       PORT                   = 3001
+       NODE_ENV               = production
+       MONGO_URI              = mongodb+srv://<user>:<password>@cluster0.mongodb.net/vendoros?retryWrites=true&w=majority
+       JWT_ACCESS_SECRET      = <HIGH_ENTROPY_64_CHAR_SECRET_KEY>
+       JWT_REFRESH_SECRET     = <HIGH_ENTROPY_64_CHAR_REFRESH_KEY>
+       JWT_ACCESS_EXPIRES_IN  = 15m
+       JWT_REFRESH_EXPIRES_IN = 7d
+       FRONTEND_URL           = https://vendor-os-frontend-xlqx.onrender.com
+       COOKIE_DOMAIN          = (Leave blank or set custom domain for shared cookie scope)
 
-   A. FRONTEND STATIC SITE SETTINGS (Render Dashboard):
-      - Name              : vendor-os-frontend-xlqx
-      - Root Directory    : Frontend
-      - Build Command     : npm install && npm run build
-      - Publish Directory : dist
-      - Environment Variables:
-          VITE_API_URL = <YOUR_RENDER_BACKEND_URL> (e.g. https://your-backend.onrender.com)
+================================================================================
+3. PRODUCTION CROSS-ORIGIN & SECURITY SPECIFICATIONS
+================================================================================
+1. HTTPS & Cookie Security:
+   - In production (`NODE_ENV=production`), authentication cookies are issued with:
+     * `secure: true` (Transmitted only over HTTPS)
+     * `sameSite: 'none'` (Enables cross-origin cookie sharing between Render frontend and backend domains)
+     * `httpOnly: true` (Blocks client-side XSS script access to tokens)
+2. CORS Allowed Origins:
+   - Backend `app.js` CORS middleware permits `https://vendor-os-frontend-xlqx.onrender.com` with `credentials: true`.
+3. Tenant Isolation Guard:
+   - Requests include `x-business-id` header or rely on the authenticated session's active store context.
 
-   B. BACKEND WEB SERVICE SETTINGS (Render Dashboard):
-      - Name              : vendoros-backend
-      - Root Directory    : Backend
-      - Build Command     : npm install
-      - Start Command     : node server.js (or npm start)
-      - Environment Variables:
-          PORT=3001
-          MONGO_URI=mongodb+srv://...
-          NODE_ENV=production
-          JWT_ACCESS_SECRET=your_super_secret_access_key
-          JWT_REFRESH_SECRET=your_super_secret_refresh_key
-          JWT_ACCESS_EXPIRES_IN=15m
-          JWT_REFRESH_EXPIRES_IN=7d
+================================================================================
+4. PRODUCTION DEPLOYED MODULES & FEATURES (PHASES 0 TO 4)
+================================================================================
 
-3. WHY LOCAL VS PRODUCTION APPEAR DIFFERENT:
-   a) Build & Deploy Latency:
-      - Local: Code changes reflect in real-time via Vite Hot Module Replacement (HMR).
-      - Production: Render triggers a new build only after code is pushed to GitHub `main`. 
-        Building, bundling, and deploying on Render takes 2 to 4 minutes.
-   b) Browser Caching on Production URL:
-      - Browsers cache static JS/CSS assets of production domains.
-      - After a Render deployment completes, always do a Hard Reload (Ctrl + Shift + R or Ctrl + F5)
-        to download the newest bundled code.
-   c) Environment Variables (VITE_API_URL):
-      - In production, `VITE_API_URL` must point to your live Render Backend URL.
-      - If left blank or pointing to localhost, production API calls will fail.
+[✓] 1. AUTHENTICATION & MULTI-TENANT ONBOARDING (T1–T6)
+    - Phone OTP verification and account auto-activation.
+    - Refresh Token Rotation (RTR) with token-theft reuse detection.
+    - 3-step store onboarding wizard unlocking all operational modules.
+    - Strict multi-tenant data boundary isolation via `businessMiddleware`.
 
-4. PRODUCTION SYNC CHECKLIST:
-   [x] 1. Code tested locally (`npm run build` in Frontend, `npm test` in Backend)
-   [x] 2. Changes committed and pushed to GitHub `main` (`git push origin main`)
-   [ ] 3. Render Dashboard -> Check Deploy Logs -> Verify status shows "Live"
-   [ ] 4. Open Production URL -> Press `Ctrl + Shift + R` (Hard Reload)
+[✓] 2. CATEGORY & PRODUCT CATALOG (T7–T14)
+    - Full CRUD with compound tenant unique indexes (`{ businessId: 1, sku: 1 }`).
+    - Sub-millisecond barcode lookup API (`GET /api/products/barcode/:barcode`).
+    - Fast cursor seek pagination with base64 opaque cursor token.
+    - Non-destructive archiving (`isArchived: true`) preserving historic invoices.
 
-5. PRODUCTION DEPLOYED FEATURES:
-   - Latest Commit: Synced with `main`
-   - Design System: Dark theme monochrome tokens
-   - Products Feature: New Product Catalog UI with Stats, Filters, Table, Modals
+[✓] 3. INVENTORY STORE STATE & IMMUTABLE LEDGER (T15–T22)
+    - Real-time stock valuation and low-stock threshold triggers.
+    - Immutable movement ledger ("Bank Statement" audit format).
+    - Stock In (Procurement), Stock Out (Sales/Damage), and Adjust (Reconciliation).
+    - Deterministic low-stock notifications queue with 1-click restock shortcuts.
+    - 1-Click CSV statement export.
+
+[✓] 4. POS BILLING TERMINAL & CHECKOUT (T23–T27, T30)
+    - Hardware barcode scanner auto-listener (`useBarcodeScanner.js`).
+    - Global Cashier Hotkeys:
+        `F2` -> Search products
+        `F4` -> Select / Add customer
+        `F8` -> Clear active cart
+        `F9` -> Proceed to checkout / Settle
+        `F1` -> Hotkey help guide
+        `Esc`-> Close active modal
+    - Atomic POS checkout (`POST /api/sales`) with pre-flight inventory stock guard.
+    - Frozen price snapshots on line items for accurate gross profit reporting.
+    - Real-time cart calculations (Discounts, Tax, Grand Total).
+    - Thermal 80mm/58mm printable receipts and programmatic GST invoice PDF generation.
+
+[✓] 5. PAYMENT RECORDING ENTITY & SETTLEMENTS (T28)
+    - Multi-tranche installment recording against invoices.
+    - Support for Cash, UPI (with reference IDs), Card, and Split tender.
+    - Automatic invoice settlement status transitions (`UNPAID` -> `PARTIAL` -> `PAID`).
+
+[✓] 6. CUSTOMER KHATA & CREDIT LEDGER ENGINE (T29)
+    - Automatic `SALE_CREDIT` logging when sales are made on Udhaar.
+    - Real-time customer balance tracker (Total Credit, Total Paid, Outstanding Balance).
+    - Chronological Khata statement modal (`CustomerLedgerModal.jsx`).
+    - 1-Click debt repayment settlement modal (`SettleKhataModal.jsx`).
+
+================================================================================
+5. PRODUCTION DEPLOYMENT & SYNC CHECKLIST
+================================================================================
+[x] Step 1: Pre-deployment Build Verification
+    - Frontend: `cd Frontend && npm run build` (Must complete with 0 errors)
+    - Backend: `cd Backend && node tests/test-pos-checkout-transaction.js` (Verify test suites pass)
+
+[x] Step 2: Push Latest Code to GitHub
+    - `git add .`
+    - `git commit -m "feat: complete Phase 4 POS terminal, payments, and khata ledger"`
+    - `git push origin main`
+
+[ ] Step 3: Monitor Render Build Logs
+    - Open Render Dashboard -> Navigate to `vendoros-backend` -> Confirm `Build succeeded` and `Deploy live`.
+    - Navigate to `vendor-os-frontend-xlqx` -> Confirm `Site is live`.
+
+[ ] Step 4: Production Smoke Testing & Hard Reload
+    - Open `https://vendor-os-frontend-xlqx.onrender.com`
+    - Perform Hard Reload: `Ctrl + Shift + R` (or `Ctrl + F5`) to bypass old browser cache.
+    - Test POS Checkout (`/pos`), Barcode Lookup, Stock Adjustments, and Customer Khata Settlement.
+
+================================================================================
+6. TROUBLESHOOTING COMMON PRODUCTION ISSUES
+================================================================================
+
+1. Issue: "Network Error" or Failed API calls on Production Frontend
+   - Cause: `VITE_API_URL` environment variable is either unset or pointing to `localhost`.
+   - Fix: In Render Dashboard for the Frontend Static Site, set `VITE_API_URL` to your live Backend URL (e.g. `https://your-backend.onrender.com`) and trigger a manual redeploy.
+
+2. Issue: User logged out immediately or Session not persisting across refreshes
+   - Cause: Cross-site cookie blocked due to missing `sameSite: 'none'` and `secure: true` in production.
+   - Fix: Ensure `NODE_ENV=production` is set in Render Backend environment variables.
+
+3. Issue: Free Tier Render Backend Cold Start Latency
+   - Cause: Free instances spin down after 15 minutes of inactivity. First request takes 30-50s to wake up.
+   - Fix: Upgrade to Render Starter plan or configure an uptime monitor ping to keep service warm.
+
+4. Issue: Browser showing old UI / stale version
+   - Cause: Browser caching bundled JS/CSS assets.
+   - Fix: Perform Hard Reload (`Ctrl + Shift + R`) or clear site data in DevTools.
+
+================================================================================
+END OF PRODUCTION ENVIRONMENT & DEPLOYMENT GUIDE
 ================================================================================

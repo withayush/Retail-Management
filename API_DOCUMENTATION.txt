@@ -4,17 +4,17 @@
 Base URL: http://localhost:3001
 Content-Type: application/json
 
-Is file me Backend ki saari APIs, unka kaam (Purpose), Headers, Testing ke liye 
-Ready-to-use Dummy Data (JSON / Params) or Expected Response format diya gaya hai.
+Is file me Backend ki saari 38+ APIs, unka kaam (Purpose), Headers, Testing ke liye 
+Ready-to-use Dummy Data (JSON / Params) aur Expected Response formats diye gaye hain.
 
 --------------------------------------------------------------------------------
 AUTHENTICATION & HEADERS OVERVIEW:
 --------------------------------------------------------------------------------
-1. Public APIs (Register, Login, Verify OTP): Kisi token ki zaroorat nahi hoti.
+1. Public APIs (Register, Login, Verify OTP, Resend OTP): Kisi token ki zaroorat nahi hoti.
 2. Protected APIs: 
    - Header: "Authorization: Bearer <YOUR_ACCESS_TOKEN>"
    - Ya phir browser/Postman me "accessToken" cookie automatically send hoti hai.
-3. Multi-Tenant Business APIs (Categories, Products, Active Context):
+3. Multi-Tenant Business APIs (Categories, Products, Inventory, Sales, Payments, Customers):
    - Header: "x-business-id: <BUSINESS_ID>" (Optional agar user ke paas ek hi business hai, system auto-select kar leta hai).
 
 ================================================================================
@@ -29,9 +29,6 @@ Description: Check karta hai ki backend server properly running hai ya nahi.
 Auth:        None
 
 Request Headers:
-  None
-
-Request Body:
   None
 
 Dummy Response (200 OK):
@@ -49,8 +46,7 @@ MODULE 2: AUTHENTICATION & USER MANAGEMENT (/api/auth)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/register
-Description: Naya vendor/retailer account create karta hai aur phone number verify 
-             karne ke liye 6-digit OTP generate karta hai.
+Description: Naya vendor account create karta hai aur phone verify karne ke liye 6-digit OTP generate karta hai.
 Auth:        None
 
 Request Headers:
@@ -63,12 +59,6 @@ Dummy Request Body:
   "phone": "+919876543210",
   "password": "Password@123"
 }
-
-Validation Rules:
-- fullName: min 2 characters
-- email: valid email format
-- phone: valid 10-digit Indian number (+91 optional)
-- password: min 8 chars (1 uppercase, 1 lowercase, 1 number, 1 special character)
 
 Dummy Response (201 Created):
 {
@@ -86,12 +76,8 @@ Dummy Response (201 Created):
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/verify-phone
-Description: Registration ke baad mobile number verify karta hai, account ko ACTIVE 
-             karta hai, aur JWT tokens (accessToken, refreshToken) cookies set karta hai.
+Description: Phone OTP verify karta hai, Account ACTIVE karta hai, Vendor profile link karta hai aur JWT cookies set karta hai.
 Auth:        None
-
-Request Headers:
-  Content-Type: application/json
 
 Dummy Request Body:
 {
@@ -124,11 +110,8 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/resend-phone-otp
-Description: Agar OTP expire ho gaya ho ya receive na hua ho, to naya 6-digit OTP bhejta hai.
+Description: Naya 6-digit OTP generate karta hai (60s cooldown, max 3 attempts).
 Auth:        None
-
-Request Headers:
-  Content-Type: application/json
 
 Dummy Request Body:
 {
@@ -150,21 +133,12 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/login
-Description: Email ya Phone + Password ke sath login karta hai aur auth cookies issue karta hai.
+Description: Email ya Mobile Phone + Password se login karta hai aur dual tokens issue karta hai.
 Auth:        None
 
-Request Headers:
-  Content-Type: application/json
-
-Dummy Request Body (Login via Email):
+Dummy Request Body (Email):
 {
   "identifier": "ayush.sharma@example.com",
-  "password": "Password@123"
-}
-
-Dummy Request Body (Login via Phone):
-{
-  "identifier": "+919876543210",
   "password": "Password@123"
 }
 
@@ -188,46 +162,38 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/auth/me
-Description: Logged-in user ki profile aur account details fetch karta hai.
-Auth:        Required (Bearer Token ya accessToken Cookie)
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-
-Request Body:
-  None
+Description: Logged-in user ki profile aur active vendor profile details fetch karta hai.
+Auth:        Required (JWT)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "id": "65f1a2b3c4d5e6f7a8b9c0d1",
-    "fullName": "Ayush Sharma",
-    "email": "ayush.sharma@example.com",
-    "phone": "+919876543210",
-    "status": "ACTIVE",
-    "createdAt": "2026-09-19T10:00:00.000Z"
+    "account": {
+      "id": "65f1a2b3c4d5e6f7a8b9c0d1",
+      "fullName": "Ayush Sharma",
+      "email": "ayush.sharma@example.com",
+      "phone": "+919876543210"
+    },
+    "vendor": {
+      "id": "65f1a2b3c4d5e6f7a8b9c0d2",
+      "onboardingStatus": "COMPLETED"
+    }
   }
 }
 
 
-2.6 REFRESH ACCESS TOKEN
+2.6 REFRESH ACCESS TOKEN (RTR)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/refresh
-Description: Refresh Token cookie verify karke naya short-lived Access Token issue karta hai.
-Auth:        refreshToken Cookie required
-
-Request Headers:
-  Cookie: refreshToken=<YOUR_REFRESH_TOKEN>
-
-Request Body:
-  None
+Description: Refresh token rotation se naya access token generate karta hai.
+Auth:        Uses refreshToken Cookie
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Session refreshed successfully."
+  "message": "Token refreshed successfully."
 }
 
 
@@ -235,156 +201,84 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/logout
-Description: Refresh token session ko revoke/blacklist karta hai aur cookies clear karta hai.
-Auth:        refreshToken Cookie required
-
-Request Headers:
-  Cookie: refreshToken=<YOUR_REFRESH_TOKEN>
-
-Request Body:
-  None
+Description: Session revoke karta hai aur client cookies clear karta hai.
+Auth:        Uses refreshToken Cookie
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Logout successful."
+  "message": "Logged out successfully."
 }
 
 
 ================================================================================
-MODULE 3: BUSINESS & ONBOARDING MANAGEMENT (/api/business)
+MODULE 3: BUSINESS MANAGEMENT & ONBOARDING (/api/business)
 ================================================================================
 
-3.1 GET ONBOARDING WIZARD STATUS
+3.1 ONBOARDING STATUS
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/business/onboarding/status
-Description: Logged-in user ka onboarding step progress (Step 1/2/3 complete hua ya nahi) check karta hai.
+Description: Returns current onboarding step, draft data, and module unlock status.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-
-Request Body:
-  None
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "isCompleted": false,
-    "currentStep": 2,
-    "completedSteps": [1],
-    "savedData": {
-      "step1": {
-        "businessName": "Sharma Kirana & General Store",
-        "retailSegment": "Retail/Kirana",
-        "businessType": "Retail"
-      }
-    }
+    "isCompleted": true,
+    "currentStep": 3,
+    "unlockedModules": ["DASHBOARD", "PRODUCTS", "CATEGORIES", "INVENTORY", "SALES", "CUSTOMERS"]
   }
 }
 
 
-3.2 SAVE ONBOARDING STEP (STEP 1 / 2 / 3)
+3.2 ONBOARDING STEP SAVE
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/business/onboarding/step
-Description: Onboarding wizard ka step-by-step progress save karta hai. Final step par business automatically create/complete ho jata hai.
+Description: Saves draft data for steps 1, 2, and 3. On step 3 completion, auto-creates Business.
 Auth:        Required
 
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  Content-Type: application/json
-
-Dummy Request Body (Step 1 - Business Identity):
+Dummy Request Body (Step 1):
 {
   "step": 1,
   "data": {
-    "businessName": "Sharma Kirana & General Store",
-    "retailSegment": "Retail/Kirana",
-    "businessType": "Retail",
-    "category": "Grocery"
-  }
-}
-
-Dummy Request Body (Step 2 - Location & Contact):
-{
-  "step": 2,
-  "data": {
-    "addressLine": "Shop No. 12, Main Market Road",
-    "city": "Indore",
-    "state": "Madhya Pradesh",
-    "pincode": "452001",
-    "businessPhone": "+919876543210",
-    "whatsappNumber": "+919876543210",
-    "businessEmail": "contact@sharmakirana.com"
-  }
-}
-
-Dummy Request Body (Step 3 - Final Preferences & Complete):
-{
-  "step": 3,
-  "isFinalStep": true,
-  "data": {
-    "currency": "INR",
-    "taxMode": "GST",
-    "inventoryTracking": true,
-    "operatingHours": {
-      "open": "08:00 AM",
-      "close": "10:00 PM",
-      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    },
-    "description": "Wholesale and retail grocery store providing best quality products."
+    "businessName": "Sharma Supermart",
+    "retailSegment": "Supermarket"
   }
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Business onboarding completed successfully! All modules unlocked.",
   "data": {
-    "step": 3,
-    "isCompleted": true,
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1"
+    "step": 1,
+    "nextStep": 2
   }
 }
 
 
-3.3 CREATE BUSINESS (DIRECT / COMPLETE ONBOARDING)
+3.3 CREATE BUSINESS (1-SHOT)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/business
-             (or /api/business/onboarding)
-Description: Single call me complete business details ke sath new store/business create karta hai.
+Description: Direct single-call business creation endpoint.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  Content-Type: application/json
 
 Dummy Request Body:
 {
-  "businessName": "Sharma Kirana & Supermarket",
-  "retailSegment": "Retail/Kirana",
-  "businessType": "Retail",
-  "category": "Supermarket",
-  "description": "Daily essentials, FMCG, fresh groceries and dairy products.",
-  "businessEmail": "orders@sharmakirana.com",
-  "businessPhone": "+919876543210",
-  "whatsappNumber": "+919876543210",
-  "addressLine": "Plot 45, Sector B, Scheme 54",
-  "city": "Indore",
-  "state": "Madhya Pradesh",
-  "pincode": "452010",
+  "businessName": "Sharma Supermart",
+  "retailSegment": "Supermarket",
+  "address": {
+    "addressLine": "Shop 4, Market Complex",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302001"
+  },
   "currency": "INR",
   "taxMode": "GST",
-  "inventoryTracking": true,
-  "operatingHours": {
-    "open": "07:30 AM",
-    "close": "10:30 PM",
-    "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-  }
+  "inventoryTracking": true
 }
 
 Dummy Response (201 Created):
@@ -393,64 +287,18 @@ Dummy Response (201 Created):
   "message": "Business created successfully.",
   "data": {
     "_id": "65f1b2c3d4e5f6a7b8c9d0e1",
-    "ownerId": "65f1a2b3c4d5e6f7a8b9c0d1",
-    "businessName": "Sharma Kirana & Supermarket",
-    "retailSegment": "Retail/Kirana",
-    "businessType": "Retail",
-    "status": "ACTIVE",
-    "currency": "INR",
-    "taxMode": "GST",
-    "inventoryTracking": true,
-    "createdAt": "2026-09-19T10:30:00.000Z"
+    "businessName": "Sharma Supermart",
+    "retailSegment": "Supermarket"
   }
 }
 
 
-3.4 GET ACTIVE BUSINESS CONTEXT (TENANT MAPPING)
---------------------------------------------------
-Method:      GET
-Endpoint:    /api/business/active/context
-Description: Client ke active business, current role (OWNER / MANAGER / CASHIER), 
-             aur business settings ki details return karta hai.
-Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1 (Optional)
-
-Request Body:
-  None
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
-    "role": "OWNER",
-    "business": {
-      "_id": "65f1b2c3d4e5f6a7b8c9d0e1",
-      "businessName": "Sharma Kirana & Supermarket",
-      "retailSegment": "Retail/Kirana",
-      "currency": "INR",
-      "taxMode": "GST"
-    },
-    "membership": null
-  }
-}
-
-
-3.5 GET ALL MY BUSINESSES
+3.4 GET MY BUSINESSES
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/business/me
-Description: Logged-in user ke dwara banaye gaye saare businesses ki list deta hai.
+Description: List all stores owned by or accessible to current user.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-
-Request Body:
-  None
 
 Dummy Response (200 OK):
 {
@@ -458,79 +306,28 @@ Dummy Response (200 OK):
   "data": [
     {
       "_id": "65f1b2c3d4e5f6a7b8c9d0e1",
-      "businessName": "Sharma Kirana & Supermarket",
-      "retailSegment": "Retail/Kirana",
-      "city": "Indore",
-      "status": "ACTIVE"
+      "businessName": "Sharma Supermart",
+      "retailSegment": "Supermarket",
+      "role": "OWNER"
     }
   ]
 }
 
 
-3.6 GET BUSINESS BY ID
+3.5 GET ACTIVE BUSINESS CONTEXT (T6)
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/business/:id
-Description: Kisi specific business ki complete details fetch karta hai (Owner/Member access only).
+Endpoint:    /api/business/active/context
+Description: Resolves and returns current active store context, businessId, and user role.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-
-URL Parameters:
-  id = 65f1b2c3d4e5f6a7b8c9d0e1
-
-Request Body:
-  None
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "_id": "65f1b2c3d4e5f6a7b8c9d0e1",
-    "businessName": "Sharma Kirana & Supermarket",
-    "retailSegment": "Retail/Kirana",
-    "businessPhone": "+919876543210",
-    "city": "Indore",
-    "pincode": "452010",
-    "taxMode": "GST"
-  }
-}
-
-
-3.7 UPDATE BUSINESS DETAILS
---------------------------------------------------
-Method:      PUT
-Endpoint:    /api/business/:id
-Description: Business ka profile, contact number, timings, address ya settings update karta hai.
-Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  Content-Type: application/json
-
-URL Parameters:
-  id = 65f1b2c3d4e5f6a7b8c9d0e1
-
-Dummy Request Body:
-{
-  "businessName": "Sharma Supermarket & Mart",
-  "businessPhone": "+919876543299",
-  "addressLine": "Shop 1-4, Prime Square, Vijay Nagar",
-  "pincode": "452010",
-  "taxMode": "GST"
-}
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "message": "Business updated successfully.",
-  "data": {
-    "_id": "65f1b2c3d4e5f6a7b8c9d0e1",
-    "businessName": "Sharma Supermarket & Mart",
-    "businessPhone": "+919876543299",
-    "city": "Indore",
-    "taxMode": "GST"
+    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
+    "businessName": "Sharma Supermart",
+    "role": "OWNER"
   }
 }
 
@@ -543,71 +340,42 @@ MODULE 4: CATEGORY MANAGEMENT (/api/categories)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/categories
-Description: Business ke inventory catalog ke liye new category banata hai.
-Auth:        Required
-Multi-Tenant: Yes (x-business-id header required if multiple businesses exist)
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-  Content-Type: application/json
+Description: Create category for active business.
+Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
   "name": "Dairy & Milk Products",
-  "description": "Fresh milk, paneer, curd, butter, and cheese items"
+  "description": "Milk, curd, butter, and cheese items"
 }
 
 Dummy Response (201 Created):
 {
   "success": true,
-  "message": "Category created successfully.",
   "data": {
     "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
     "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
     "name": "Dairy & Milk Products",
-    "description": "Fresh milk, paneer, curd, butter, and cheese items",
-    "createdAt": "2026-09-19T11:00:00.000Z"
+    "description": "Milk, curd, butter, and cheese items"
   }
 }
 
 
-4.2 GET ALL CATEGORIES
+4.2 LIST CATEGORIES
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/categories
-Description: Current active business ki saari categories list karta hai.
+Description: List all categories for active store with optional search query.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-Request Body:
-  None
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "count": 3,
   "data": [
     {
       "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
-      "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
       "name": "Dairy & Milk Products",
-      "description": "Fresh milk, paneer, curd, butter, and cheese items"
-    },
-    {
-      "_id": "65f1c3d4e5f6a7b8c9d0e1f3",
-      "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
-      "name": "Beverages & Cold Drinks",
-      "description": "Tea, coffee, soft drinks, juices"
-    },
-    {
-      "_id": "65f1c3d4e5f6a7b8c9d0e1f4",
-      "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
-      "name": "Grains & Pulses",
-      "description": "Rice, Wheat, Dal, Flours"
+      "productCount": 14
     }
   ]
 }
@@ -617,27 +385,14 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/categories/:id
-Description: Kisi specific category ki details check karta hai.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-URL Parameters:
-  id = 65f1c3d4e5f6a7b8c9d0e1f2
-
-Request Body:
-  None
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
     "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
-    "name": "Dairy & Milk Products",
-    "description": "Fresh milk, paneer, curd, butter, and cheese items"
+    "name": "Dairy & Milk Products"
   }
 }
 
@@ -646,32 +401,18 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      PUT
 Endpoint:    /api/categories/:id
-Description: Category ka naam ya description update karta hai.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-  Content-Type: application/json
-
-URL Parameters:
-  id = 65f1c3d4e5f6a7b8c9d0e1f2
 
 Dummy Request Body:
 {
-  "name": "Dairy, Eggs & Fresh Milk",
-  "description": "Updated category including farm eggs"
+  "name": "Fresh Dairy & Milk Products",
+  "description": "Updated description"
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Category updated successfully.",
-  "data": {
-    "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
-    "name": "Dairy, Eggs & Fresh Milk",
-    "description": "Updated category including farm eggs"
-  }
+  "message": "Category updated successfully."
 }
 
 
@@ -679,74 +420,39 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      DELETE
 Endpoint:    /api/categories/:id
-Description: Category ko delete karta hai (Sirf tab delete hogi jab isme koi active products na jude ho).
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-URL Parameters:
-  id = 65f1c3d4e5f6a7b8c9d0e1f2
-
-Request Body:
-  None
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Category deleted successfully.",
-  "data": {
-    "id": "65f1c3d4e5f6a7b8c9d0e1f2"
-  }
+  "message": "Category deleted successfully."
 }
 
 
 ================================================================================
-MODULE 5: PRODUCT CATALOG & POS LOOKUP (/api/products)
+MODULE 5: PRODUCT CATALOG & BARCODE LOOKUP (/api/products)
 ================================================================================
 
-5.1 CREATE NEW PRODUCT
+5.1 CREATE PRODUCT
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/products
-Description: Business catalog me new SKU/product add karta hai. Barcode & SKU validation enforce hoti hai.
-Auth:        Required
-Multi-Tenant: Yes (x-business-id header required)
+Description: Adds new product, auto-provisions inventory, and seeds opening stock.
+Auth:        Required (JWT + T6)
 
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-  Content-Type: application/json
-
-Dummy Request Body (Product 1: Packaged item with Barcode):
+Dummy Request Body:
 {
   "name": "Amul Taaza Toned Milk 500ml",
   "sku": "MILK-AMUL-500",
   "barcode": "8901262010053",
+  "categoryId": "65f1c3d4e5f6a7b8c9d0e1f2",
   "sellingPrice": 27.00,
   "costPrice": 24.50,
-  "categoryId": "65f1c3d4e5f6a7b8c9d0e1f2",
   "unit": "packet",
   "packSize": 1,
   "packagingType": "Pouch",
-  "description": "Pasteurised toned milk pouch with 3% fat",
-  "isActive": true
-}
-
-Dummy Request Body (Product 2: Loose Grocery Item without Barcode):
-{
-  "name": "Premium Basmati Rice 1kg",
-  "sku": "RICE-BASM-001",
-  "barcode": null,
-  "sellingPrice": 120.00,
-  "costPrice": 95.00,
-  "categoryId": "65f1c3d4e5f6a7b8c9d0e1f4",
-  "unit": "kg",
-  "packSize": 1,
-  "packagingType": "Loose",
-  "description": "Aromatic long grain basmati rice",
-  "isActive": true
+  "openingStock": 50,
+  "reorderLevel": 10
 }
 
 Dummy Response (201 Created):
@@ -755,45 +461,20 @@ Dummy Response (201 Created):
   "message": "Product created successfully.",
   "data": {
     "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
     "name": "Amul Taaza Toned Milk 500ml",
     "sku": "MILK-AMUL-500",
     "barcode": "8901262010053",
     "sellingPrice": 27,
-    "costPrice": 24.5,
-    "categoryId": "65f1c3d4e5f6a7b8c9d0e1f2",
-    "unit": "packet",
-    "packSize": 1,
-    "packagingType": "Pouch",
-    "isActive": true,
-    "isArchived": false,
-    "createdAt": "2026-09-19T11:15:00.000Z"
+    "costPrice": 24.5
   }
 }
 
 
-5.2 GET ALL PRODUCTS (WITH CURSOR PAGINATION & SEARCH)
+5.2 LIST PRODUCTS (PAGINATED & FILTERED)
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/products
-Description: Fast cursor-based pagination, search by name/SKU/barcode, filter by category aur active/archived status support karta hai.
+Endpoint:    /api/products?limit=20&search=Amul&status=active
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-Query Parameters (Optional):
-  - limit=20                  (Number of items per page)
-  - search=Amul               (Search keyword for product name or SKU)
-  - categoryId=65f1c3d4e5...  (Filter by specific category)
-  - isActive=true             (Filter active/inactive products)
-  - cursor=eyJpZCI6...        (Next cursor token for infinite scroll)
-
-Testing URLs:
-  GET /api/products
-  GET /api/products?search=milk&limit=10
-  GET /api/products?categoryId=65f1c3d4e5f6a7b8c9d0e1f2
 
 Dummy Response (200 OK):
 {
@@ -807,16 +488,8 @@ Dummy Response (200 OK):
       "sellingPrice": 27,
       "costPrice": 24.5,
       "unit": "packet",
-      "packSize": 1,
-      "packagingType": "Pouch",
-      "category": {
-        "id": "65f1c3d4e5f6a7b8c9d0e1f2",
-        "name": "Dairy & Milk Products"
-      },
-      "description": "Pasteurised toned milk pouch with 3% fat",
       "isActive": true,
-      "isArchived": false,
-      "createdAt": "2026-09-19T11:15:00.000Z"
+      "isArchived": false
     }
   ],
   "pagination": {
@@ -831,216 +504,581 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/products/barcode/:barcode
-Description: POS cashier screen par barcode scanner se instantly product fetch karne ke liye sub-millisecond lookup API.
+Description: Sub-millisecond barcode lookup endpoint for cashier barcode scanning.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-URL Parameters:
-  barcode = 8901262010053
-
-Testing URL:
-  GET /api/products/barcode/8901262010053
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
     "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
     "name": "Amul Taaza Toned Milk 500ml",
     "sku": "MILK-AMUL-500",
     "barcode": "8901262010053",
     "sellingPrice": 27,
     "costPrice": 24.5,
-    "categoryId": {
-      "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
-      "name": "Dairy & Milk Products"
-    },
-    "unit": "packet",
-    "packSize": 1,
-    "packagingType": "Pouch",
-    "isActive": true,
-    "isArchived": false
+    "unit": "packet"
   }
 }
 
 
-5.4 GET PRODUCT BY ID
---------------------------------------------------
-Method:      GET
-Endpoint:    /api/products/:id
-Description: Product ki single complete detail fetch karta hai.
-Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-URL Parameters:
-  id = 65f1d4e5f6a7b8c9d0e1f2a3
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
-    "name": "Amul Taaza Toned Milk 500ml",
-    "sku": "MILK-AMUL-500",
-    "barcode": "8901262010053",
-    "sellingPrice": 27,
-    "costPrice": 24.5,
-    "unit": "packet",
-    "isActive": true,
-    "isArchived": false
-  }
-}
-
-
-5.5 UPDATE PRODUCT
+5.4 UPDATE PRODUCT
 --------------------------------------------------
 Method:      PUT
 Endpoint:    /api/products/:id
-Description: Product ka name, price, SKU, barcode, unit ya status update karta hai.
+Description: Updates product attributes without breaking past invoice snapshots.
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-  Content-Type: application/json
-
-URL Parameters:
-  id = 65f1d4e5f6a7b8c9d0e1f2a3
 
 Dummy Request Body:
 {
-  "name": "Amul Taaza Fresh Toned Milk 500ml",
   "sellingPrice": 28.00,
-  "costPrice": 25.00,
-  "description": "Updated price effective this week."
+  "costPrice": 25.00
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Product updated successfully.",
-  "data": {
-    "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "name": "Amul Taaza Fresh Toned Milk 500ml",
-    "sellingPrice": 28,
-    "costPrice": 25
-  }
+  "message": "Product updated successfully."
 }
 
 
-5.6 ARCHIVE PRODUCT
+5.5 ARCHIVE / RESTORE PRODUCT
 --------------------------------------------------
 Method:      POST
-Endpoint:    /api/products/:id/archive
-Description: Product ko archive (hide from catalog/POS) karta hai bina historical billing records ko todte hue.
+Endpoint:    /api/products/:id/archive (Restore: /api/products/:id/restore)
 Auth:        Required
-
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-URL Parameters:
-  id = 65f1d4e5f6a7b8c9d0e1f2a3
-
-Request Body:
-  None
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Product archived successfully.",
+  "message": "Product archived successfully."
+}
+
+
+================================================================================
+MODULE 6: INVENTORY & LEDGER ENGINE (/api/inventory)
+================================================================================
+
+6.1 INVENTORY KPI SUMMARY
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/inventory/summary
+Description: Returns store inventory metrics (total SKUs, low stock, out of stock, asset value).
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
   "data": {
-    "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "isArchived": true
+    "totalProducts": 142,
+    "inStockCount": 130,
+    "lowStockCount": 8,
+    "outOfStockCount": 4,
+    "totalAssetValue": 184500.00
   }
 }
 
 
-5.7 RESTORE PRODUCT
+6.2 STORE STATE LISTING
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/inventory/store-state?search=milk&lowStockOnly=false
+Description: Fetches active physical stock, reorder levels, and asset valuations.
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+      "productName": "Amul Taaza Toned Milk 500ml",
+      "sku": "MILK-AMUL-500",
+      "availableStock": 45,
+      "reorderLevel": 10,
+      "lowStockAlert": false,
+      "assetValuation": 1102.50
+    }
+  ]
+}
+
+
+6.3 STOCK IN (PURCHASE / GOODS RECEIPT)
 --------------------------------------------------
 Method:      POST
-Endpoint:    /api/products/:id/restore
-Description: Archived product ko wapas active catalogue me restore karta hai.
+Endpoint:    /api/inventory/stock-in
+Description: Positively increments stock and records detailed source logs.
 Auth:        Required
 
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-URL Parameters:
-  id = 65f1d4e5f6a7b8c9d0e1f2a3
-
-Request Body:
-  None
+Dummy Request Body:
+{
+  "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+  "quantity": 30,
+  "source": "PURCHASE",
+  "supplierName": "Amul Dairy Distro",
+  "unitCost": 24.50,
+  "referenceNumber": "PO-9941",
+  "reason": "Weekly replenishment"
+}
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Product restored successfully.",
+  "message": "Stock added successfully.",
   "data": {
-    "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "isArchived": false
+    "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+    "previousStock": 45,
+    "newStock": 75
   }
 }
 
 
-5.8 SOFT-DELETE PRODUCT
+6.4 STOCK OUT (SALE / DAMAGE / MANUAL)
 --------------------------------------------------
-Method:      DELETE
-Endpoint:    /api/products/:id
-Description: Product ko soft-delete (archive) karta hai taaki past invoices safe rahein.
+Method:      POST
+Endpoint:    /api/inventory/stock-out
+Description: Deducts stock with strict insufficient stock prevention guard.
 Auth:        Required
 
-Request Headers:
-  Authorization: Bearer <YOUR_ACCESS_TOKEN>
-  x-business-id: 65f1b2c3d4e5f6a7b8c9d0e1
-
-URL Parameters:
-  id = 65f1d4e5f6a7b8c9d0e1f2a3
-
-Request Body:
-  None
+Dummy Request Body:
+{
+  "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+  "quantity": 5,
+  "source": "DAMAGE",
+  "reason": "Damaged during handling",
+  "referenceNumber": "DMG-102"
+}
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Product soft-deleted (archived) successfully. Historical invoices remain intact.",
+  "message": "Stock deducted successfully.",
   "data": {
-    "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "isArchived": true
+    "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+    "previousStock": 75,
+    "newStock": 70
+  }
+}
+
+
+6.5 STOCK RECONCILIATION / ADJUST
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/inventory/adjust
+Description: Reconciles physical count discrepancy and logs reason.
+Auth:        Required
+
+Dummy Request Body:
+{
+  "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+  "physicalCount": 68,
+  "reason": "Audit physical count verification",
+  "referenceNumber": "AUDIT-2026-W38"
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Inventory adjusted successfully.",
+  "data": {
+    "previousStock": 70,
+    "physicalCount": 68,
+    "discrepancy": -2
+  }
+}
+
+
+6.6 INVENTORY MOVEMENT LEDGER (AUDIT STATEMENT)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/inventory/ledger?type=ALL&datePreset=LAST_7_DAYS
+Description: Bank-statement-style chronological audit trail.
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "65f1e5f6a7b8c9d0e1f2a3b4",
+      "product": {
+        "name": "Amul Taaza Toned Milk 500ml",
+        "sku": "MILK-AMUL-500"
+      },
+      "type": "IN",
+      "source": "PURCHASE",
+      "qtyChange": 30,
+      "balanceAfter": 75,
+      "referenceNumber": "PO-9941",
+      "createdAt": "2026-09-21T09:30:00.000Z"
+    }
+  ]
+}
+
+
+6.7 LOW-STOCK ALERTS QUEUE & ACTIONS
+--------------------------------------------------
+- GET /api/inventory/alerts : List active triggers (CRITICAL / WARNING)
+- GET /api/inventory/alerts/summary : Alert counts KPI
+- PUT /api/inventory/alerts/:id/acknowledge : Mark alert acknowledged
+- PUT /api/inventory/alerts/:id/resolve : Resolve alert
+
+
+================================================================================
+MODULE 7: SALES TRANSACTIONS & INVOICING (/api/sales)
+================================================================================
+
+7.1 CREATE SALE / POS CHECKOUT TRANSACTION
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/sales
+Description: Atomic checkout creating invoice, freezing line item prices, deducting inventory, and recording payments.
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "customerId": "65f1f6a7b8c9d0e1f2a3b4c5",
+  "items": [
+    {
+      "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+      "quantity": 2,
+      "unitPrice": 27.00,
+      "discount": 0
+    }
+  ],
+  "subtotal": 54.00,
+  "discount": 4.00,
+  "taxAmount": 0.00,
+  "grandTotal": 50.00,
+  "paymentMethod": "CASH",
+  "amountPaid": 50.00,
+  "notes": "Walk-in checkout"
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Sale created successfully.",
+  "data": {
+    "invoice": {
+      "_id": "65f1a1b2c3d4e5f6a7b8c9d0",
+      "invoiceNumber": "INV-1001",
+      "grandTotal": 50,
+      "paidAmount": 50,
+      "balanceDue": 0,
+      "paymentStatus": "PAID",
+      "paymentMethod": "CASH",
+      "status": "COMPLETED"
+    },
+    "itemsCount": 1
+  }
+}
+
+
+7.2 LIST SALES INVOICES
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales?page=1&limit=20&status=COMPLETED
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "sales": [
+      {
+        "_id": "65f1a1b2c3d4e5f6a7b8c9d0",
+        "invoiceNumber": "INV-1001",
+        "customerName": "Rahul Verma",
+        "grandTotal": 50,
+        "paymentStatus": "PAID",
+        "createdAt": "2026-09-22T14:10:00.000Z"
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "page": 1,
+      "pages": 1
+    }
+  }
+}
+
+
+7.3 GET SALE DETAILS WITH LINE ITEMS
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/:id
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "65f1a1b2c3d4e5f6a7b8c9d0",
+    "invoiceNumber": "INV-1001",
+    "grandTotal": 50,
+    "items": [
+      {
+        "name": "Amul Taaza Toned Milk 500ml",
+        "sku": "MILK-AMUL-500",
+        "soldPrice": 27,
+        "costPrice": 24.5,
+        "quantity": 2,
+        "totalPrice": 54,
+        "grossProfit": 5
+      }
+    ]
+  }
+}
+
+
+7.4 DOWNLOAD INVOICE PDF
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/:id/pdf
+Description: Generates and streams GST-compliant branded invoice PDF.
+Auth:        Required
+
+Response:
+  Content-Type: application/pdf (Binary PDF Stream)
+
+
+7.5 GROSS PROFIT ANALYTICS
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/analytics/gross-profit?startDate=2026-09-01&endDate=2026-09-23
+Description: Financial analytics aggregating revenue, COGS, gross margin %, and top products.
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalRevenue": 48500.00,
+    "totalCost": 39200.00,
+    "totalGrossProfit": 9300.00,
+    "grossMarginPercent": 19.18,
+    "topProducts": [
+      {
+        "name": "Amul Butter 500g",
+        "soldQty": 40,
+        "revenue": 11200,
+        "profit": 1600
+      }
+    ]
   }
 }
 
 
 ================================================================================
-TESTING FLOW STEP-BY-STEP IN POSTMAN / THUNDER CLIENT:
+MODULE 8: PAYMENT RECORDING & SETTLEMENTS (/api/payments)
 ================================================================================
 
-Step 1: POST /api/auth/register
-        (Create account -> OTP aayega dummy response me)
+8.1 RECORD PAYMENT AGAINST INVOICE
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/payments
+Description: Records full or partial installment payment against an invoice and updates settlement status.
+Auth:        Required (JWT + T6)
 
-Step 2: POST /api/auth/verify-phone
-        (Pass phone + received OTP -> Cookies set hongi aur token milega)
+Dummy Request Body:
+{
+  "invoiceId": "65f1a1b2c3d4e5f6a7b8c9d0",
+  "amount": 400.00,
+  "paymentMethod": "UPI",
+  "referenceId": "UPI/20260923/981245",
+  "notes": "Second installment via GPay"
+}
 
-Step 3: POST /api/business
-        (Create your shop/business -> returns `_id` of business)
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Payment recorded successfully.",
+  "data": {
+    "payment": {
+      "_id": "65f1b2a3c4d5e6f7a8b9c0d1",
+      "amount": 400,
+      "paymentMethod": "UPI",
+      "referenceId": "UPI/20260923/981245"
+    },
+    "invoice": {
+      "invoiceNumber": "INV-1001",
+      "paidAmount": 1000,
+      "balanceDue": 0,
+      "paymentStatus": "PAID"
+    }
+  }
+}
 
-Step 4: POST /api/categories
-        (Create category like 'Dairy & Milk' -> returns category `_id`)
 
-Step 5: POST /api/products
-        (Create product using `categoryId` from Step 4)
+8.2 GET ALL PAYMENTS FOR AN INVOICE
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/payments/invoice/:invoiceId
+Auth:        Required
 
-Step 6: GET /api/products/barcode/:barcode
-        (Test fast POS lookup with product's barcode)
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "65f1b2a3c4d5e6f7a8b9c0d1",
+      "amount": 600,
+      "paymentMethod": "CASH",
+      "receivedAt": "2026-09-22T14:10:00.000Z"
+    },
+    {
+      "_id": "65f1b2a3c4d5e6f7a8b9c0d2",
+      "amount": 400,
+      "paymentMethod": "UPI",
+      "referenceId": "UPI/20260923/981245",
+      "receivedAt": "2026-09-23T10:00:00.000Z"
+    }
+  ]
+}
+
+
+================================================================================
+MODULE 9: CUSTOMER PROFILES & KHATA / UDHAAR LEDGER (/api/customers)
+================================================================================
+
+9.1 CREATE CUSTOMER
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/customers
+Description: Registers new customer with credit limit.
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "name": "Rahul Verma",
+  "phone": "+919811223344",
+  "email": "rahul.verma@example.com",
+  "address": "House 12, Block B, Malviya Nagar",
+  "creditLimit": 10000.00
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Customer created successfully.",
+  "data": {
+    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "name": "Rahul Verma",
+    "phone": "+919811223344",
+    "creditLimit": 10000,
+    "outstandingBalance": 0
+  }
+}
+
+
+9.2 LIST CUSTOMERS WITH STATS & SEARCH
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers?search=Rahul&hasBalance=false
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "customers": [
+      {
+        "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+        "name": "Rahul Verma",
+        "phone": "+919811223344",
+        "outstandingBalance": 1900.00,
+        "totalCredit": 3500.00,
+        "totalPaid": 1600.00
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "page": 1
+    }
+  }
+}
+
+
+9.3 GET CUSTOMER KHATA LEDGER STATEMENT
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id/ledger
+Description: Chronological debit/credit statement of all sales and repayments.
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "customer": {
+      "name": "Rahul Verma",
+      "outstandingBalance": 1900.00
+    },
+    "ledger": [
+      {
+        "_id": "65f1c4d5e6f7a8b9c0d1e2f3",
+        "type": "SALE_CREDIT",
+        "amount": 1900.00,
+        "balanceBefore": 0.00,
+        "balanceAfter": 1900.00,
+        "invoiceNumber": "INV-1005",
+        "createdAt": "2026-09-22T16:20:00.000Z"
+      }
+    ]
+  }
+}
+
+
+9.4 SETTLE CUSTOMER KHATA / RECORD PAYMENT
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/customers/:id/settle
+Description: Records customer debt repayment, reduces outstanding balance, and logs ledger entry.
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "amount": 1000.00,
+  "paymentMethod": "CASH",
+  "notes": "Paid cash at store counter"
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Customer khata payment settled successfully.",
+  "data": {
+    "customer": {
+      "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Verma",
+      "previousBalance": 1900.00,
+      "paidAmount": 1000.00,
+      "remainingBalance": 900.00
+    },
+    "transactionId": "65f1d5e6f7a8b9c0d1e2f3a4"
+  }
+}
+
+
+9.5 FAST CUSTOMER SEARCH (POS AUTOCOMPLETE)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/search?q=9811
+Auth:        Required
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Verma",
+      "phone": "+919811223344",
+      "outstandingBalance": 900.00
+    }
+  ]
+}
 
 ================================================================================
 END OF API DOCUMENTATION & TESTING GUIDE

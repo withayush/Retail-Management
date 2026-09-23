@@ -5,7 +5,7 @@ export default function InventoryStats({ summary, loading }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       {/* Card 1: Total SKUs */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400">
           Catalog SKUs
         </span>
@@ -16,7 +16,7 @@ export default function InventoryStats({ summary, loading }) {
       </div>
 
       {/* Card 2: In-Stock */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400 flex items-center gap-1">
           In Stock
         </span>
@@ -27,7 +27,7 @@ export default function InventoryStats({ summary, loading }) {
       </div>
 
       {/* Card 3: Low Stock Alerts */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400 flex items-center gap-1">
           Low Stock
         </span>
@@ -38,7 +38,7 @@ export default function InventoryStats({ summary, loading }) {
       </div>
 
       {/* Card 4: Out of Stock */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400 flex items-center gap-1">
           Out of Stock
         </span>
@@ -49,7 +49,7 @@ export default function InventoryStats({ summary, loading }) {
       </div>
 
       {/* Card 5: Inventory Valuation */}
-      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 col-span-2 md:col-span-1">
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl p-3.5 space-y-1 col-span-2 md:col-span-1 hover-lift cursor-default">
         <span className="text-xs font-medium text-zinc-400 flex items-center gap-1">
           Total Asset Val.
         </span>

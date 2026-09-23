@@ -157,7 +157,7 @@ const updateProductById = async (businessId, productId, updateData) => {
       businessId,
     },
     { $set: updateData },
-    { new: true, runValidators: true }
+    { returnDocument: "after", new: true, runValidators: true }
   ).populate("categoryId", "name description");
 };
 
@@ -174,7 +174,7 @@ const archiveProductById = async (businessId, productId) => {
         archivedAt: new Date(),
       },
     },
-    { new: true }
+    { returnDocument: "after", new: true }
   ).populate("categoryId", "name description");
 };
 
@@ -191,7 +191,7 @@ const restoreProductById = async (businessId, productId) => {
         archivedAt: null,
       },
     },
-    { new: true }
+    { returnDocument: "after", new: true }
   ).populate("categoryId", "name description");
 };
 

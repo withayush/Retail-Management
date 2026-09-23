@@ -1,8 +1,8 @@
 ================================================================================
                VENDOROS - FRONTEND LOCAL ENVIRONMENT & IMPLEMENTATION LOG       
 ================================================================================
-Last Updated : 2026-09-20
-Frontend     : React 18, Vite 8.x, Tailwind CSS, Framer Motion, Lucide Icons
+Last Updated : 2026-09-23
+Frontend     : React 19, Vite, Tailwind CSS, Framer Motion, Lucide Icons, Axios
 Backend API  : Node.js (Express 5.x) + MongoDB Atlas on http://localhost:3001
 Local Dev    : http://localhost:5173
 
@@ -55,81 +55,81 @@ Backend (.env):
 
 [✓] 3. CATEGORY MANAGEMENT & CRUD MODAL (/src/features/products/components/CategoriesModal.jsx) [PHASE 2 - T7]
     - Dedicated Category API Client (`/src/services/category.api.js`):
-      * `getCategories()`: List all categories for active store.
-      * `getCategoryById(id)`: Fetch single category.
-      * `createCategory(payload)`: Add new category (Name & Description).
-      * `updateCategory(id, payload)`: Inline update of name & description.
-      * `deleteCategory(id)`: Safe delete with product attachment verification.
+      * `getCategories()`, `createCategory()`, `updateCategory()`, `deleteCategory()`.
     - Interactive Category Management Modal (`CategoriesModal.jsx`):
-      * 📂 Real-time listing of all store categories with descriptions and badge counts.
-      * ➕ Inline New Category creation with instant validation & toast feedback.
-      * ✏️ Inline editing of Category name and description with instant update.
-      * 🗑️ Safe Delete button with confirmation & error handling.
-      * 🔍 Real-time Category Search & "Filter Catalog by Category" one-click action.
-    - Product Header Integration (`ProductHeader.jsx`):
-      * Added "Categories (count)" button with live counter badge to open Category modal.
+      * Real-time listing with item count badges.
+      * Inline category creation and editing.
+      * Safe delete button with product association checks.
+      * Instant search and "Filter Catalog by Category" shortcut.
 
-[✓] 4. PRODUCT CATALOG & POS LOOKUP (/src/features/products) [PHASE 2 - T8, T9, T10, T11, T12]
+[✓] 4. PRODUCT CATALOG & POS LOOKUP (/src/features/products) [PHASE 2 - T8-T14]
     - Product Catalog Master Page (`ProductsPage.jsx`):
-      * Real-time search by Name, SKU, and Barcode.
+      * Real-time search across Name, SKU, and Barcode.
       * Filter by Category and Status (Active / Archived / All).
       * Sorting by Newest, Name (A-Z), Price (Low/High), Margin (High/Low).
-      * Quick refresh button with spin animation.
     - Product Add & Edit Lifecycle Form (`ProductForm.jsx` & `PUT /api/products/:id`) [T10]:
-      * Real-Time Margin Calculator: Live profit margin (%) and profit/unit (₹) preview.
-      * Self-SKU Idempotency: Edit product pricing, packaging, or names without collision errors.
+      * Live Profit Margin Calculator: Dynamic margin (%) and profit/unit (₹) preview.
+      * Self-SKU Idempotency: Edit pricing or packaging without collision errors.
       * Historic Invoice Preservation Guarantee: Base price modifications apply to future sales while keeping past invoice line items immutable.
-      * Smart SKU Auto-Generator: 1-click uppercase alphanumeric SKU generation from product name.
-      * Category Datalist / Dynamic Category Resolution with fallback creation.
-      * Packaging Details & Description Accordion (Pack Size, Units, Packaging Type).
-      * Opening Stock Initializer for initial inventory balance seeding.
+      * Smart SKU Auto-Generator from product name.
+      * Opening Stock Initializer for balance seeding.
     - Product Data Table (`ProductTable.jsx`):
-      * Columns: Product & Category, SKU / Barcode with 1-click Copy buttons, Cost Price, Selling Price, Margin pill indicator, Status badge, Edit and Archive actions.
-      * Pagination Footer with page navigation.
+      * Columns: Product & Category, SKU / Barcode with 1-click Copy, Cost/Selling Price, Margin pills, Status badges, Edit & Archive actions.
     - Archive & Soft-Delete Engine (`ArchiveProductModal.jsx` & `DELETE /api/products/:id`) [T11]:
-      * Non-destructive soft-delete (`isArchived: true`, `isActive: false`, `archivedAt: timestamp`).
-      * Historic invoice integrity preservation guarantee: Past invoices referencing archived items remain 100% intact.
-      * Instant Restore button for reactivating archived products (`POST /api/products/:id/restore`).
+      * Non-destructive soft-delete (`isArchived: true`) preserving historical invoices.
 
-[✓] 5. POS CHECKOUT TERMINAL (/src/features/pos/POSTerminalPage.jsx)
-    - Sub-millisecond Barcode scanner lookup integration (`/products/barcode/:barcode`).
-    - Real-time cart calculation (Subtotal, GST, Discounts, Grand Total).
+[✓] 5. INVENTORY STORE STATE & LEDGER AUDIT TRAIL (/src/features/inventory) [PHASE 3 - T15-T22]
+    - Inventory Multi-Tab Dashboard (`InventoryAuditPage.jsx`):
+      * Tab 1: Store Stock State (Real-time physical stock, reorder levels, asset valuations).
+      * Tab 2: Stock Movement Ledger (Bank statement format with WHO, WHEN, WHY, and WHAT changed stock).
+      * Tab 3: Low-Stock Alerts Queue (Deterministic triggers, deficit gauges, restock shortcuts).
+    - Stock Action Modals:
+      * Stock In Modal (`StockInModal.jsx`): Source picker (Purchase, GRN), supplier name, unit cost, PO reference.
+      * Stock Out Modal (`StockOutModal.jsx`): Damage, expired, sample with insufficient stock guard.
+      * Adjust Stock Modal (`AdjustStockModal.jsx`): Physical reconciliation with live discrepancy calculator.
+      * Reorder Threshold Modal: Customize minimum reorder triggers per SKU.
+    - 1-Click Statement CSV Export.
 
-[✓] 6. CUSTOMER KHATA & CRM (/src/features/customers/CustomersPage.jsx)
-    - Customer directory with search, Udhar outstanding ledger tracking, and payment recording.
+[✓] 6. POS BILLING CHECKOUT TERMINAL (/src/features/pos) [PHASE 4 - T23-T30]
+    - Main POS Terminal (`POSTerminalPage.jsx`):
+      * Barcode Scanner Auto-Detection (`useBarcodeScanner.js`): Sub-millisecond hardware scanner event listening with instant cart insertion.
+      * Global Cashier Keyboard Hotkeys (`usePOSKeyboard.js`):
+        - `F2`: Focus Search Box
+        - `F4`: Open Customer Selection Modal
+        - `F8`: Clear Current Cart
+        - `F9`: Settle / Pay Invoice
+        - `F1`: Open Hotkey Cheat Sheet
+        - `Esc`: Close any active modal
+      * Fast Products Grid: Filter by category pills, quick-add tiles with stock badges.
+      * Interactive Cart (`POSCart.jsx`): Line item quantity adjustment, price multipliers, discount chips, tax summaries, and Grand Total.
+      * Customer Selector Modal (`POSCustomerModal.jsx`): Real-time customer search with credit balance indicators and inline "Add Customer" form.
+      * Settle Payment Modal (`SettlePaymentModal.jsx`):
+        - Payment Methods: CASH, UPI, CARD, and CREDIT/UDHAAR.
+        - Partial payment handling with live "Balance Due / Udhaar" calculation.
+        - UPI Reference ID capture.
+      * Print Receipt Modal (`PrintReceiptModal.jsx`): 80mm/58mm thermal printable preview with browser print shortcut (`Ctrl + P`).
+      * Keyboard Shortcuts Modal (`POSKeyboardShortcutsModal.jsx`): On-screen guide for retail staff.
 
-[✓] 7. INVENTORY AUDIT & LEDGER (/src/features/inventory/InventoryAuditPage.jsx)
-    - Real-time stock audit and inventory tracking dashboard.
+[✓] 7. CUSTOMER KHATA & CREDIT LEDGER (/src/features/customers) [PHASE 4 - T29]
+    - Customer Directory & CRM Page (`CustomersPage.jsx`):
+      * KPI Cards (`CustomersStatsCards.jsx`): Total Customers, Total Udhaar (₹), Active Debtors.
+      * Search and filter customers by outstanding debt status.
+      * Customer Table (`CustomersTable.jsx`): Name, phone, credit limit, outstanding balance, Settle Khata button, and Ledger History button.
+    - Customer Khata Ledger Statement (`CustomerLedgerModal.jsx`):
+      * Complete chronological audit trail of all `SALE_CREDIT` (Udhaar sales) and `PAYMENT_RECEIVED` (settlements) transactions.
+      * Balance snapshots before and after each transaction.
+    - Settle Khata Modal (`SettleKhataModal.jsx`):
+      * Collect partial or full repayment amount, choose payment method (CASH / UPI), and auto-update customer outstanding balance.
+    - Add/Edit Customer Modal (`AddCustomerModal.jsx`):
+      * Inline customer creation with phone, address, and credit limit configuration.
 
 ================================================================================
-5. RECENT FRONTEND FIXES & IMPROVEMENTS LOG
+5. FRONTEND VERIFICATION STATUS
 ================================================================================
-1. [API Layer] Fixed double `/api/api/` prefix bug in `product.api.js` ensuring all routes use `/products` and `/categories`.
-2. [Category Service] Created dedicated `Frontend/src/services/category.api.js` client with complete CRUD methods.
-3. [Category UI] Implemented full-featured `CategoriesModal.jsx` with Create, Edit, Delete, Search, and quick Catalog filter.
-4. [Header Component] Updated `ProductHeader.jsx` with "Categories" button and live category count badge.
-5. [Products Page] Made `resolveCategoryId` in `ProductsPage.jsx` resilient for direct and nested object payload structures.
-6. [Multi-Tenancy] Guaranteed `x-business-id` header is attached via `api.js` request interceptor for all category and product queries.
-7. [Pagination & Payload Shaping - T12] Implemented O(1) Cursor-aware Seek Pagination (`nextCursor`, `hasMore`, `limit` selector [10/15/25/50]) in `ProductsPage.jsx` and `ProductTable.jsx` preventing browser lag on large catalogues.
-8. [Fix Runtime Error] Resolved `Uncaught ReferenceError: totalItems is not defined` in `ProductsPage.jsx` and corrected double `/api/` prefix in `inventory.api.js`.
-9. [Product Elastic Search & POS Terminal - T14] Implemented sub-15ms multi-field search (`GET /api/products/search`) matching SKU, Barcode, Name, and Category name. Revamped `POSTerminalPage.jsx` with category filter pills, barcode auto-scan enter handler, interactive product grid, and live cart checkout flow.
-10. [Inventory Store State & Reorder Thresholds - T15] Built `Inventory` Mongoose master model and APIs (`GET /api/inventory/summary`, `GET /api/inventory/store-state`, `PUT /reorder-level`, `POST /adjust`). Revamped `InventoryAuditPage.jsx` with real-time KPI metrics, stock status filter pills, asset valuation, and stock adjustment modals.
-11. [Inventory Ledger & Atomic Movement Engine - T16] Implemented complete movement audit ledger model (`InventoryLedger`) with signed quantity changes, balance snapshots, and multi-tenant isolation. Built dual-tab view in `InventoryAuditPage.jsx` with real-time "Movement Ledger Audit Trail", colored movement type badges (+IN, -OUT, ~ADJUST, *OPENING), and interactive Stock-In and Stock-Out action modals with instant ledger reconciliation.
-12. [Opening Stock Initialization API - T17] Enabled seamless initial physical stock seeding on product registration and standalone API (`POST /api/inventory/opening-stock`). Auto-writes first audited ledger log (`type: 'OPENING'`) without modifying stock directly, synchronizing live catalog forms and audit timelines.
-13. [Stock IN Addition Endpoint & Source Logs - T18] Enhanced `POST /api/inventory/stock-in` to accept source details (`PURCHASE`, `GOODS_RECEIPT`, `MANUAL`, `RETURN`, `TRANSFER`, `OTHER`), supplier name, purchase price per unit, and PO reference number. Upgraded `InventoryAuditPage.jsx` Stock-In modal with source selector and real-time ledger timeline chips (`IN • PURCHASE`, supplier info, unit cost).
-14. [Stock OUT Reduction Endpoint & Insufficient Stock Engine - T19] Implemented `POST /api/inventory/stock-out` and `POST /api/inventory/stock-out/batch` for single & multi-item checkout reductions. Added strict `INSUFFICIENT_STOCK` (HTTP 400) guard preventing negative inventory. Upgraded `InventoryAuditPage.jsx` Stock-Out modal with sources (`SALE`, `DAMAGE`, `EXPIRED`, `RETURN_TO_VENDOR`, `SAMPLE`, `MANUAL`, `OTHER`), invoice linking, customer name, and ledger badge display (`OUT • SALE`, linked invoice #).
-15. [Stock Reconciliation / Adjust API - T20] Enhanced `POST /api/inventory/adjust` supporting physical count reconciliation, auto-calculated discrepancies (`physicalCount - currentStock`), audit reference batch tracking, and reason logging (`AUDIT_RECONCILIATION`, `DAMAGE`, `EXPIRED`, `SPILLAGE`, `THEFT_SHRINKAGE`, `FOUND_STOCK`, `CORRECTION`). Upgraded `InventoryAuditPage.jsx` with real-time discrepancy comparison (+surplus / -shortage color badges), reason pickers, and live ledger trail updates.
-16. [Inventory Ledger Auditing Log UI & Stock Flow Engine - T21] Implemented complete "Who, When, Why, What" audit log viewing engine in `InventoryAuditPage.jsx`. Added multi-dimensional filter deck (Product selector, Movement Type pills, Source categories, Date presets [All, Today, 7D, 30D, Custom date ranges], and search input), Stock Flow Statement KPI summary cards (+Total Inflow, -Total Outflow, Net Stock Flow, Total Logged Transactions), 1-click CSV Statement export, and comprehensive audit table showing actor names, timestamps, product SKU/category, signed qty deltas, balance after snapshots, invoice/PO references, and unit cost.
-17. [Low-Stock Limit Notifications & Deterministic Alerts Queue - T22] Built deterministic business rule engine (`availableStock <= reorderLevel`) with zero duplicate spamming and auto-resolution on replenishment (`availableStock > reorderLevel`). Upgraded `InventoryAuditPage.jsx` with dedicated Tab 3 ("Low-Stock Alerts Queue"), live active trigger counter badge, KPI summary cards (Active, Critical OOS, Low Stock Warnings, Auto-Resolved), visual stock gauge bars with deficit chips, 1-click "Restock Now" shortcut, and inline Acknowledge/Resolve controls.
-18. [Sale Transaction Schema Model & Invoicing Ledger - T23] Built complete Sales & Billing Foundation. Added `Invoice` / `Sale` schema model with sequential auto-increment invoice numbers (`INV-1001`, `INV-1002`), subtotal/discount/tax/total math guarantees, and payment status tracking (`PAID`, `PENDING`, `PARTIAL`, `CANCELLED`). Built dedicated `SalesHistoryPage.jsx` with real-time revenue KPIs (Total Sales, Collected, Outstanding Udhar, Total Invoices), multi-filter search, CSV export, and quick payment settlement modal. Registered `/sales` and `/invoices` routes in `App.jsx`.
-19. [Sale Item Schema Model & Snapshot Preservation - T24] Built `SaleItem` schema model capturing checkout-moment historical snapshots of `soldPrice`, `costPrice`, `quantity`, `totalPrice`, and `grossProfit`. Guarantees past sales invoices remain immutable and accurate even if master catalog prices change later. Linked POS Checkout (`POSTerminalPage.jsx`) to `createSale` with automatic inventory stock OUT deduction (`inventoryService.stockOut`) and `InventoryLedger` recording (`type: 'OUT'`). Built `SaleDetailModal.jsx` and added "Items" inspection button in `SalesHistoryTable.jsx` to view itemized snapshot pricing, cost breakdown, and gross margin analytics.
-20. [Create Sale (POS Checkout) API & Atomic Transaction Engine - T25] Implemented single unified `POST /api/sales` endpoint executing ACID database transactions with pre-flight stock verification and rollback controls. If any product has insufficient stock or if payment fails, the entire transaction is 100% aborted/rolled back (zero partial deductions or dangling records). Upgraded `POSTerminalPage.jsx` with real-time stock shortage warning banners, disabled charge button during execution, and instant receipt rendering.
-21. [Auto Inventory Deductions & POS Floor Overselling Guard - T26] Built modular service-level auto-deduction orchestrator (`autoDeductInventoryForSale`) seamlessly connecting Sale Line Items to atomic stock decrements, ledger `OUT` logging (`source: 'POS_CHECKOUT'`, invoice reference link), and deterministic low-stock alert evaluation. Enriched product listings and search with live inventory balances (`availableStock`, `stockStatus`). Upgraded `POSProductGrid.jsx` and `POSTerminalPage.jsx` with real-time stock status pills ("Out of Stock", "Low: X left", "In Stock: X pcs"), visual out-of-stock card disabling, and floor overselling prevention preventing cashiers from adding items exceeding physical stock.
-22. [Invoice PDF Generation Engine & Storage Pipeline - T27] Built serverless-ready, lightweight vector PDF compiler (`invoicePdf.service.js` using `pdfkit`). Generates professional customer-facing tax invoices with custom business headers, frozen line item snapshots (T24), financial summaries (Subtotal, Discount, Tax, Total, Paid, Balance Due), payment pills, and notes. Added endpoints `POST /api/sales/:id/generate-pdf`, `GET /api/sales/:id/download-pdf`, and `GET /api/sales/:id/preview-pdf` with local storage persistence (`/uploads/invoices/`) and static express serving. Integrated 1-click "Download PDF" and "Preview" buttons across `POSReceiptModal.jsx`, `SaleDetailModal.jsx`, and `SalesHistoryTable.jsx`.
+- Build Command : `npm run build` -> Exit Code 0 (0 errors)
+- Dev Server    : Running on http://localhost:5173
+- Browser Ready : Full POS, Inventory, Catalog, Customers, and Invoicing flows verified.
 
 ================================================================================
-6. TESTING & VALIDATION COMMANDS
-================================================================================
-- Frontend Production Build Test : cd Frontend && npm run build (Passes with 0 errors)
-- Backend Unit & Integration Tests: cd Backend  && npm test (100% tests passing across 27 test suites)
+END OF LOCAL ENVIRONMENT LOG
 ================================================================================

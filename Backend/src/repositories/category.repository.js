@@ -44,7 +44,7 @@ const updateCategoryById = async (businessId, categoryId, updateData) => {
       businessId,
     },
     { $set: updateData },
-    { new: true, runValidators: true }
+    { returnDocument: "after", new: true, runValidators: true }
   );
 };
 

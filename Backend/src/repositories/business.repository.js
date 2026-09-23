@@ -35,7 +35,7 @@ const findVendorByAccountId = async (accountId) => {
 };
 
 const updateVendorOnboardingStatus = async (vendorId, status, session = null) => {
-  const options = session ? { session, new: true } : { new: true };
+  const options = session ? { session, returnDocument: "after", new: true } : { returnDocument: "after", new: true };
   return await Vendor.findByIdAndUpdate(
     vendorId,
     { $set: { onboardingStatus: status } },
@@ -65,7 +65,7 @@ const saveVendorOnboardingProgress = async ({
   onboardingStatus = "IN_PROGRESS",
   session = null,
 }) => {
-  const options = session ? { session, new: true } : { new: true };
+  const options = session ? { session, returnDocument: "after", new: true } : { returnDocument: "after", new: true };
   return await Vendor.findByIdAndUpdate(
     vendorId,
     {

@@ -1,0 +1,297 @@
+====================================================================================================
+                        VENDOROS - MASTER DESIGN SYSTEM SPECIFICATION
+====================================================================================================
+Design System  : VendorOS Dark Monochrome Design System
+Tech Stack     : Tailwind CSS + Framer Motion + Lucide React + Inter Typography
+Color Scale    : HSL Tailored Zinc / Slate Dark Palette
+Target Users   : Retail Store Owners, Kirana Merchants, POS Terminal Cashiers
+Aesthetic Goal : High-Density, State-of-the-Art Dark Ergonomics with Instant Visual Feedback
+Last Updated   : 2026-09-23
+
+====================================================================================================
+TABLE OF CONTENTS
+====================================================================================================
+1. DESIGN PHILOSOPHY & CORE PRINCIPLES
+2. COLOR TOKENS & HSL PALETTE SPECIFICATION
+3. TYPOGRAPHY & TABULAR NUMERICAL HIERARCHY
+4. SPACING, ELEVATION & BORDER RADIUS TOKENS
+5. MOTION SYSTEM & SPRING ANIMATION CURVES
+6. CORE COMPONENT SPECIFICATIONS & CLASS TOKENS
+   - 6.1 Buttons & Interactive Triggers
+   - 6.2 Input Fields & Search Bars with Hotkey Badges
+   - 6.3 Semantic Status Badges & Pill Chips
+   - 6.4 High-Density Retail Data Tables
+   - 6.5 KPI Stat Cards & Financial Summaries
+   - 6.6 Animated Modals & Dialog Backdrops
+   - 6.7 POS Billing Terminal Layout (T30 Screen Spec)
+   - 6.8 80mm / 58mm Thermal Printable Receipt Spec (T27)
+7. CASHIER ERGONOMICS & KEYBOARD-FIRST ACCESSIBILITY
+8. USAGE RULES & DEVELOPER GUIDELINES
+
+====================================================================================================
+1. DESIGN PHILOSOPHY & CORE PRINCIPLES
+====================================================================================================
+
+1. High Information Density with Zero Clutter:
+   Retail environments require scanning dozens of products, stock levels, and transaction values
+   simultaneously. Spacing and typography are optimized for compact readability without visual noise.
+
+2. Pure Modern Dark Theme:
+   Designed around a deep zinc backdrop (`#09090b` / `hsl(240, 10%, 4%)`) that reduces eye strain during
+   long 12-hour cashier shifts and delivers a sleek, state-of-the-art aesthetic.
+
+3. Instant Tactile Micro-Interactions:
+   Every click, scan, and keypress provides instant feedback. Buttons compress subtly (`scale(0.975)`),
+   modals pop using smooth spring bezier curves (`cubic-bezier(0.16, 1, 0.3, 1)`), and toasts confirm actions.
+
+4. Tabular Financial Precision:
+   Monetary amounts, quantities, SKUs, and barcodes always render with monospace / tabular numeral
+   alignment (`font-mono` / `tabular-nums`) to prevent optical misalignment during rapid calculation.
+
+====================================================================================================
+2. COLOR TOKENS & HSL PALETTE SPECIFICATION
+====================================================================================================
+
+All colors are defined as HSL CSS variables in `Frontend/src/index.css` and mapped to Tailwind utilities:
+
+┌─────────────────────┬───────────────────┬─────────────┬───────────────────────────────────────────┐
+│ TOKEN NAME          │ HSL VALUE         │ HEX EQUIV   │ PURPOSE / USAGE                           │
+├─────────────────────┼───────────────────┼─────────────┼───────────────────────────────────────────┤
+│ --background        │ 240 10% 4%        │ #09090b     │ Main application background               │
+│ --foreground        │ 0 0% 98%          │ #fafafa     │ High-contrast primary text                │
+│ --card              │ 240 6% 7%         │ #111113     │ Surface cards, table panels, sidebars     │
+│ --card-foreground   │ 0 0% 98%          │ #fafafa     │ Text rendered inside card surfaces        │
+│ --popover           │ 240 6% 7%         │ #111113     │ Dropdowns, tooltip popovers, select menus │
+│ --primary           │ 0 0% 98%          │ #fafafa     │ Primary action buttons & active highlights│
+│ --primary-foreground│ 240 10% 4%        │ #09090b     │ Text inside primary action buttons        │
+│ --secondary         │ 240 5% 10%        │ #18181b     │ Secondary buttons, category pill surfaces │
+│ --muted             │ 240 5% 10%        │ #18181b     │ Inactive tabs, disabled backgrounds       │
+│ --muted-foreground  │ 240 5% 65%        │ #a1a1aa     │ Subtitles, table headers, helper text     │
+│ --accent            │ 240 5% 15%        │ #27272a     │ Hover states, active table row highlights │
+│ --border            │ 240 5% 15%        │ #242427     │ Card borders, table dividers, input borders│
+│ --input             │ 240 5% 10%        │ #18181b     │ Form input backgrounds                    │
+│ --ring              │ 240 5% 35%        │ #52525b     │ Input focus ring glow                     │
+├─────────────────────┼───────────────────┼─────────────┼───────────────────────────────────────────┤
+│ SEMANTIC STATUSES   │                   │             │                                           │
+├─────────────────────┼───────────────────┼─────────────┼───────────────────────────────────────────┤
+│ --success           │ 142 71% 45%       │ #22c55e     │ In Stock, Stock IN, Paid Invoices, Profits│
+│ --warning           │ 38 92% 50%        │ #f59e0b     │ Low Stock Alert, Partial Payment, Adjust  │
+│ --destructive       │ 0 84% 60%         │ #ef4444     │ Out of Stock, Stock OUT, Unpaid, Errors   │
+│ --info (Opening)    │ 217 91% 60%       │ #3b82f6     │ Opening Stock, Informational badges       │
+└─────────────────────┴───────────────────┴─────────────┴───────────────────────────────────────────┘
+
+====================================================================================================
+3. TYPOGRAPHY & TABULAR NUMERICAL HIERARCHY
+====================================================================================================
+
+Base Font Family: `'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif`
+Code/Numeric Font: `'JetBrains Mono', 'Fira Code', 'Courier New', monospace`
+
+┌─────────────────┬──────────┬────────┬─────────────┬───────────────────────────────────────────────┐
+│ STYLE ROLE      │ SIZE     │ WEIGHT │ LINE HEIGHT │ TAILWIND CLASS & USAGE                        │
+├─────────────────┼──────────┼────────┼─────────────┼───────────────────────────────────────────────┤
+│ Display Metric  │ 32px-36px│ 700    │ 40px        │ `text-3xl sm:text-4xl font-bold tracking-tight`│
+│ Page Title (H1) │ 24px-28px│ 700    │ 32px        │ `text-2xl font-bold tracking-tight text-white` │
+│ Section (H2)    │ 18px-20px│ 600    │ 28px        │ `text-lg sm:text-xl font-semibold`            │
+│ Sub-heading (H3)│ 15px-16px│ 600    │ 24px        │ `text-base font-semibold`                     │
+│ Body Regular    │ 14px     │ 400    │ 20px        │ `text-sm text-foreground`                     │
+│ Body Medium     │ 14px     │ 500    │ 20px        │ `text-sm font-medium text-foreground`          │
+│ Small / Muted   │ 12px-13px│ 400    │ 18px        │ `text-xs text-muted-foreground`               │
+│ Financial Figure│ 14px-18px│ 600    │ -           │ `font-mono font-semibold tabular-nums`        │
+│ Micro Label     │ 10px-11px│ 600    │ 14px        │ `text-[10px] uppercase font-bold tracking-wide│
+└─────────────────┴──────────┴────────┴─────────────┴───────────────────────────────────────────────┘
+
+====================================================================================================
+4. SPACING, ELEVATION & BORDER RADIUS TOKENS
+====================================================================================================
+
+SPACING SCALE (4px BASELINE):
+- `p-1` (4px), `p-2` (8px), `p-3` (12px), `p-4` (16px), `p-5` (20px), `p-6` (24px), `p-8` (32px)
+
+BORDER RADII:
+- Small Elements (Inputs, Pills, Badges) : `rounded-md` (`calc(var(--radius) - 4px)` = 8px)
+- Cards, Modals, Panels                 : `rounded-lg` (`var(--radius)` = 12px)
+- Large Modals & Containers             : `rounded-xl` / `rounded-2xl` (16px - 20px)
+- Full Circular Chips & Buttons         : `rounded-full` (9999px)
+
+ELEVATION & GLASSMORPHISM:
+- Glass Panel  : `bg-card/95 backdrop-blur-md border border-border/80 shadow-2xl`
+- Floating Card: `bg-card border border-border shadow-md hover:border-border/80 transition-all`
+- Focus Glow   : `ring-2 ring-ring/40 ring-offset-1 ring-offset-background`
+
+====================================================================================================
+5. MOTION SYSTEM & SPRING ANIMATION CURVES
+====================================================================================================
+
+PHYSICS & TIMING CURVES:
+- Spring Bezier : `cubic-bezier(0.16, 1, 0.3, 1)` (Snappy, natural pop without bouncy overshoot)
+- Smooth Bezier : `cubic-bezier(0.4, 0, 0.2, 1)` (Subtle background and opacity fades)
+
+ANIMATION PRESETS (Tailwind Keyframes):
+1. `animate-fade-in`    : Opacity `0` -> `1` (0.2s)
+2. `animate-slide-up`   : `translateY(8px)` -> `0px` + Opacity `0` -> `1` (0.25s)
+3. `animate-modal-pop`  : `scale(0.96) translateY(6px)` -> `scale(1) translateY(0)` (0.25s)
+4. `animate-slide-right`: `translateX(12px)` -> `0px` (0.3s)
+
+INTERACTIVE MICRO-FEEDBACK:
+```css
+button:active:not(:disabled) {
+  transform: scale(0.975);
+}
+```
+
+====================================================================================================
+6. CORE COMPONENT SPECIFICATIONS & CLASS TOKENS
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+6.1 BUTTONS & INTERACTIVE TRIGGERS
+----------------------------------------------------------------------------------------------------
+
+1. PRIMARY BUTTON (High visual weight / Checkout / Submit):
+   `px-4 py-2.5 bg-foreground text-background font-medium rounded-lg hover:bg-foreground/90 active:scale-[0.975] transition-all flex items-center justify-center gap-2 shadow-sm`
+
+2. SECONDARY BUTTON (Card actions / Filters / Modal triggers):
+   `px-4 py-2.5 bg-secondary hover:bg-accent text-foreground border border-border rounded-lg active:scale-[0.975] transition-all flex items-center gap-2`
+
+3. DESTRUCTIVE BUTTON (Delete / Cancel sale / Void transaction):
+   `px-4 py-2.5 bg-destructive/15 hover:bg-destructive/25 text-destructive border border-destructive/30 rounded-lg active:scale-[0.975] transition-all`
+
+4. ICON ACTION BUTTON (Table actions / Quick edit / Copy):
+   `p-2 hover:bg-accent text-muted-foreground hover:text-foreground rounded-md transition-colors`
+
+----------------------------------------------------------------------------------------------------
+6.2 INPUT FIELDS & SEARCH BARS WITH HOTKEY BADGES
+----------------------------------------------------------------------------------------------------
+
+1. STANDARD FORM INPUT:
+   `w-full bg-input text-foreground border border-border rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder:text-muted-foreground transition-all`
+
+2. POS SEARCH BAR WITH KEYBOARD HOTKEY PILL:
+   `relative flex items-center w-full`
+   - Input: `w-full bg-secondary/80 border border-border rounded-lg pl-10 pr-16 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-ring`
+   - Left Icon: `Search` icon positioned absolute at `left-3 text-muted-foreground`
+   - Right Hotkey Pill: `<kbd className="absolute right-3 px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-accent text-muted-foreground rounded border border-border">F2</kbd>`
+
+----------------------------------------------------------------------------------------------------
+6.3 SEMANTIC STATUS BADGES & PILL CHIPS
+----------------------------------------------------------------------------------------------------
+
+1. SUCCESS BADGE (In Stock / Paid / +Stock IN):
+   `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30`
+
+2. WARNING BADGE (Low Stock / Partial / ~Adjust):
+   `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30`
+
+3. DANGER BADGE (Out of Stock / Unpaid / -Stock OUT):
+   `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30`
+
+4. INFO BADGE (Opening Stock / Restored / Categories):
+   `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30`
+
+----------------------------------------------------------------------------------------------------
+6.4 HIGH-DENSITY RETAIL DATA TABLES
+----------------------------------------------------------------------------------------------------
+
+STRUCTURE:
+- Outer Container: `w-full overflow-hidden rounded-xl border border-border bg-card`
+- Table Header: `bg-secondary/60 text-muted-foreground text-xs uppercase font-semibold border-b border-border`
+- Table Row: `border-b border-border/50 hover:bg-accent/40 transition-colors`
+- Table Cell: `px-4 py-3.5 text-sm text-foreground`
+- Monospace Column (SKU / Barcode / Currency): `font-mono tabular-nums`
+
+----------------------------------------------------------------------------------------------------
+6.5 KPI STAT CARDS & FINANCIAL SUMMARIES
+----------------------------------------------------------------------------------------------------
+
+STRUCTURE:
+- Card Container: `bg-card border border-border rounded-xl p-5 hover:border-border/80 transition-all flex flex-col justify-between`
+- Header Row: Text label (`text-xs font-medium text-muted-foreground`) + Icon chip (`p-2 rounded-lg bg-secondary`)
+- Primary Figure: `text-2xl sm:text-3xl font-bold font-mono text-foreground mt-2`
+- Footer Metric: Trend pill or status badge (`text-xs text-muted-foreground mt-1`)
+
+----------------------------------------------------------------------------------------------------
+6.6 ANIMATED MODALS & DIALOG BACKDROPS
+----------------------------------------------------------------------------------------------------
+
+STRUCTURE:
+- Backdrop Overlay: `fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4`
+- Modal Container: `relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-modal-pop`
+- Modal Header: `px-6 py-4 border-b border-border flex items-center justify-between`
+- Modal Body: `p-6 max-h-[80vh] overflow-y-auto space-y-4`
+- Modal Footer: `px-6 py-4 bg-secondary/30 border-t border-border flex items-center justify-end gap-3`
+
+----------------------------------------------------------------------------------------------------
+6.7 POS BILLING TERMINAL LAYOUT (T30 SCREEN SPEC)
+----------------------------------------------------------------------------------------------------
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [POS Header]  VendorOS Terminal        Active Store: Sharma Supermart        Cashier: Ayush     │
+├──────────────────────────────────────────────────────────────────┬──────────────────────────────┤
+│ LEFT PANEL: CATALOG SEARCH & QUICK PRODUCTS GRID (65% Width)    │ RIGHT PANEL: QUICK CART (35%)│
+│ ┌──────────────────────────────────────────────────────────────┐ │ ┌──────────────────────────┐ │
+│ │ 🔍 Scan Barcode / Search Product...                    [F2]  │ │ │ Customer: Walk-In   [F4] │ │
+│ └──────────────────────────────────────────────────────────────┘ │ ├──────────────────────────┤ │
+│ [Category Pills]: All | Dairy | Beverages | Snacks | Groceries │ │ Cart Line Items:         │ │
+│ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐       │ │ 1. Amul Milk 500ml x 2   │ │
+│ │ Amul Milk 500ml│ │ Lays Chips 50g │ │ Tata Salt 1kg  │  ...  │ │    ₹27.00/unit ->  ₹54.00│ │
+│ │ Stock: 45      │ │ Stock: 80      │ │ Stock: 12      │       │ │ 2. Lays Chips x 1  ₹20.00│ │
+│ │ ₹27.00         │ │ ₹20.00         │ │ ₹28.00         │       │ ├──────────────────────────┤ │
+│ └────────────────┘ └────────────────┘ └────────────────┘       │ │ Subtotal       :   ₹74.00│ │
+│                                                                │ │ Discount       :   -₹4.00│ │
+│                                                                │ │ Grand Total    :   ₹70.00│ │
+│                                                                │ ├──────────────────────────┤ │
+│                                                                │ │ [F8] Clear  [F9] Settle  │ │
+│                                                                │ └──────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┴──────────────────────────────┘
+```
+
+----------------------------------------------------------------------------------------------------
+6.8 80mm / 58mm THERMAL PRINTABLE RECEIPT SPEC (T27)
+----------------------------------------------------------------------------------------------------
+
+- Width Constraint : `max-w-[320px] mx-auto`
+- Background       : Pure White (`bg-white text-black font-mono text-xs leading-tight p-4`)
+- Store Header     : Centered bold store name, address, GSTIN, and phone
+- Divider          : Dashed horizontal divider (`border-b border-dashed border-black/60 my-2`)
+- Itemized Grid    : Item Name, Qty x Price, Line Total (Justified space-between)
+- Financial Summary: Subtotal, Discount, GST Breakdown, Grand Total (Bold, Large)
+- Payment Mode     : Paid via CASH / UPI (with Reference ID), Balance Due
+- Footer Notice    : "Thank you for shopping! Please visit again."
+
+====================================================================================================
+7. CASHIER ERGONOMICS & KEYBOARD-FIRST ACCESSIBILITY
+====================================================================================================
+
+1. Hardware Barcode Listener (`useBarcodeScanner.js`):
+   - Seamlessly captures automated keystrokes from USB / Wireless 1D & 2D barcode scanners.
+   - Buffer resets automatically if keypress gap exceeds 50ms, distinguishing human typing from barcode scans.
+
+2. Zero-Mouse POS Workflow:
+   - Cashiers never need to reach for the mouse to complete sales:
+     * `F2` -> Search SKU or Barcode
+     * `F4` -> Select Customer or Khata profile
+     * `F8` -> Clear Cart on cancellation
+     * `F9` -> Open Payment settlement modal
+     * `Enter` -> Submit and print receipt
+     * `Esc` -> Close any modal dialog
+
+3. Focus Trap & Contrast:
+   - High contrast ratios (exceeding WCAG 2.1 AAA 7:1 ratio for text).
+   - Modal backdrops trap focus and auto-focus the first actionable input field upon opening.
+
+====================================================================================================
+8. USAGE RULES & DEVELOPER GUIDELINES
+====================================================================================================
+
+1. ALWAYS use the Tailwind HSL tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`).
+   NEVER hardcode hex codes (e.g. avoid `#000000` or `#ffffff` in JSX).
+2. ALWAYS use `font-mono tabular-nums` when rendering currency (`₹`), quantities, SKUs, and barcodes.
+3. ALWAYS provide visual active feedback (`active:scale-[0.975]`) on clickable action items.
+4. Keep data tables responsive with horizontal scroll wrappers (`overflow-x-auto`).
+5. Ensure all modals support dismissal via the `Esc` key and backdrop click.
+
+====================================================================================================
+END OF MASTER DESIGN SYSTEM SPECIFICATION
+====================================================================================================
