@@ -3,7 +3,7 @@
 ====================================================================================================
 Project Name   : VendorOS (Retail & Kirana Store Management Operating System)
 Repository     : https://github.com/withayush/Retail-Management.git
-Current Status : Phase 0 to Phase 4 (Tasks T1 to T30) - 100% Implemented & Verified
+Current Status : Phase 0 to Phase 5 (Tasks T1 to T34) - 100% Implemented & Verified
 Architecture   : 6-Layer Clean Architecture + Multi-Tenant Isolation + Keyboard-First POS
 Author/Vendor  : Ayush Sharma
 Last Updated   : 2026-09-23
@@ -14,10 +14,10 @@ TABLE OF CONTENTS
 1. PROJECT OVERVIEW & CORE DESIGN PRINCIPLES
 2. COMPLETE TECHNOLOGY STACK
 3. 6-LAYER CLEAN ARCHITECTURE PATTERN (DATA FLOW)
-4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6)
+4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6, T31, T32, T33, T34)
 5. COMPLETE REPOSITORY DIRECTORY TREE & FILE ANATOMY
 6. DATABASE SCHEMAS (16 MONGOOSE MODELS) & RELATIONSHIPS
-7. COMPLETE API MATRIX (38+ ENDPOINTS ACROSS 9 MODULES)
+7. COMPLETE API MATRIX (71+ ENDPOINTS ACROSS 9 MODULES)
 8. DETAILED END-TO-END WORKFLOW PIPELINES (ASCII FLOWCHARTS)
    - 8.1 Authentication & Phone OTP Verification Flow
    - 8.2 Multi-Step Business Onboarding Wizard Flow
@@ -28,7 +28,11 @@ TABLE OF CONTENTS
    - 8.7 Payment Recording & Multi-Tranche Settlement Flow (T28)
    - 8.8 Customer Khata / Udhaar Credit & Settlement Engine (T29)
    - 8.9 PDF Invoice Generation & Thermal Receipts Flow (T27)
-9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30)
+   - 8.10 Customer Master Schema & Demographics Lifecycle (T31)
+   - 8.11 Customer CRUD APIs, Phone Normalization & Soft-Delete (T32)
+   - 8.12 Customer Ledger Transaction Log & Sub-Ledger Audit Flow (T33)
+   - 8.13 Real-Time Materialized Outstanding Balance Architecture (T34)
+9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T33, T34)
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
 11. SECURITY, REFRESH TOKEN ROTATION (RTR) & SESSION MANAGEMENT
 12. AUTOMATED TESTING SUITES & VERIFICATION COMMANDS
@@ -344,14 +348,22 @@ MODULE 8: PAYMENT RECORDING & SETTLEMENTS (`/api/payments`)
   GET    /api/payments/business                 -> Business-wide payment transactions history
 
 MODULE 9: CUSTOMER CRM & KHATA / UDHAAR (`/api/customers`)
-  POST   /api/customers                         -> Create customer profile with credit limit
-  GET    /api/customers                         -> List customers with outstanding balances
+  POST   /api/customers                         -> Create customer profile (Auto-canonicalizes +91 phone)
+  GET    /api/customers                         -> List customers with balances and search filters
   GET    /api/customers/summary                 -> Customer KPIs (Total Udhaar, active debtors)
-  GET    /api/customers/:id                     -> Single customer profile
-  PUT    /api/customers/:id                     -> Update customer details & credit limit
-  GET    /api/customers/:id/ledger              -> Chronological Khata debit/credit statement
+  GET    /api/customers/search                  -> Rapid autocomplete search for POS checkout
+  GET    /api/customers/phone/:phone            -> Fast lookup by mobile phone number
+  GET    /api/customers/:id                     -> Single customer profile details
+  PUT    /api/customers/:id                     -> Update demographic details, phone, and credit limit
+  DELETE /api/customers/:id                     -> Safe soft-delete customer (Sets status: 'INACTIVE')
+  POST   /api/customers/:id/archive             -> Explicitly archive customer profile
+  POST   /api/customers/:id/restore             -> Restore/reactivate customer profile
+  GET    /api/customers/:id/ledger              -> Chronological Khata debit/credit statement (T33)
+  POST   /api/customers/:id/ledger              -> Append manual opening balance / adjustment log (T33)
   POST   /api/customers/:id/settle              -> Settle customer balance with cash/UPI
-  GET    /api/customers/search                  -> Fast autocomplete search for POS checkout
+  GET    /api/customers/:id/outstanding         -> Fast O(1) customer outstanding & credit status (T34)
+  GET    /api/customers/outstanding/summary     -> Business-wide debtor list ordered by balance (T34)
+  GET    /api/customers/outstanding/totals      -> Instant store-wide aggregate debt totals (T34)
 
 ====================================================================================================
 8. DETAILED END-TO-END WORKFLOW PIPELINES (ASCII FLOWCHARTS)
@@ -437,8 +449,94 @@ Customer Khata Timeline:
        │
 [Remaining Outstanding Debt: ₹900]
 
+----------------------------------------------------------------------------------------------------
+8.11 CUSTOMER CRUD APIS, CANONICAL PHONE NORMALIZATION & SOFT-DELETE (T32)
+----------------------------------------------------------------------------------------------------
+
+Cashier / Frontend                   Customer Controller / Service                  MongoDB Atlas
+        │                                           │                                      │
+        │ 1. POST /api/customers                    │                                      │
+        │    { name: "Rahul", phone: "9876543210" } │                                      │
+        ├──────────────────────────────────────────►│                                      │
+        │                                           │ 2. Canonicalize Phone:               │
+        │                                           │    9876543210 -> +919876543210       │
+        │                                           │ 3. Check duplicate phone for tenant  │
+        │                                           │    { businessId, phone: "+91..." }   │
+        │                                           ├─────────────────────────────────────►│
+        │                                           │ 4. Insert Customer Document          │
+        │                                           │    (Scoped to `req.businessId`)      │
+        │                                           ├─────────────────────────────────────►│
+        │ 5. 201 Created (Customer Object)          │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+        │                                           │                                      │
+        │ 6. DELETE /api/customers/:id              │                                      │
+        ├──────────────────────────────────────────►│ 7. Safe Soft-Delete:                 │
+        │                                           │    Set `status: 'INACTIVE'`          │
+        │                                           │    (Invoices & Ledgers Intact)       │
+        │                                           ├─────────────────────────────────────►│
+        │ 8. 200 OK (Customer Archived)             │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
+----------------------------------------------------------------------------------------------------
+8.12 CUSTOMER LEDGER TRANSACTION LOG & SUB-LEDGER AUDIT FLOW (T33)
+----------------------------------------------------------------------------------------------------
+
+Cashier / POS Terminal                 Customer Ledger Service               Customer & Ledger Models
+        │                                           │                                      │
+        │ 1. Udhaar Sale (Credit Checkout)          │                                      │
+        │    Invoice: INV-1001 (Unpaid: ₹5,000)     │                                      │
+        ├──────────────────────────────────────────►│ 2. Compute Running Balance:          │
+        │                                           │    Prev Balance (₹0) + Credit (₹5000)│
+        │                                           │    = Balance: ₹5,000                 │
+        │                                           │ 3. Append Immutable Ledger Doc:      │
+        │                                           │    { creditAmount: 5000, debitAmount:│
+        │                                           │      0, balance: 5000, saleId }      │
+        │                                           │ 4. Update Customer.currentBalance    │
+        │                                           ├─────────────────────────────────────►│
+        │                                           │                                      │
+        │ 5. Counter Payment Settlement (Debit)     │                                      │
+        │    POST /api/customers/:id/settle         │                                      │
+        │    { amount: 2000, paymentMethod: "CASH" }│                                      │
+        ├──────────────────────────────────────────►│ 6. Compute New Running Balance:      │
+        │                                           │    Prev Balance (₹5000) - Debit(₹2000│
+        │                                           │    = Balance: ₹3,000                 │
+        │                                           │ 7. Append Immutable Ledger Doc:      │
+        │                                           │    { creditAmount: 0, debitAmount:   │
+        │                                           │      2000, balance: 3000 }           │
+        │                                           │ 8. Update Customer.currentBalance    │
+        │                                           ├─────────────────────────────────────►│
+        │ 9. 200 OK (Settled + Snapshot)            │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
+----------------------------------------------------------------------------------------------------
+8.13 REAL-TIME MATERIALIZED OUTSTANDING BALANCE ARCHITECTURE (T34)
+----------------------------------------------------------------------------------------------------
+
+Cashier / POS / CRM Frontend         Customer Controller / Service           Customer Document (O(1))
+        │                                           │                                      │
+        │ 1. GET /api/customers/:id/outstanding     │                                      │
+        ├──────────────────────────────────────────►│ 2. Single Document Fetch             │
+        │                                           │    (Zero Ledger Aggregation Needed)  │
+        │                                           ├─────────────────────────────────────►│
+        │                                           │ 3. Compute in O(1) Memory:           │
+        │                                           │    availableCredit = limit - balance │
+        │                                           │    isExceeded = balance > limit      │
+        │                                           │                                      │
+        │ 4. 200 OK (Instant Outstanding Payload)   │                                      │
+        │    { outstanding: ₹3,500, limit: ₹10,000, │                                      │
+        │      availableCredit: ₹6,500 }            │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+        │                                           │                                      │
+        │ 5. GET /api/customers/outstanding/summary │                                      │
+        ├──────────────────────────────────────────►│ 6. Fast Indexed Query                │
+        │                                           │    { businessId, currentBalance > 0 }│
+        │                                           │    .sort({ currentBalance: -1 })     │
+        │                                           ├─────────────────────────────────────►│
+        │ 7. 200 OK (Ranked Debtors List)           │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
 ====================================================================================================
-9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30)
+9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T33, T34)
 ====================================================================================================
 
 1. Hardware Barcode Scanner Hook (`useBarcodeScanner.js`):
@@ -457,6 +555,17 @@ Customer Khata Timeline:
 4. Print Receipt Modal (`PrintReceiptModal.jsx`):
    Renders thermal-formatted 80mm/58mm printable receipts with store header, line item table, GST
    summaries, and payment details.
+
+5. Edit & Add Customer Modals (`EditCustomerModal.jsx`, `AddCustomerModal.jsx`):
+   Allows comprehensive management of customer profile demographics, phone numbers, credit limits,
+   and safe deactivation directly from the customer registry table.
+
+6. Customer Ledger Modal (`CustomerLedgerModal.jsx`):
+   Renders full bank-statement style sub-ledger timeline with Credit (+) Udhaar in amber, Debit (-) Jama
+   in emerald, running balance snapshots, and direct invoice traceability.
+
+7. Real-Time Financial Cards (`CustomersStatsCards.jsx`):
+   Displays live store-wide receivable totals, debtor counts, and accounts status without lag.
 
 ====================================================================================================
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
@@ -497,20 +606,28 @@ Customer Khata Timeline:
 
 All backend test suites are located in `Backend/tests/`:
 
-1. Low-Stock Alerts Queue Test:
-   `node tests/test-low-stock-notifications.js`
-2. Inventory Ledger Statement Test:
-   `node tests/test-inventory-ledger-ui.js`
-3. Sale Line Items Price Snapshot Test:
-   `node tests/test-sale-items-snapshot.js`
-4. POS Checkout Atomic Transaction & Rollback Test:
-   `node tests/test-pos-checkout-transaction.js`
-5. Invoice PDF Generation Test:
-   `node tests/test-invoice-pdf-generation.js`
-6. Payment Recording & Multi-Tranche Settlement Test:
-   `node tests/test-payment-recording-entity.js`
-7. Customer Credit & Khata Ledger Test:
+1. Real-Time Customer Outstanding Calculations Test (T34):
+   `node tests/test-customer-realtime-outstanding.js`
+2. Customer Ledger Transaction Log Test (T33):
+   `node tests/test-customer-ledger-transaction-log.js`
+3. Customer CRUD APIs & Phone Normalization Test (T32):
+   `node tests/test-customer-crud-apis.js`
+4. Customer Schema DB Model Test (T31):
+   `node tests/test-customer-schema-model.js`
+5. Customer Credit & Khata Ledger Test (T29):
    `node tests/test-customer-credit-integration.js`
+6. Payment Recording & Multi-Tranche Settlement Test (T28):
+   `node tests/test-payment-recording-entity.js`
+7. POS Checkout Atomic Transaction & Rollback Test (T25):
+   `node tests/test-pos-checkout-transaction.js`
+8. Sale Line Items Price Snapshot Test (T24):
+   `node tests/test-sale-items-snapshot.js`
+9. Invoice PDF Generation Test (T27):
+   `node tests/test-invoice-pdf-generation.js`
+10. Low-Stock Alerts Queue Test (T22):
+   `node tests/test-low-stock-notifications.js`
+11. Inventory Ledger Statement Test (T21):
+   `node tests/test-inventory-ledger-ui.js`
 
 Frontend Build Verification:
    `cd Frontend && npm run build` (Builds clean in < 2 seconds with 0 errors).

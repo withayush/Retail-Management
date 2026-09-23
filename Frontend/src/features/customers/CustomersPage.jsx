@@ -7,6 +7,7 @@ import CustomersStatsCards from "./components/CustomersStatsCards";
 import CustomersFilters from "./components/CustomersFilters";
 import CustomersTable from "./components/CustomersTable";
 import AddCustomerModal from "./components/AddCustomerModal";
+import EditCustomerModal from "./components/EditCustomerModal";
 import CustomerLedgerModal from "./components/CustomerLedgerModal";
 import SettleKhataModal from "./components/SettleKhataModal";
 
@@ -21,6 +22,7 @@ export default function CustomersPage() {
 
   // Modals State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -59,6 +61,11 @@ export default function CustomersPage() {
   }, [loadCustomers]);
 
   // Handlers
+  const handleEditCustomer = (customer) => {
+    setSelectedCustomer(customer);
+    setIsEditModalOpen(true);
+  };
+
   const handleViewLedger = (customer) => {
     setSelectedCustomer(customer);
     setIsLedgerModalOpen(true);
@@ -70,7 +77,7 @@ export default function CustomersPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full font-sans animate-fadeIn">
+    <div className="w-full p-6 md:p-8 space-y-6 min-h-[calc(100vh-4rem)]">
       {/* ── Page Header ─────────────────────────────────────────────── */}
       <CustomersHeader
         onAddCustomer={() => setIsAddModalOpen(true)}
@@ -94,6 +101,7 @@ export default function CustomersPage() {
       <CustomersTable
         loading={loading}
         customers={customers}
+        onEditCustomer={handleEditCustomer}
         onViewLedger={handleViewLedger}
         onSettlePayment={handleSettlePayment}
       />
@@ -102,6 +110,17 @@ export default function CustomersPage() {
       <AddCustomerModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => loadCustomers()}
+      />
+
+      {/* ── Edit Customer Modal (T32) ────────────────────────────────── */}
+      <EditCustomerModal
+        isOpen={isEditModalOpen}
+        customer={selectedCustomer}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedCustomer(null);
+        }}
         onSuccess={() => loadCustomers()}
       />
 

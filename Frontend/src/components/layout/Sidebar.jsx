@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -12,6 +12,7 @@ import {
   PanelLeft,
   Store,
   X,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function Sidebar({
@@ -23,6 +24,8 @@ export default function Sidebar({
   onLogout,
 }) {
   const location = useLocation();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const popoverRef = useRef(null);
 
   const businessName =
     business?.businessName ||
@@ -38,6 +41,18 @@ export default function Sidebar({
     { label: "Customers", path: "/customers", icon: Users },
     { label: "Sales & Invoices", path: "/sales", icon: Receipt },
   ];
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!showLogoutConfirm) return;
+    const handleClick = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        setShowLogoutConfirm(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showLogoutConfirm]);
 
   const renderContent = (isMobile = false) => {
     const collapsed = isMobile ? false : isCollapsed;
@@ -131,18 +146,71 @@ export default function Sidebar({
           </nav>
         </div>
 
-        {/* 3. BOTTOM SECTION: Logout Option */}
+        {/* 3. BOTTOM SECTION: Logout with Confirmation Popover */}
         <div className="p-3 border-t border-[#1f1f23]">
-          <button
-            onClick={onLogout}
-            title={collapsed ? "Logout" : undefined}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 active:scale-95 transition-all duration-200 cursor-pointer ${
-              collapsed ? "justify-center px-0" : ""
-            }`}
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!collapsed && <span>Logout</span>}
-          </button>
+          <div className="relative" ref={popoverRef}>
+            {/* Confirmation Popover */}
+            {showLogoutConfirm && (
+              <div
+                className="absolute bottom-full mb-2 left-0 right-0 z-50"
+                style={{ animation: "slideUp 0.18s cubic-bezier(0.16,1,0.3,1)" }}
+              >
+                <div className="bg-[#18181b] border border-[#2d2d30] rounded-xl shadow-2xl overflow-hidden">
+                  {/* Popover Header */}
+                  <div className="px-3.5 pt-3 pb-2.5 border-b border-[#27272a]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-red-500/15 border border-red-500/25 flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-3 h-3 text-red-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-white">Logout?</p>
+                        <p className="text-[10px] text-zinc-400 leading-tight">
+                          You'll need to sign in again.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Popover Actions */}
+                  <div className="p-2 flex gap-1.5">
+                    <button
+                      onClick={() => setShowLogoutConfirm(false)}
+                      className="flex-1 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white bg-[#27272a] hover:bg-zinc-700 transition-all duration-150 cursor-pointer active:scale-95"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowLogoutConfirm(false);
+                        onLogout();
+                      }}
+                      className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white bg-red-500 hover:bg-red-400 transition-all duration-150 cursor-pointer active:scale-95 shadow-sm"
+                    >
+                      Yes, Logout
+                    </button>
+                  </div>
+                </div>
+                {/* Arrow */}
+                <div className="flex justify-center">
+                  <div className="w-2.5 h-2.5 bg-[#18181b] border-b border-r border-[#2d2d30] rotate-45 -mt-1.5" />
+                </div>
+              </div>
+            )}
+
+            {/* Logout Button */}
+            <button
+              onClick={() => setShowLogoutConfirm((p) => !p)}
+              title={collapsed ? "Logout" : undefined}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer active:scale-95 ${
+                showLogoutConfirm
+                  ? "bg-red-500/15 text-red-300 border border-red-500/30"
+                  : "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              } ${collapsed ? "justify-center px-0" : ""}`}
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              {!collapsed && <span>Logout</span>}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -174,3 +242,4 @@ export default function Sidebar({
     </>
   );
 }
+

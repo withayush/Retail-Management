@@ -118,15 +118,17 @@ const recordSaleCredit = async (creditData, session = null) => {
     ledgerDoc = newLedger;
   }
 
-  // 5. Append Ledger Entry
+  // 5. Append Ledger Entry (Phase 5 - Task T33: Customer Ledger Transaction Log)
   const resolvedNotes = notes?.trim() || `Credit sale against Invoice #${invoiceNumber || "N/A"}`;
   const ledgerEntry = {
     customerId: customer._id,
+    saleId: invoiceId || null,
     invoiceId: invoiceId || null,
     invoiceNumber: invoiceNumber || "",
     entryType: "SALE_CREDIT",
-    debitAmount: numUnpaid,
-    creditAmount: 0,
+    creditAmount: numUnpaid,
+    debitAmount: 0,
+    balance: potentialBalance,
     balanceSnapshot: potentialBalance,
     notes: resolvedNotes,
     idempotencyKey,
@@ -218,9 +220,13 @@ const recordPaymentSettlement = async (paymentData, session = null) => {
   const resolvedNotes = notes?.trim() || `Payment received via ${method}${referenceId ? ` (Ref: ${referenceId})` : ""}`;
   const ledgerEntry = {
     customerId: customer._id,
+    saleId: null,
+    invoiceId: null,
+    invoiceNumber: "",
     entryType: "PAYMENT_RECEIVED",
-    debitAmount: 0,
-    creditAmount: numAmount,
+    creditAmount: 0,
+    debitAmount: numAmount,
+    balance: newBalance,
     balanceSnapshot: newBalance,
     notes: resolvedNotes,
     createdBy,
@@ -249,6 +255,109 @@ const recordPaymentSettlement = async (paymentData, session = null) => {
 };
 
 /**
+ * Task T33: Append a manual or adjustment ledger entry (Append-only correction/migration).
+ */
+const appendLedgerEntry = async (entryData, session = null) => {
+  const {
+    businessId,
+    customerId,
+    entryType = "ADJUSTMENT",
+    creditAmount = 0,
+    debitAmount = 0,
+    saleId = null,
+    invoiceNumber = "",
+    notes = "",
+    createdBy = null,
+    createdByName = "",
+  } = entryData;
+
+  const sessionOpt = session ? { session } : {};
+  const numCredit = Math.round(Math.max(0, Number(creditAmount) || 0) * 100) / 100;
+  const numDebit = Math.round(Math.max(0, Number(debitAmount) || 0) * 100) / 100;
+
+  if (numCredit === 0 && numDebit === 0) {
+    const error = new Error("Either creditAmount or debitAmount must be greater than 0.");
+    error.statusCode = 400;
+    error.code = "INVALID_LEDGER_AMOUNTS";
+    throw error;
+  }
+
+  const customer = await Customer.findOne({ _id: customerId, businessId }).session(session);
+  if (!customer) {
+    const error = new Error("Customer not found in this business.");
+    error.statusCode = 404;
+    error.code = "CUSTOMER_NOT_FOUND";
+    throw error;
+  }
+
+  let ledgerDoc = await CustomerLedger.findOne({ businessId, customerId: customer._id }).session(session);
+  if (!ledgerDoc) {
+    const [newLedger] = await CustomerLedger.create(
+      [
+        {
+          businessId,
+          customerId: customer._id,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          balance: customer.currentBalance || 0,
+          entries: [],
+        },
+      ],
+      sessionOpt
+    );
+    ledgerDoc = newLedger;
+  }
+
+  const currentBal = Number(customer.currentBalance || 0);
+  const potentialBalance = Math.round(Math.max(0, currentBal + numCredit - numDebit) * 100) / 100;
+
+  if (numCredit > 0 && customer.creditLimit > 0 && potentialBalance > customer.creditLimit) {
+    const error = new Error(
+      `Credit limit exceeded for customer '${customer.name}'. Limit: ₹${customer.creditLimit}, Current Debt: ₹${currentBal}, Requested: ₹${numCredit}`
+    );
+    error.statusCode = 400;
+    error.code = "CREDIT_LIMIT_EXCEEDED";
+    throw error;
+  }
+
+  const ledgerEntry = {
+    customerId: customer._id,
+    saleId: saleId || null,
+    invoiceId: saleId || null,
+    invoiceNumber: invoiceNumber || "",
+    entryType,
+    creditAmount: numCredit,
+    debitAmount: numDebit,
+    balance: potentialBalance,
+    balanceSnapshot: potentialBalance,
+    notes: notes?.trim() || `Manual ledger entry (${entryType})`,
+    createdBy,
+    createdByName,
+  };
+
+  ledgerDoc.entries.push(ledgerEntry);
+  ledgerDoc.balance = potentialBalance;
+  await ledgerDoc.save(sessionOpt);
+
+  customer.currentBalance = potentialBalance;
+  if (numCredit > 0) customer.lastPurchaseDate = new Date();
+  if (numDebit > 0) customer.lastPaymentDate = new Date();
+  await customer.save(sessionOpt);
+
+  return {
+    success: true,
+    customer: {
+      id: customer._id,
+      name: customer.name,
+      phone: customer.phone,
+      currentBalance: customer.currentBalance,
+    },
+    ledgerEntry: ledgerDoc.entries[ledgerDoc.entries.length - 1],
+    newBalance: potentialBalance,
+  };
+};
+
+/**
  * Retrieve full customer ledger history and balance statement.
  */
 const getCustomerLedger = async (businessId, customerId, pagination = { page: 1, limit: 50 }) => {
@@ -269,13 +378,37 @@ const getCustomerLedger = async (businessId, customerId, pagination = { page: 1,
 
   const paginatedEntries = allEntries.slice(skip, skip + limit);
 
-  // Aggregates
-  let totalDebits = 0; // Total credit sales
-  let totalCredits = 0; // Total settlements
+  // Aggregates for Sub-Ledger
+  let totalCredits = 0; // Total Udhaar Sales (+Credit)
+  let totalDebits = 0;  // Total Repayments (-Debit)
   for (const e of allEntries) {
-    totalDebits += e.debitAmount || 0;
-    totalCredits += e.creditAmount || 0;
+    const credit = e.creditAmount !== undefined ? e.creditAmount : (e.entryType === "SALE_CREDIT" ? e.debitAmount : 0);
+    const debit = e.debitAmount !== undefined && e.creditAmount !== undefined ? e.debitAmount : (e.entryType === "PAYMENT_RECEIVED" ? e.creditAmount : 0);
+    totalCredits += credit || 0;
+    totalDebits += debit || 0;
   }
+
+  const formattedEntries = paginatedEntries.map((e) => {
+    const credit = e.creditAmount !== undefined ? e.creditAmount : (e.entryType === "SALE_CREDIT" ? e.debitAmount : 0);
+    const debit = e.debitAmount !== undefined && e.creditAmount !== undefined ? e.debitAmount : (e.entryType === "PAYMENT_RECEIVED" ? e.creditAmount : 0);
+    const bal = e.balance !== undefined ? e.balance : (e.balanceSnapshot !== undefined ? e.balanceSnapshot : 0);
+
+    return {
+      _id: e._id,
+      customerId: e.customerId,
+      saleId: e.saleId || e.invoiceId || null,
+      invoiceId: e.invoiceId || e.saleId || null,
+      invoiceNumber: e.invoiceNumber || "",
+      entryType: e.entryType,
+      creditAmount: credit,
+      debitAmount: debit,
+      balance: bal,
+      balanceSnapshot: bal,
+      notes: e.notes || "",
+      createdAt: e.createdAt,
+      createdByName: e.createdByName || "",
+    };
+  });
 
   return {
     customer: {
@@ -291,11 +424,11 @@ const getCustomerLedger = async (businessId, customerId, pagination = { page: 1,
     },
     summary: {
       currentOutstanding: customer.currentBalance,
-      totalCreditSales: Math.round(totalDebits * 100) / 100,
-      totalPaymentsReceived: Math.round(totalCredits * 100) / 100,
+      totalCreditSales: Math.round(totalCredits * 100) / 100,
+      totalPaymentsReceived: Math.round(totalDebits * 100) / 100,
       totalTransactions: allEntries.length,
     },
-    entries: paginatedEntries,
+    entries: formattedEntries,
     pagination: {
       total: allEntries.length,
       page,
@@ -369,6 +502,7 @@ const getBusinessOutstandingTotals = async (businessId) => {
 module.exports = {
   recordSaleCredit,
   recordPaymentSettlement,
+  appendLedgerEntry,
   getCustomerLedger,
   getCustomerOutstanding,
   getBusinessOutstandingSummary,

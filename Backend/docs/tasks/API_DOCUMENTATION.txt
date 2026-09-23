@@ -1080,6 +1080,327 @@ Dummy Response (200 OK):
   ]
 }
 
+
+9.6 GET CUSTOMER BY PHONE (T32)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/phone/+919876543210 (or raw: 9876543210)
+Description: Auto-normalizes the raw phone parameter and retrieves customer profile.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "businessId": "65f1e2a3b4c5d6e7f8a9b0c1",
+    "name": "Rahul Sharma",
+    "phone": "+919876543210",
+    "email": "rahul@example.com",
+    "status": "ACTIVE",
+    "outstandingBalance": 0
+  }
+}
+
+
+9.7 GET SINGLE CUSTOMER BY ID (T32)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id
+Description: Retrieves full demographic details and credit metrics for a single customer.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "businessId": "65f1e2a3b4c5d6e7f8a9b0c1",
+    "name": "Rahul Sharma",
+    "phone": "+919876543210",
+    "email": "rahul@example.com",
+    "address": "Shop 4, Market Complex",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302001",
+    "creditLimit": 10000,
+    "status": "ACTIVE",
+    "outstandingBalance": 1900.00,
+    "totalCredit": 3500.00,
+    "totalPaid": 1600.00
+  }
+}
+
+
+9.8 UPDATE CUSTOMER PROFILE (T32)
+--------------------------------------------------
+Method:      PUT
+Endpoint:    /api/customers/:id
+Description: Updates customer demographic details, phone (with re-normalization & collision checks), and credit limit.
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "name": "Rahul Sharma Jr.",
+  "phone": "9876543210",
+  "email": "rahul.jr@example.com",
+  "address": "Shop 4, Market Complex",
+  "city": "Jaipur",
+  "state": "Rajasthan",
+  "pincode": "302001",
+  "creditLimit": 15000,
+  "status": "ACTIVE"
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Customer profile updated successfully.",
+  "data": {
+    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "name": "Rahul Sharma Jr.",
+    "phone": "+919876543210",
+    "email": "rahul.jr@example.com",
+    "creditLimit": 15000,
+    "status": "ACTIVE"
+  }
+}
+
+
+9.9 SOFT DELETE / DEACTIVATE CUSTOMER (T32)
+--------------------------------------------------
+Method:      DELETE
+Endpoint:    /api/customers/:id
+Description: Safe soft-delete marking status = 'INACTIVE' to preserve historical invoices and ledger records.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Customer archived / deactivated successfully.",
+  "data": {
+    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "name": "Rahul Sharma",
+    "status": "INACTIVE"
+  }
+}
+
+
+9.10 ARCHIVE & RESTORE CUSTOMER (T32)
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/customers/:id/archive (or /api/customers/:id/restore)
+Description: Explicit archival and restoration endpoints for customer accounts.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Customer restored successfully.",
+  "data": {
+    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "name": "Rahul Sharma",
+    "status": "ACTIVE"
+  }
+}
+
+
+9.11 GET CUSTOMER LEDGER STATEMENT (T33)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id/ledger
+Description: Bank-statement style chronological audit log of all Udhaar credit purchases, payments, adjustments, and running balances.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "customer": {
+      "id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Sharma",
+      "phone": "+919876543210",
+      "currentBalance": 3000.00
+    },
+    "entries": [
+      {
+        "_id": "65f1f9a1b8c9d0e1f2a3b4c9",
+        "creditAmount": 5000.00,
+        "debitAmount": 0.00,
+        "balance": 5000.00,
+        "balanceSnapshot": 5000.00,
+        "saleId": "65f1f8b2c9d0e1f2a3b4c7",
+        "invoiceId": "65f1f8b2c9d0e1f2a3b4c7",
+        "invoiceNumber": "INV-1001",
+        "entryType": "SALE_CREDIT",
+        "notes": "Credit purchase from POS Invoice INV-1001",
+        "createdAt": "2026-09-23T10:00:00.000Z"
+      },
+      {
+        "_id": "65f1fa02b8c9d0e1f2a3b4d0",
+        "creditAmount": 0.00,
+        "debitAmount": 2000.00,
+        "balance": 3000.00,
+        "balanceSnapshot": 3000.00,
+        "entryType": "PAYMENT_SETTLEMENT",
+        "notes": "Counter Cash Settlement",
+        "createdAt": "2026-09-23T11:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "total": 2,
+      "page": 1,
+      "limit": 50,
+      "totalPages": 1
+    },
+    "aggregates": {
+      "totalCreditSales": 5000.00,
+      "totalPaymentsReceived": 2000.00,
+      "currentOutstanding": 3000.00
+    }
+  }
+}
+
+
+9.12 APPEND CUSTOMER LEDGER ENTRY (MANUAL / ADJUSTMENT) (T33)
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/customers/:id/ledger
+Description: Appends an immutable opening balance or manual adjustment transaction to customer sub-ledger.
+Auth:        Required (JWT + T6)
+
+Request Headers:
+  Content-Type: application/json
+
+Dummy Request Body (Opening Balance / Udhaar Migration):
+{
+  "creditAmount": 5000,
+  "debitAmount": 0,
+  "entryType": "OPENING_BALANCE",
+  "notes": "Migrated opening Khata balance"
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Customer ledger entry appended successfully.",
+  "data": {
+    "entryId": "65f1fa50b8c9d0e1f2a3b4d2",
+    "creditAmount": 5000.00,
+    "debitAmount": 0.00,
+    "balance": 5000.00,
+    "currentOutstanding": 5000.00,
+    "entryType": "OPENING_BALANCE",
+    "notes": "Migrated opening Khata balance"
+  }
+}
+
+
+9.13 SETTLE CUSTOMER UDHAAR BALANCE (T29 / T33)
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/customers/:id/settle
+Description: Settle customer pending Udhaar debt via Cash / UPI / Card / Bank, reducing outstanding balance and appending a Debit transaction to the ledger.
+Auth:        Required (JWT + T6)
+
+Request Headers:
+  Content-Type: application/json
+
+Dummy Request Body:
+{
+  "amount": 2000,
+  "paymentMethod": "CASH",
+  "notes": "Counter cash payment received"
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Payment recorded and customer ledger updated successfully.",
+  "data": {
+    "customerId": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "amountPaid": 2000.00,
+    "previousBalance": 5000.00,
+    "newBalance": 3000.00,
+    "paymentMethod": "CASH",
+    "ledgerEntryId": "65f1fa02b8c9d0e1f2a3b4d0"
+  }
+}
+
+
+9.14 GET CUSTOMER REAL-TIME OUTSTANDING (T34)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id/outstanding
+Description: High-speed O(1) single-document fetch of customer's current outstanding balance, credit limit, available credit, and limit status.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "customerId": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "name": "Rahul Sharma",
+    "phone": "+919876543210",
+    "currentBalance": 3000.00,
+    "creditLimit": 10000.00,
+    "availableCredit": 7000.00,
+    "isLimitExceeded": false,
+    "lastPaymentDate": "2026-09-23T11:00:00.000Z",
+    "lastPurchaseDate": "2026-09-23T10:00:00.000Z"
+  }
+}
+
+
+9.15 GET BUSINESS OUTSTANDING DEBTORS SUMMARY (T34)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/outstanding/summary?limit=50
+Description: Fast indexed retrieval of all customers with active credit debt, ranked by highest outstanding balance first.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Sharma",
+      "phone": "+919876543210",
+      "currentBalance": 3500.00,
+      "creditLimit": 10000.00,
+      "lastPaymentDate": "2026-09-23T11:00:00.000Z",
+      "lastPurchaseDate": "2026-09-23T10:00:00.000Z"
+    },
+    {
+      "_id": "65f1f6b8c9d0e1f2a3b4c6",
+      "name": "Amit Kumar",
+      "phone": "+919876543211",
+      "currentBalance": 1500.00,
+      "creditLimit": 5000.00,
+      "lastPaymentDate": "2026-09-22T14:30:00.000Z",
+      "lastPurchaseDate": "2026-09-23T09:15:00.000Z"
+    }
+  ]
+}
+
+
+9.16 GET STORE-WIDE OUTSTANDING TOTALS (T34)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/outstanding/totals
+Description: Instant store-wide aggregate debt totals and active debtor customer count for dashboard widgets and POS KPIs.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalOutstanding": 5000.00,
+    "debtorCustomersCount": 2
+  }
+}
+
 ================================================================================
 END OF API DOCUMENTATION & TESTING GUIDE
 ================================================================================

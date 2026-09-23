@@ -1,12 +1,12 @@
 # VendorOS - Product Requirements Document (PRD)
 
 ## 1. Executive Summary & Vision
-**VendorOS** is a modern, cloud-first Retail and Kirana Store Operations Operating System designed for high-frequency retail workflows. It combines fast barcode-driven POS checkout, real-time inventory ledger tracking, multi-tenant business isolation, automated low-stock queues, multi-tranche payment settlements, and a customer credit (Udhaar / Khata) ledger.
+**VendorOS** is a modern, cloud-first Retail and Kirana Store Operations Operating System designed for high-frequency retail workflows. It combines fast barcode-driven POS checkout, real-time inventory ledger tracking, multi-tenant business isolation, automated low-stock queues, multi-tranche payment settlements, customer master profiles, and a customer credit (Udhaar / Khata) ledger.
 
 ---
 
 ## 2. Core Architectural Principles
-1. **Multi-Tenant Data Isolation (T6)**: Every transactional record (`Category`, `Product`, `Inventory`, `InventoryLedger`, `Invoice`, `SaleItem`, `Payment`, `Customer`, `CustomerLedger`) is strictly anchored to `businessId`. Cross-tenant data leakage is prevented at the middleware and repository levels.
+1. **Multi-Tenant Data Isolation (T6, T31)**: Every transactional record (`Category`, `Product`, `Inventory`, `InventoryLedger`, `Invoice`, `SaleItem`, `Payment`, `Customer`, `CustomerLedger`) is strictly anchored to `businessId`. Cross-tenant data leakage is prevented at the middleware and repository levels.
 2. **Immutable Financial & Inventory Audits (T16, T24, T28, T29)**:
    - Physical stock is never overwritten directly; all movements are recorded as chronological `InventoryLedger` entries.
    - Master catalog price changes never mutate past `SaleItem` price snapshots.
@@ -52,7 +52,7 @@
 - **T21: Ledger Statement UI**: Searchable, multi-filtered chronological stock flow statement with 1-click CSV export.
 - **T22: Deterministic Low-Stock Alerts Queue**: Automated alert trigger and resolution queue with zero duplicate spamming.
 
-### Phase 4: Sales, Billing, Payments & Customer Khata (T23–T30)
+### Phase 4: Sales, Billing, Payments & POS Terminal (T23–T30)
 - **T23: Sales Transaction & Invoicing Header**: Sequential invoice numbering (`INV-1001`), tax calculation, discounts, and payment status tracking (`PAID`, `PARTIAL`, `UNPAID`).
 - **T24: Sale Item Price Snapshotting**: Freezes unit price and cost price at the moment of sale, guaranteeing immutable historical gross profit analytics (`GET /api/sales/analytics/gross-profit`).
 - **T25: Atomic POS Checkout API**: Single transaction orchestrating invoice generation, line item snapshotting, inventory deduction, ledger logging, and payment recording.
@@ -63,6 +63,30 @@
   - Automatic credit ledger debiting when an invoice is sold on Udhaar (`CREDIT` or partial balance).
   - Khata settlement engine (`POST /api/customers/:id/settle`) for recording customer repayments and clearing outstanding balances.
 - **T30: Billing Checkout Front Terminal**: Full-featured React cashier POS interface with barcode scanner detection, keyboard shortcuts, quick cart, customer selection modal, and payment settlement modal.
+
+### Phase 5: Customer System, Profiles Master & Transaction Log (T31–T34)
+- **T31: Customer Schema DB Model & Demographics**:
+  - Establishes business-scoped customer master profile entity (Name, Phone, Email, Address, City, State, Pincode, Credit Limit, Status, Notes, Tags).
+  - Multi-tenant phone uniqueness: Compound index `{ businessId: 1, phone: 1 }` with partial filter expression prevents duplicate phone numbers within a store while gracefully handling optional/empty phone numbers.
+  - Strict separation of customer demographic profile (`Customer`) from financial ledgers (`CustomerLedger`).
+  - Safe soft-delete (`DELETE /api/customers/:id`) setting `status: 'INACTIVE'` preserving all historical sales, invoices, and payment ledgers.
+- **T32: Customer CRUD APIs & Phone Canonicalization**:
+  - Full REST API suite for customer registration, retrieval, updating, search, and lifecycle archiving.
+  - Automatic canonical phone normalization (`+91XXXXXXXXXX`) on create and update operations.
+  - POS rapid search (`GET /api/customers/search`) and direct phone lookup (`GET /api/customers/phone/:phone`).
+  - Frontend management via `CustomersPage.jsx`, `CustomersTable.jsx`, `AddCustomerModal.jsx`, and `EditCustomerModal.jsx`.
+- **T33: Customer Ledger Transaction Log & Sub-Ledger History**:
+  - Double-entry / sub-ledger transaction log tracking customer debt and payment settlements.
+  - Schema: `Customer Ledger Schema (ID, CustomerID, CreditAmount, DebitAmount, Balance, SaleID, Notes, CreatedAt)`.
+  - Authoritative Balance Formula: `Balance = Previous Balance + CreditAmount - DebitAmount`.
+  - Append-only immutability (no direct updates or deletions of historical ledger rows).
+  - Complete invoice traceability linking ledger records directly to `saleId` and originating invoices.
+  - Interactive frontend statement modal (`CustomerLedgerModal.jsx`) displaying color-coded debit/credit flows and real-time aggregate summaries.
+- **T34: Real-Time Outstanding Calculations & Fast Materialized Balance**:
+  - Eliminates heavy, repeated ledger aggregations by maintaining materialized `currentBalance` in `Customer` document.
+  - Atomic synchronization: Balance updates happen synchronously in the same transaction as ledger appends.
+  - Fast O(1) single-customer query (`GET /api/customers/:id/outstanding`) returning real-time debt, credit limits, and available credit.
+  - Store-wide debtor rankings and receivables dashboard aggregation (`GET /api/customers/outstanding/summary`, `/totals`) powered by `{ businessId: 1, currentBalance: -1 }`.
 
 ---
 

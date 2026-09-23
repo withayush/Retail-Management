@@ -2,14 +2,14 @@
 
 > **File**: `MEMORY.md`  
 > **Last Updated**: 2026-09-23  
-> **Status**: Phase 0 to Phase 4 (Tasks T1–T30) Fully Implemented & 100% Tested  
+> **Status**: Phase 0 to Phase 5 (Tasks T1–T34) Fully Implemented & 100% Tested  
 > **Purpose**: Serves as the persistent memory, architectural contract, decision log, and developer reference for future AI agents and engineers working on VendorOS.
 
 ---
 
 ## 1. Project Overview & Identity
 
-**VendorOS** is a cloud-first, high-density Retail & Kirana Store Operations Platform designed for physical store merchants and POS cashiers. It combines sub-millisecond barcode checkout, multi-tenant store isolation, real-time inventory ledger audits, automated low-stock queues, partial payment settlement engines, and a customer credit (Udhaar / Khata) ledger.
+**VendorOS** is a cloud-first, high-density Retail & Kirana Store Operations Platform designed for physical store merchants and POS cashiers. It combines sub-millisecond barcode checkout, multi-tenant store isolation, real-time inventory ledger audits, automated low-stock queues, partial payment settlement engines, customer master profiles, an append-only customer credit (Udhaar / Khata) ledger transaction log, and real-time materialized outstanding calculations.
 
 - **Primary Repository**: `https://github.com/withayush/Retail-Management.git` (Branch: `main`)
 - **Backend Server**: Node.js 20+, Express 5.x, MongoDB Atlas (Mongoose ODM), Port `3001`
@@ -20,19 +20,20 @@
 
 ## 2. Core Architectural Principles (Never Violate)
 
-1. **Multi-Tenant Isolation (`T6`)**:
+1. **Multi-Tenant Isolation (`T6`, `T31`, `T32`, `T33`, `T34`)**:
    - Every single domain entity (`Category`, `Product`, `Inventory`, `InventoryLedger`, `Invoice`, `SaleItem`, `Payment`, `Customer`, `CustomerLedger`) MUST be anchored to `businessId`.
    - `req.businessId` is derived exclusively from `businessMiddleware` via JWT / session or authorized `X-Business-Id` header. Never trust client-supplied tenant IDs in request bodies.
-2. **Immutable Audit Ledgers (`T16`, `T29`)**:
+2. **Immutable Audit Ledgers & Real-Time Materialized State (`T16`, `T29`, `T33`, `T34`)**:
    - Stock counts are NEVER updated directly. Every inventory modification must be recorded as an `InventoryLedger` transaction (`IN`, `OUT`, `ADJUST`, `OPENING`, `RETURN`).
    - Invariant: `Inventory.availableStock === sum(InventoryLedger.qtyChange)`.
-   - Customer Udhaar is tracked via chronological `CustomerLedger` entries with before/after balance snapshots.
+   - Customer Udhaar is tracked via chronological `CustomerLedger` entries with before/after balance snapshots (`Balance = Previous Balance + Credit - Debit`).
+   - `Customer.currentBalance` acts as the real-time materialized state, maintained atomically alongside ledger entries to enable O(1) single-document lookups and high-speed POS checkouts without heavy ledger aggregation.
 3. **Historical Price Snapshotting (`T24`)**:
    - Master product catalog updates modify future billing defaults. Historical invoices freeze `soldPrice`, `costPrice`, and `grossProfit` inside `SaleItem` records at the moment of checkout and remain 100% immutable.
 4. **Zero-Overselling Pre-Flight Checks (`T25`)**:
    - POS Checkout runs a pre-flight validation verifying `availableStock >= requestedQty` for all cart items. If any item is short, the transaction aborts with a 400 error and rolls back all operations.
-5. **Non-Destructive Archiving (`T11`)**:
-   - Hard deletes (`deleteOne` / `destroy`) are prohibited on products. Products are soft-deleted (`isArchived: true`), ensuring past invoices and credit notes remain valid.
+5. **Non-Destructive Archiving (`T11`, `T31`, `T32`)**:
+   - Hard deletes (`deleteOne` / `destroy`) are prohibited on products and customer accounts. Items are soft-deleted / deactivated (`isArchived: true` / `status: 'INACTIVE'`), ensuring past invoices and credit notes remain valid.
 6. **Keyboard-First Cashier Ergonomics (`T30`)**:
    - POS terminal operates completely without a mouse via hardware barcode scanners and global function keys (`F2`, `F4`, `F8`, `F9`, `F1`, `Esc`).
 
@@ -69,7 +70,7 @@
 - Bank-statement-style chronological audit trail (`GET /api/inventory/ledger`) with 1-click CSV export.
 - Deterministic low-stock notifications queue (`GET /api/inventory/alerts`) with deduplication and 1-click restock shortcuts.
 
-### Phase 4: Sales, Billing, Payments & Khata (T23–T30) — [100% DONE]
+### Phase 4: Sales, Billing, Payments & POS Terminal (T23–T30) — [100% DONE]
 - `Invoice` schema with sequential numbering (`INV-1001`), tax, discounts, and payment status (`PAID`, `PARTIAL`, `UNPAID`).
 - `SaleItem` price and cost snapshots guaranteeing immutable gross profit analytics (`GET /api/sales/analytics/gross-profit`).
 - Atomic POS Checkout API (`POST /api/sales`) executing pre-flight stock checks, invoice creation, line snapshots, stock deductions, and payment linking.
@@ -78,6 +79,25 @@
 - Standalone `Payment` entity (`POST /api/payments`) supporting multi-tranche partial payments (Cash, UPI, Card, Split) and auto-reconciliation.
 - Customer Credit (Khata) engine (`CustomerLedger`) auto-recording `SALE_CREDIT` on Udhaar sales, tracking balances, and settling repayments (`POST /api/customers/:id/settle`).
 - Complete React POS billing terminal (`POSTerminalPage.jsx`) with barcode scanner listener (`useBarcodeScanner.js`), global hotkeys (`usePOSKeyboard.js`), quick cart (`POSCart.jsx`), customer modal (`POSCustomerModal.jsx`), and payment settle modal (`SettlePaymentModal.jsx`).
+
+### Phase 5: Customer System, Profiles Master & Transaction Log (T31–T34) — [100% DONE]
+- `Customer` master schema (`src/models/customer.model.js`) storing demographic details (Name, Phone, Email, Address, City, State, Pincode, Credit Limit, Status, Notes, Tags).
+- Multi-tenant phone uniqueness guarantee: Compound index `{ businessId: 1, phone: 1 }` with partial filter expression ensuring unique phone per business when provided while gracefully handling optional/empty phone numbers.
+- Strict separation of customer demographic profile (`Customer`) from financial transaction history (`CustomerLedger`).
+- Full demographic frontend modals (`AddCustomerModal.jsx`, `EditCustomerModal.jsx`) in `CustomersPage.jsx` with direct table row edit trigger.
+- Complete REST CRUD API suite (`POST /api/customers`, `GET /api/customers`, `GET /api/customers/search`, `GET /api/customers/phone/:phone`, `GET /api/customers/:id`, `PUT /api/customers/:id`, `DELETE /api/customers/:id`, `POST /api/customers/:id/archive`, `POST /api/customers/:id/restore`).
+- `CustomerLedger` Transaction Log (T33) tracking sub-ledger debit/credit history:
+  * Credit (+) = Goods taken on credit / Udhaar -> increases customer outstanding.
+  * Debit (-) = Payment / settlement made -> decreases customer outstanding.
+  * Running Balance Snapshot: `Balance = Previous Balance + Credit - Debit`.
+  * Append-only immutability (no update/delete of historical logs; adjustments handled via `POST /api/customers/:id/ledger`).
+  * Direct historical traceability with `saleId` / `invoiceId` linking.
+- Real-Time Outstanding Balance Calculations (T34):
+  * Materialized `currentBalance` in `Customer` document updated atomically on every transaction.
+  * Fast O(1) single-document endpoint: `GET /api/customers/:id/outstanding` (credit limit, available credit, limit exceeded checks).
+  * High-speed debtor ranking and store aggregate metrics: `GET /api/customers/outstanding/summary` and `GET /api/customers/outstanding/totals`.
+- Interactive statement modal (`CustomerLedgerModal.jsx`) with real-time audit ledger timeline, debit/credit badges, and settlement actions.
+- Automated test suites: `Backend/tests/test-customer-schema-model.js` (T31), `Backend/tests/test-customer-crud-apis.js` (T32), `Backend/tests/test-customer-ledger-transaction-log.js` (T33), and `Backend/tests/test-customer-realtime-outstanding.js` (T34) (100% passing).
 
 ---
 
@@ -100,7 +120,7 @@
 | `Invoice` | Sales transaction header & sequential numbering | `{ businessId: 1, invoiceNumber: 1 }`, `{ businessId: 1, createdAt: -1 }` |
 | `SaleItem` | Frozen checkout line items & profit snapshots | `{ businessId: 1, saleId: 1 }` |
 | `Payment` | Multi-tranche payments against invoices | `{ businessId: 1, invoiceId: 1 }` |
-| `Customer` | Customer CRM & credit balance master | `{ businessId: 1, phone: 1 }` |
+| `Customer` | Customer CRM & credit balance master | `{ businessId: 1, phone: 1 }` (partial), `{ businessId: 1, currentBalance: -1 }` |
 | `CustomerLedger` | Immutable Khata debit/credit ledger | `{ businessId: 1, customerId: 1, createdAt: -1 }` |
 
 ---
@@ -115,9 +135,11 @@
    - Fixed endpoint declarations in frontend services so base Axios URL handles `/api` prefix without duplicating `/api/api/...`.
 4. **Self-SKU Idempotency Guard (`product.service.js`)**:
    - When updating a product, the SKU collision check verifies whether the matching SKU belongs to a *different* product ID (`_id !== id`), allowing price/packaging edits on existing items without SKU collision errors.
-5. **Cross-Tenant Category Link Prevention**:
+5. **Partial Filter Expression on Customer Phone (`customer.model.js`)**:
+   - Used `{ unique: true, partialFilterExpression: { phone: { $type: "string", $gt: "" } } }` so walk-in customers with empty/omitted phone numbers can be created without duplicate index collisions.
+6. **Cross-Tenant Category Link Prevention**:
    - During product creation or updates, the service verifies that `categoryId` belongs strictly to `req.businessId`, preventing cross-tenant category linking.
-6. **Cross-Origin Production Cookie Configuration**:
+7. **Cross-Origin Production Cookie Configuration**:
    - In production (`NODE_ENV=production`), auth cookies use `sameSite: 'none'` and `secure: true` to support cross-domain cookie transmission between Render frontend and backend domains.
 
 ---
@@ -142,26 +164,38 @@
 
 All test suites in `Backend/tests/` can be executed directly:
 ```bash
-# 1. Low-Stock Alerts Queue Test
-node Backend/tests/test-low-stock-notifications.js
+# 1. Real-Time Customer Outstanding Calculations Test (T34)
+node Backend/tests/test-customer-realtime-outstanding.js
 
-# 2. Inventory Ledger Statement Test
-node Backend/tests/test-inventory-ledger-ui.js
+# 2. Customer Ledger Transaction Log Test (T33)
+node Backend/tests/test-customer-ledger-transaction-log.js
 
-# 3. Sale Line Items Snapshot Test
-node Backend/tests/test-sale-items-snapshot.js
+# 3. Customer CRUD APIs & Phone Canonicalization Test (T32)
+node Backend/tests/test-customer-crud-apis.js
 
-# 4. POS Checkout Atomic Transaction Test
-node Backend/tests/test-pos-checkout-transaction.js
+# 4. Customer Schema Model & Multi-Tenant Isolation Test (T31)
+node Backend/tests/test-customer-schema-model.js
 
-# 5. Invoice PDF Generation Test
-node Backend/tests/test-invoice-pdf-generation.js
+# 5. Customer Credit Integration & Khata Test (T29)
+node Backend/tests/test-customer-credit-integration.js
 
-# 6. Payment Recording Entity Test
+# 4. Payment Recording Entity Test (T28)
 node Backend/tests/test-payment-recording-entity.js
 
-# 7. Customer Credit Integration & Khata Test
-node Backend/tests/test-customer-credit-integration.js
+# 5. POS Checkout Atomic Transaction Test (T25)
+node Backend/tests/test-pos-checkout-transaction.js
+
+# 6. Sale Line Items Snapshot Test (T24)
+node Backend/tests/test-sale-items-snapshot.js
+
+# 7. Invoice PDF Generation Test (T27)
+node Backend/tests/test-invoice-pdf-generation.js
+
+# 8. Low-Stock Alerts Queue Test (T22)
+node Backend/tests/test-low-stock-notifications.js
+
+# 9. Inventory Ledger Statement Test (T21)
+node Backend/tests/test-inventory-ledger-ui.js
 
 # Frontend Production Build Verification
 cd Frontend && npm run build

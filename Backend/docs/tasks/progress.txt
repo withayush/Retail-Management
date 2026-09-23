@@ -15,12 +15,14 @@ API Base URL : http://localhost:3001/api
 [✓] Phase 1: Business Foundation & Tenant Isolation     --> 100% (DONE - T6)
 [✓] Phase 2: Category & Product Catalog Engine          --> 100% (DONE - T7-T14)
 [✓] Phase 3: Inventory Stock & Ledger Engine            --> 100% (DONE - T15-T22)
-[✓] Phase 4: Sales, Billing, Payments & Customer Khata  --> 100% (DONE - T23-T30)
-[ ] Phase 5: Analytics, Multi-Store & Advanced Reports  -->   0% (UPCOMING)
+[✓] Phase 4: Sales, Billing, Payments & POS Terminal    --> 100% (DONE - T23-T30)
+[✓] Phase 5: Customer System & Profiles Master (T31-T34) --> 100% (DONE - T31, T32, T33, T34)
+[ ] Phase 6: Analytics, Multi-Store & Advanced Reports  -->   0% (UPCOMING)
 
 ================================================================================
 2. COMPLETED WORK (KAISE & KYA-KYA HO GAYA HAI)
 ================================================================================
+
 
 --- [ PHASE 0 : AUTHENTICATION & SECURITY ] ---
 [✓] A1. Registration (POST /api/auth/register)
@@ -76,7 +78,6 @@ API Base URL : http://localhost:3001/api
 
 [✓] B2. Create Business API Endpoint (POST /api/business & POST /api/business/onboarding)
     - REST endpoint to register business details with model validations.
-    - Expanded business segmentation: Grocery, Electronics, Clothing, Hardware, Pharmacy, Retail/Kirana, Kirana, Supermarket, FMCG, Wholesale, Service, Other.
     - Auto-provisions Business, OWNER role in BusinessMember, and marks Vendor `onboardingStatus = 'COMPLETED'`.
 
 [✓] B3. Get Business API Endpoint (GET /api/business/:id)
@@ -152,26 +153,23 @@ API Base URL : http://localhost:3001/api
     - Real-time alert generation when `availableStock <= reorderLevel`.
     - Severity differentiation (`CRITICAL` for OOS, `WARNING` for Low Stock), deduplication guarantee, and replenishment auto-resolution.
 
---- [ PHASE 4 : SALES, BILLING, PAYMENTS & CUSTOMER KHATA ] ---
+--- [ PHASE 4 : SALES, BILLING, PAYMENTS & POS TERMINAL ] ---
 [✓] C16. T23: Sale Transaction Schema Model & Invoicing Header Engine (`src/models/invoice.model.js`)
     - Model `Invoice` tracking `invoiceNumber` (sequential `INV-1001`), `businessId`, `customerId`, `subtotal`, `discount`, `taxAmount`, `grandTotal`, `paidAmount`, `balanceDue`, `paymentStatus` (`PAID`, `PARTIAL`, `UNPAID`), `paymentMethod` (`CASH`, `UPI`, `CARD`, `CREDIT`, `SPLIT`), and `status` (`COMPLETED`, `CANCELLED`, `REFUNDED`).
-    - Compound indexes for multi-tenant query optimization.
 
 [✓] C17. T24: Sale Item Schema Model & Snapshot Preservation (`src/models/saleItem.model.js`)
     - Model `SaleItem` snapshotting `soldPrice`, `costPrice`, `name`, `sku`, `unit`, `quantity`, `totalPrice`, and `grossProfit`.
-    - Mathematical guarantee: Future product price changes never alter past transaction invoices.
     - Gross Profit Analytics: `GET /api/sales/analytics/gross-profit` aggregating revenue, COGS, gross margin %, and top-performing items.
 
 [✓] C18. T25: Create Sale (POS Checkout) API with Atomic Transaction Controls (`POST /api/sales`)
     - Pre-Flight Inventory Validation: Validates stock for all cart items before mutations. Rejects with 400 `INSUFFICIENT_STOCK` on shortfall.
-    - Sequential Invoice Numbering: Generates clean human-readable invoice IDs (`INV-1001`, `INV-1002`).
+    - Sequential Invoice Numbering: Generates clean human-readable invoice IDs (`INV-1001`).
     - Snapshot Line Items: Bulk inserts `SaleItem` records with frozen prices.
     - Auto Inventory Reduction: Deducts physical inventory and appends immutable `OUT` records to `InventoryLedger`.
-    - Payment Linking & Settlement: Records payment and adjusts payment status (`PAID` / `PARTIAL` / `UNPAID`).
+    - Payment Linking & Settlement: Records payment and adjusts payment status.
 
 [✓] C19. T26: Auto Inventory Deductions & Low-Stock Alerts Sync in Sales Engine
     - Deep integration connecting POS Checkout -> `inventoryService.stockOut` -> `InventoryLedger` -> `inventoryAlertRepository.syncProductAlert`.
-    - Deterministically flags low-stock or critical out-of-stock items immediately upon checkout completion.
 
 [✓] C20. T27: Invoice PDF Generation Engine & Thermal Receipts (`GET /api/sales/:id/pdf`)
     - Programmatic PDF generation using `PDFKit` with store branding, GST details, customer info, line item table, totals breakdown, and payment status stamps.
@@ -179,29 +177,13 @@ API Base URL : http://localhost:3001/api
 
 [✓] C21. T28: Payment Recording Entity & Multi-Tranche Settlement Engine (`/api/payments`)
     - Standalone `Payment` schema (`_id`, `businessId`, `invoiceId`, `customerId`, `amount`, `paymentMethod`, `referenceId`, `status`, `notes`, `receivedAt`).
-    - Multi-Tranche Partial Payments: Enables customers to pay invoices across multiple installments (e.g. ₹600 Cash now, ₹400 UPI later).
+    - Multi-Tranche Partial Payments: Enables customers to pay invoices across multiple installments.
     - Status Reconciliation: Auto-updates parent `Invoice.paidAmount`, `balanceDue`, and `paymentStatus` (`UNPAID` -> `PARTIAL` -> `PAID`).
-    - Dedicated REST APIs:
-      * `POST /api/payments`: Record payment against an invoice.
-      * `GET /api/payments/invoice/:invoiceId`: Get all payment tranches for an invoice.
-      * `GET /api/payments/:id`: Get single payment record.
-      * `GET /api/payments/business`: Business-wide payment history query.
 
 [✓] C22. T29: Customer Credit Integration Engine & Khata Ledger (`/api/customers`)
-    - Seamlessly connects POS Sales & Invoicing with Customer Credit / Khata (Udhaar) ledger.
-    - Automatic Credit Recording: When payment method is `CREDIT` or unpaid balance remains on an invoice, automatically appends a `SALE_CREDIT` transaction to `CustomerLedger`.
-    - Customer Master & Balance Tracker: Model `Customer` maintains `totalCredit`, `totalPaid`, and `outstandingBalance`.
-    - Khata Settlement Engine (`POST /api/customers/:id/settle`): Records settlement payments (`PAYMENT_RECEIVED`), decrements customer debt, and allocates payment to unpaid invoices.
-    - Idempotency & Safety: Deduplication checks prevent double debiting for the same invoice. Credit limit enforcement warnings.
-    - Customer APIs:
-      * `POST /api/customers`: Create customer profile.
-      * `GET /api/customers`: Paginated customer directory with search and balance filters.
-      * `GET /api/customers/summary`: KPI strip (Total Customers, Total Udhaar, Active Debtors).
-      * `GET /api/customers/:id`: Customer profile details.
-      * `PUT /api/customers/:id`: Update customer details & credit limit.
-      * `GET /api/customers/:id/ledger`: Paginated statement of all credit/payment transactions.
-      * `POST /api/customers/:id/settle`: Settle customer outstanding balance.
-      * `GET /api/customers/search`: Fast search by name or mobile number.
+    - Connects POS Sales & Invoicing with Customer Credit / Khata (Udhaar) ledger.
+    - Automatic Credit Recording: Appends `SALE_CREDIT` transaction to `CustomerLedger` on unpaid invoice balances.
+    - Khata Settlement Engine (`POST /api/customers/:id/settle`): Records settlement payments (`PAYMENT_RECEIVED`) and decrements customer debt.
 
 [✓] C23. T30: Billing Checkout Front Terminal & POS Screen (`/pos`)
     - Complete POS terminal frontend (`POSTerminalPage.jsx`) designed for rapid keyboard-first cashier workflows:
@@ -209,13 +191,76 @@ API Base URL : http://localhost:3001/api
       * Global Keyboard Shortcuts (`usePOSKeyboard.js`): `F2` (Search), `F4` (Customer Select), `F8` (Clear Cart), `F9` (Checkout / Pay), `F1` (Help Modal), `Esc` (Close modals).
       * Quick Products Grid: Category pills and 1-click product tile additions.
       * Real-Time Quick Cart (`POSCart.jsx`): Instant quantity adjustment, line discounts, subtotal, tax, and grand total calculations.
-      * Customer Selector Modal (`POSCustomerModal.jsx`): Search, select, or quick-add customers inline during checkout.
-      * Settle Payment Modal (`SettlePaymentModal.jsx`): Support for CASH, UPI, CARD, and CREDIT/UDHAAR with partial payment splitting and balance due calculation.
-      * Print Receipt Modal (`PrintReceiptModal.jsx`): Thermal receipt preview and browser printing.
-      * Keyboard Shortcuts Cheat Sheet Modal (`POSKeyboardShortcutsModal.jsx`).
+
+--- [ PHASE 5 : CUSTOMER SYSTEM & MASTER ENTITY ] ---
+[✓] C24. T31: Customer Schema DB Model & Master Entity (`src/models/customer.model.js`)
+    - Purpose & Core Rule: "T31 establishes the permanent Customer master entity (ID, Name, Phone, Email, Address, City, State, Pincode, Credit Limit, Notes, Tags, Status) anchored under a specific businessId. It acts as the identity anchor for sales, invoices, payments, and Udhaar ledgers."
+    - Multi-Tenant Scoping Guarantee:
+      * Customer is strictly scoped to `businessId`. Customer 'Rahul' in Store A is completely distinct from Customer 'Rahul' in Store B.
+      * Compound Partial Unique Index: `{ businessId: 1, phone: 1 }` with `partialFilterExpression: { phone: { $type: "string", $gt: "" } }` ensuring unique phone numbers within a store without collision on optional/empty phone numbers.
+    - Separation of Profile Master vs Financial Ledgers:
+      * Profile master stored in `Customer` document.
+      * Financial transactions stored in `CustomerLedger` and `Invoice` documents.
+    - Safe Deletion & Demographic Updates:
+      * Soft-delete endpoint (`DELETE /api/customers/:id`) sets `status: 'INACTIVE'` preserving historic billing and credit records.
+    - Frontend Add Customer Modal & Table (`AddCustomerModal.jsx`, `CustomersTable.jsx`):
+      * Full demographic form with optional City, State, Pincode, Notes, and Credit Limits.
+    - Automated Test Suite:
+      * `Backend/tests/test-customer-schema-model.js` (100% tests passing).
+
+[✓] C25. T32: Customer CRUD APIs & Phone Canonicalization Engine
+    - Purpose & Core Rule: "T32 implements the complete REST CRUD API set for managing business-scoped client registries, ensuring strict tenant isolation, automatic phone normalization (+91XXXXXXXXXX), duplicate phone collision prevention, and soft-delete/restore semantics."
+    - Endpoints Implemented:
+      * `POST /api/customers`: Create customer with canonical phone formatting and duplicate prevention.
+      * `GET /api/customers`: Paginated customer listing with text search and debt filters.
+      * `GET /api/customers/search`: Rapid autocomplete search by name, phone, or email for POS terminal.
+      * `GET /api/customers/phone/:phone`: Quick lookup by raw/formatted mobile phone.
+      * `GET /api/customers/:id`: Single customer profile lookup with ledger totals.
+      * `PUT /api/customers/:id`: Demographic, address, status, and credit limit updates with phone re-validation.
+      * `DELETE /api/customers/:id`: Safe soft-delete (sets `status: 'INACTIVE'`).
+      * `POST /api/customers/:id/archive`: Explicit archival with history preservation.
+      * `POST /api/customers/:id/restore`: Reactivation of archived/inactive customers.
+    - Automated Test Suite:
+      * `Backend/tests/test-customer-crud-apis.js` (100% tests passing, covering 8 test groups).
+    - Frontend Management:
+      * Integrated `EditCustomerModal.jsx` and `AddCustomerModal.jsx` in `CustomersPage.jsx` with direct table row edit trigger.
+
+[✓] C26. T33: Customer Ledger Transaction Log & Sub-Ledger History
+    - Purpose & Core Rule: "T33 establishes the complete financial history for each customer, recording every credit sale (Udhaar) and repayment settlement (Jama) in an append-only, immutable transaction ledger. It maintains real-time running balances using the authoritative formula: Balance = Previous Balance + Credit - Debit, strictly scoped to businessId."
+    - Ledger Schema & Conventions:
+      * `creditAmount`: Udhaar taken by customer (increases outstanding balance).
+      * `debitAmount`: Payment/settlement made by customer (decreases outstanding balance).
+      * `balance`: Authoritative running balance snapshot at transaction completion.
+      * `saleId` / `invoiceId`: Direct relational link to historical invoice and line items for complete invoice traceability.
+      * `entryType`: Enum (`SALE_CREDIT`, `PAYMENT_SETTLEMENT`, `OPENING_BALANCE`, `ADJUSTMENT`).
+    - Append-Only Immutability Rule:
+      * Customer ledger records are never modified or deleted (`no PUT/DELETE`).
+      * Discrepancies or opening balance migrations are handled via adjustment transactions (`POST /api/customers/:id/ledger`).
+    - Endpoints Implemented:
+      * `GET /api/customers/:id/ledger`: Full bank-statement style ledger history with running balance and aggregation metrics (`totalCreditSales`, `totalPaymentsReceived`, `currentOutstanding`).
+      * `POST /api/customers/:id/ledger`: Append manual opening balance or adjustment transaction to customer ledger.
+      * `POST /api/customers/:id/settle`: Settle customer Udhaar with repayment debit and automatic ledger record creation.
+    - Automated Test Suite:
+      * `Backend/tests/test-customer-ledger-transaction-log.js` (100% tests passing, covering 7 test scenarios).
+    - Frontend Implementation:
+      * `CustomerLedgerModal.jsx`: Modern audit statement UI displaying Credit (+) Udhaar, Debit (-) Jama, Running Balance, and Invoice reference badges with color-coded status.
+
+[✓] C27. T34: Real-Time Outstanding Calculations & Fast Materialized Balance
+    - Purpose & Core Rule: "T34 maintains real-time materialized customer outstanding balances (`Customer.currentBalance`) to eliminate expensive full-ledger aggregations on list views and POS lookups. It provides O(1) single-document balance reads, credit limit remaining checks, and store-wide debtor rankings backed by compound indexes (`{ businessId: 1, currentBalance: -1 }`)."
+    - Synchronous Balance Updates:
+      * Every POS Credit Sale (`T25`), Repayment Settlement (`T28`/`T29`), and Adjustment (`T33`) atomically updates `Customer.currentBalance` alongside `CustomerLedger` entries.
+      * Fast O(1) reads without recalculating thousands of past transactions.
+    - Endpoints Implemented:
+      * `GET /api/customers/:id/outstanding`: Fast single-customer balance, credit limit, available credit, and status check.
+      * `GET /api/customers/outstanding/summary`: Business-wide debtor list sorted by highest outstanding balance.
+      * `GET /api/customers/outstanding/totals`: High-speed store-wide aggregate debt and debtor customer counts.
+    - Automated Test Suite:
+      * `Backend/tests/test-customer-realtime-outstanding.js` (100% tests passing, covering 7 test scenarios).
+    - Frontend Integration:
+      * `CustomersStatsCards.jsx`, `CustomersTable.jsx`, and `POSCustomerModal.jsx` render real-time outstanding balances and debt alerts.
 
 ================================================================================
-3. CURRENT ACTIVE ENDPOINT SUMMARY (38+ APIs)
+3. CURRENT ACTIVE ENDPOINT SUMMARY (71+ APIs)
 ================================================================================
 1.  Health Check              : GET    /
 2.  Register User             : POST   /api/auth/register
@@ -272,27 +317,39 @@ API Base URL : http://localhost:3001/api
 53. Get Invoice Payments      : GET    /api/payments/invoice/:invoiceId
 54. Get Payment by ID         : GET    /api/payments/:id
 55. Business Payment History  : GET    /api/payments/business
-56. Create Customer           : POST   /api/customers
-57. List Customers            : GET    /api/customers
+56. Create Customer (T31/T32) : POST   /api/customers
+57. List Customers (T32)      : GET    /api/customers
 58. Customer Summary KPIs     : GET    /api/customers/summary
-59. Single Customer           : GET    /api/customers/:id
-60. Update Customer           : PUT    /api/customers/:id
-61. Customer Khata Ledger     : GET    /api/customers/:id/ledger
-62. Settle Customer Khata     : POST   /api/customers/:id/settle
-63. Customer Rapid Search     : GET    /api/customers/search
+59. Customer Search / POS     : GET    /api/customers/search
+60. Customer by Phone (T32)   : GET    /api/customers/phone/:phone
+61. Single Customer Profile   : GET    /api/customers/:id
+62. Update Customer (T32)     : PUT    /api/customers/:id
+63. Soft Delete Customer (T32): DELETE /api/customers/:id
+64. Archive Customer (T32)    : POST   /api/customers/:id/archive
+65. Restore Customer (T32)    : POST   /api/customers/:id/restore
+66. Customer Khata Ledger(T33): GET    /api/customers/:id/ledger
+67. Append Ledger Entry (T33) : POST   /api/customers/:id/ledger
+68. Settle Customer Khata     : POST   /api/customers/:id/settle
+69. Customer Outstanding (T34): GET    /api/customers/:id/outstanding
+70. Debtor Summary List (T34) : GET    /api/customers/outstanding/summary
+71. Store Debt Totals (T34)   : GET    /api/customers/outstanding/totals
 
 ================================================================================
 4. VERIFICATION & TEST STATUS
 ================================================================================
 - Frontend Build Status: Passed (`npm run build` -> Exit code 0, 0 errors).
 - Backend Automated Test Suites:
-  * `test-low-stock-notifications.js` -> 100% Passed.
-  * `test-inventory-ledger-ui.js` -> 100% Passed.
-  * `test-sale-items-snapshot.js` -> 100% Passed.
-  * `test-pos-checkout-transaction.js` -> 100% Passed.
-  * `test-invoice-pdf-generation.js` -> 100% Passed.
-  * `test-payment-recording-entity.js` -> 100% Passed.
-  * `test-customer-credit-integration.js` -> 100% Passed.
+  * `test-customer-realtime-outstanding.js` (T34) -> 100% Passed (7/7 tests).
+  * `test-customer-ledger-transaction-log.js` (T33) -> 100% Passed (7/7 tests).
+  * `test-customer-crud-apis.js` (T32) -> 100% Passed (8/8 tests).
+  * `test-customer-schema-model.js` (T31) -> 100% Passed (7/7 tests).
+  * `test-customer-credit-integration.js` (T29) -> 100% Passed.
+  * `test-payment-recording-entity.js` (T28) -> 100% Passed.
+  * `test-pos-checkout-transaction.js` (T25) -> 100% Passed.
+  * `test-sale-items-snapshot.js` (T24) -> 100% Passed.
+  * `test-invoice-pdf-generation.js` (T27) -> 100% Passed.
+  * `test-low-stock-notifications.js` (T22) -> 100% Passed.
+  * `test-inventory-ledger-ui.js` (T21) -> 100% Passed.
 
 ================================================================================
 END OF PROGRESS REPORT

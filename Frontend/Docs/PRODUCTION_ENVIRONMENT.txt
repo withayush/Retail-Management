@@ -2,7 +2,7 @@
                   VENDOROS - PRODUCTION ENVIRONMENT & DEPLOYMENT GUIDE          
 ================================================================================
 Last Updated : 2026-09-23
-Live Status  : Production Ready (Phase 0 through Phase 4 Fully Integrated)
+Live Status  : Production Ready (Phase 0 through Phase 5 Fully Integrated)
 Platform     : Render (Cloud Web Services & Static Sites)
 Repository   : https://github.com/withayush/Retail-Management.git (Branch: main)
 
@@ -103,11 +103,19 @@ B. BACKEND WEB SERVICE (Render Dashboard):
     - Support for Cash, UPI (with reference IDs), Card, and Split tender.
     - Automatic invoice settlement status transitions (`UNPAID` -> `PARTIAL` -> `PAID`).
 
-[✓] 6. CUSTOMER KHATA & CREDIT LEDGER ENGINE (T29)
+[✓] 6. CUSTOMER KHATA & REAL-TIME OUTSTANDING ENGINE (T29, T33, T34)
     - Automatic `SALE_CREDIT` logging when sales are made on Udhaar.
-    - Real-time customer balance tracker (Total Credit, Total Paid, Outstanding Balance).
-    - Chronological Khata statement modal (`CustomerLedgerModal.jsx`).
+    - Double-entry / sub-ledger transaction log (`CustomerLedger`) tracking Credit (+) Udhaar, Debit (-) Jama, and Running Balances (`Balance = Prev + Credit - Debit`).
+    - Append-only immutability preserving full invoice-to-debt traceability.
+    - Real-time materialized outstanding balances (`Customer.currentBalance`) providing O(1) single-document lookups without heavy ledger aggregations (`GET /api/customers/:id/outstanding`).
+    - Chronological Khata statement modal (`CustomerLedgerModal.jsx`) with live audit timeline.
     - 1-Click debt repayment settlement modal (`SettleKhataModal.jsx`).
+
+[✓] 7. CUSTOMER MASTER REGISTRY & CRUD APIS (T31, T32)
+    - Complete customer directory and demographic profiles (Address, City, State, Pincode, Credit Limit).
+    - Automatic canonical phone normalization (`+91XXXXXXXXXX`) with duplicate collision guards.
+    - Non-destructive soft-delete / archiving preserving all past sales and Khata audit trails.
+    - Inline customer creation and profile editing modals (`AddCustomerModal.jsx`, `EditCustomerModal.jsx`).
 
 ================================================================================
 5. PRODUCTION DEPLOYMENT & SYNC CHECKLIST

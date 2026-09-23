@@ -1,26 +1,56 @@
 const customerRepo = require("../repositories/customer.repository");
 const customerLedgerRepo = require("../repositories/customerLedger.repository");
+const { normalizePhone } = require("../utils/phone");
 const mongoose = require("mongoose");
 
 /**
- * Customer Service Layer
- * Coordinates customer operations with transaction session support.
+ * Phase 5 - Task T32: Customer Service Layer
+ * Coordinates customer CRUD operations, canonical phone normalization (+91), search, and settlements.
  */
 
 const createCustomer = async (businessId, customerData) => {
-  return await customerRepo.createCustomer(businessId, customerData);
+  const payload = { ...customerData };
+  if (payload.phone) {
+    payload.phone = normalizePhone(payload.phone);
+  }
+  return await customerRepo.createCustomer(businessId, payload);
 };
 
 const getCustomers = async (businessId, filters, pagination) => {
-  return await customerRepo.findCustomers(businessId, filters, pagination);
+  const queryFilters = { ...filters };
+  if (queryFilters.phone) {
+    queryFilters.phone = normalizePhone(queryFilters.phone);
+  }
+  return await customerRepo.findCustomers(businessId, queryFilters, pagination);
+};
+
+const searchCustomers = async (businessId, queryStr, limit) => {
+  return await customerRepo.searchCustomers(businessId, queryStr, limit);
 };
 
 const getCustomerById = async (businessId, customerId) => {
   return await customerRepo.findCustomerById(businessId, customerId);
 };
 
+const getCustomerByPhone = async (businessId, rawPhone) => {
+  const canonicalPhone = normalizePhone(rawPhone);
+  return await customerRepo.findCustomerByPhone(businessId, canonicalPhone);
+};
+
 const updateCustomer = async (businessId, customerId, updateData) => {
-  return await customerRepo.updateCustomer(businessId, customerId, updateData);
+  const payload = { ...updateData };
+  if (payload.phone !== undefined && payload.phone !== null && payload.phone.trim() !== "") {
+    payload.phone = normalizePhone(payload.phone);
+  }
+  return await customerRepo.updateCustomer(businessId, customerId, payload);
+};
+
+const deleteCustomer = async (businessId, customerId) => {
+  return await customerRepo.deleteCustomer(businessId, customerId);
+};
+
+const restoreCustomer = async (businessId, customerId) => {
+  return await customerRepo.restoreCustomer(businessId, customerId);
 };
 
 const getCustomerLedger = async (businessId, customerId, pagination) => {
@@ -75,12 +105,53 @@ const recordCustomerPayment = async (businessId, customerId, paymentData, user =
   });
 };
 
+const appendLedgerEntry = async (businessId, customerId, entryData, user = {}) => {
+  const isOnlineDb = mongoose.connection.readyState === 1;
+
+  if (isOnlineDb) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const result = await customerLedgerRepo.appendLedgerEntry(
+        {
+          businessId,
+          customerId,
+          ...entryData,
+          createdBy: user.id || null,
+          createdByName: user.fullName || "Merchant",
+        },
+        session
+      );
+      await session.commitTransaction();
+      return result;
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  return await customerLedgerRepo.appendLedgerEntry({
+    businessId,
+    customerId,
+    ...entryData,
+    createdBy: user.id || null,
+    createdByName: user.fullName || "Merchant",
+  });
+};
+
 module.exports = {
   createCustomer,
   getCustomers,
+  searchCustomers,
   getCustomerById,
+  getCustomerByPhone,
   updateCustomer,
+  deleteCustomer,
+  restoreCustomer,
   getCustomerLedger,
+  appendLedgerEntry,
   getCustomerOutstanding,
   getBusinessOutstandingSummary,
   getBusinessOutstandingTotals,
