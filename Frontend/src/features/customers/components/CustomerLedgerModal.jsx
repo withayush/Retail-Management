@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, BookOpen, Plus, ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
 import { getCustomerLedger } from "../../../services/customer.api";
 
-export default function CustomerLedgerModal({ isOpen, onClose, customer, onSettlePayment }) {
+export default function CustomerLedgerModal({ isOpen, onClose, customer, onSettlePayment, onViewPaymentHistory, onViewProfile }) {
   const [ledgerData, setLedgerData] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +44,30 @@ export default function CustomerLedgerModal({ isOpen, onClose, customer, onSettl
           </div>
 
           <div className="flex items-center gap-2">
+            {onViewProfile && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onViewProfile(custInfo);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-amber-400 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer border border-zinc-700"
+                title="Open Customer 360° Profile (T36)"
+              >
+                360° Profile
+              </button>
+            )}
+            {onViewPaymentHistory && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onViewPaymentHistory(custInfo);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer border border-zinc-700"
+                title="View Repayment Settlements Only (T35)"
+              >
+                Payment History
+              </button>
+            )}
             {(custInfo.currentBalance || 0) > 0 && (
               <button
                 onClick={() => onSettlePayment(custInfo)}

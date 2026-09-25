@@ -2,14 +2,14 @@
 
 > **File**: `MEMORY.md`  
 > **Last Updated**: 2026-09-23  
-> **Status**: Phase 0 to Phase 5 (Tasks T1–T34) Fully Implemented & 100% Tested  
+> **Status**: Phase 0 to Phase 5 (Tasks T1–T36) Fully Implemented & 100% Tested  
 > **Purpose**: Serves as the persistent memory, architectural contract, decision log, and developer reference for future AI agents and engineers working on VendorOS.
 
 ---
 
 ## 1. Project Overview & Identity
 
-**VendorOS** is a cloud-first, high-density Retail & Kirana Store Operations Platform designed for physical store merchants and POS cashiers. It combines sub-millisecond barcode checkout, multi-tenant store isolation, real-time inventory ledger audits, automated low-stock queues, partial payment settlement engines, customer master profiles, an append-only customer credit (Udhaar / Khata) ledger transaction log, and real-time materialized outstanding calculations.
+**VendorOS** is a cloud-first, high-density Retail & Kirana Store Operations Platform designed for physical store merchants and POS cashiers. It combines sub-millisecond barcode checkout, multi-tenant store isolation, real-time inventory ledger audits, automated low-stock queues, partial payment settlement engines, customer master profiles, an append-only customer credit (Udhaar / Khata) ledger transaction log, real-time materialized outstanding calculations, customer credit payment history tracking, and a comprehensive 360° Customer CRM & Debt Aging profiling engine.
 
 - **Primary Repository**: `https://github.com/withayush/Retail-Management.git` (Branch: `main`)
 - **Backend Server**: Node.js 20+, Express 5.x, MongoDB Atlas (Mongoose ODM), Port `3001`
@@ -20,14 +20,15 @@
 
 ## 2. Core Architectural Principles (Never Violate)
 
-1. **Multi-Tenant Isolation (`T6`, `T31`, `T32`, `T33`, `T34`)**:
+1. **Multi-Tenant Isolation (`T6`, `T31`, `T32`, `T33`, `T34`, `T35`, `T36`)**:
    - Every single domain entity (`Category`, `Product`, `Inventory`, `InventoryLedger`, `Invoice`, `SaleItem`, `Payment`, `Customer`, `CustomerLedger`) MUST be anchored to `businessId`.
    - `req.businessId` is derived exclusively from `businessMiddleware` via JWT / session or authorized `X-Business-Id` header. Never trust client-supplied tenant IDs in request bodies.
-2. **Immutable Audit Ledgers & Real-Time Materialized State (`T16`, `T29`, `T33`, `T34`)**:
+2. **Immutable Audit Ledgers & Real-Time Materialized State (`T16`, `T29`, `T33`, `T34`, `T35`, `T36`)**:
    - Stock counts are NEVER updated directly. Every inventory modification must be recorded as an `InventoryLedger` transaction (`IN`, `OUT`, `ADJUST`, `OPENING`, `RETURN`).
    - Invariant: `Inventory.availableStock === sum(InventoryLedger.qtyChange)`.
    - Customer Udhaar is tracked via chronological `CustomerLedger` entries with before/after balance snapshots (`Balance = Previous Balance + Credit - Debit`).
    - `Customer.currentBalance` acts as the real-time materialized state, maintained atomically alongside ledger entries to enable O(1) single-document lookups and high-speed POS checkouts without heavy ledger aggregation.
+   - Customer Repayments (T35) and CRM 360° Profiling (T36) are dedicated aggregation & query layers without mutating data, combining sales behavior, visit frequency, debt aging, and repayment logs into actionable merchant dashboards.
 3. **Historical Price Snapshotting (`T24`)**:
    - Master product catalog updates modify future billing defaults. Historical invoices freeze `soldPrice`, `costPrice`, and `grossProfit` inside `SaleItem` records at the moment of checkout and remain 100% immutable.
 4. **Zero-Overselling Pre-Flight Checks (`T25`)**:
@@ -80,7 +81,7 @@
 - Customer Credit (Khata) engine (`CustomerLedger`) auto-recording `SALE_CREDIT` on Udhaar sales, tracking balances, and settling repayments (`POST /api/customers/:id/settle`).
 - Complete React POS billing terminal (`POSTerminalPage.jsx`) with barcode scanner listener (`useBarcodeScanner.js`), global hotkeys (`usePOSKeyboard.js`), quick cart (`POSCart.jsx`), customer modal (`POSCustomerModal.jsx`), and payment settle modal (`SettlePaymentModal.jsx`).
 
-### Phase 5: Customer System, Profiles Master & Transaction Log (T31–T34) — [100% DONE]
+### Phase 5: Customer System, Profiles Master & Transaction Log (T31–T36) — [100% DONE]
 - `Customer` master schema (`src/models/customer.model.js`) storing demographic details (Name, Phone, Email, Address, City, State, Pincode, Credit Limit, Status, Notes, Tags).
 - Multi-tenant phone uniqueness guarantee: Compound index `{ businessId: 1, phone: 1 }` with partial filter expression ensuring unique phone per business when provided while gracefully handling optional/empty phone numbers.
 - Strict separation of customer demographic profile (`Customer`) from financial transaction history (`CustomerLedger`).
@@ -96,12 +97,28 @@
   * Materialized `currentBalance` in `Customer` document updated atomically on every transaction.
   * Fast O(1) single-document endpoint: `GET /api/customers/:id/outstanding` (credit limit, available credit, limit exceeded checks).
   * High-speed debtor ranking and store aggregate metrics: `GET /api/customers/outstanding/summary` and `GET /api/customers/outstanding/totals`.
+- Customer Credit Payment History & Repayment Log (T35):
+  * Read/query layer specifically for customer repayments/settlements made toward past credit balances (`GET /api/customers/:id/payments`).
+  * Summarizes `totalAmountPaid`, `totalPaymentsCount`, `averagePaymentAmount`, and `methodBreakdown` ({ CASH, UPI, CARD }).
+  * Supports date range (`from`, `to`) and payment method filtering.
+  * Dedicated interactive UI modal (`CustomerPaymentHistoryModal.jsx`) with KPI cards and payment method badges.
+- Customer CRM, 360° Profiling & Debt Aging (T36):
+  * Aggregation engine uniting demographics, lifetime sales metrics, visit frequency, average spend per order, real-time debt, multi-bucket debt aging (`0-30d`, `31-60d`, `61-90d`, `90+d`), recent sales, and recent repayments (`GET /api/customers/:id/crm-summary`).
+  * Dedicated interactive UI modal (`CustomerCRMModal.jsx`) with live 4x KPI cards, visual aging distribution bar, recent activity tabs, and 1-click action shortcuts.
 - Interactive statement modal (`CustomerLedgerModal.jsx`) with real-time audit ledger timeline, debit/credit badges, and settlement actions.
-- Automated test suites: `Backend/tests/test-customer-schema-model.js` (T31), `Backend/tests/test-customer-crud-apis.js` (T32), `Backend/tests/test-customer-ledger-transaction-log.js` (T33), and `Backend/tests/test-customer-realtime-outstanding.js` (T34) (100% passing).
+- Automated test suites: `Backend/tests/test-customer-schema-model.js` (T31), `Backend/tests/test-customer-crud-apis.js` (T32), `Backend/tests/test-customer-ledger-transaction-log.js` (T33), `Backend/tests/test-customer-realtime-outstanding.js` (T34), `Backend/tests/test-customer-payment-history.js` (T35), and `Backend/tests/test-customer-crm-profiling.js` (T36) (100% passing).
+
+### Phase 6: Supplier & Procurement Management (T37–T42) — [T37 IMPLEMENTED]
+- `Supplier` Master Schema (`src/models/supplier.model.js`) (T37):
+  * Defines the business-scoped Supplier master entity representing distributors, manufacturers, wholesalers, and stock vendors from whom the merchant procures inventory.
+  * Fields: `_id`, `businessId` (ObjectId, ref: 'Business'), `company` (Required, e.g. "ABC Distributors"), `contactName` (e.g. "Amit Sharma"), `phone` (Canonical e.g. "+91XXXXXXXXXX"), `email`, `address`, `city`, `state`, `pincode`, `gstin`, `currentBalance` (materialized supplier payable outstanding), `totalPurchases`, `totalOrders`, `lastPurchaseDate`, `lastPaymentDate`, `status` ('ACTIVE' | 'INACTIVE' | 'BLOCKED'), `notes`, `tags`.
+  * Multi-Tenant Phone Uniqueness: Compound index `{ businessId: 1, phone: 1 }` with `{ unique: true, partialFilterExpression: { phone: { $type: "string", $gt: "" } } }` allowing multiple suppliers with empty phone numbers while preventing duplicate phone numbers within the same store.
+  * Clear Domain Separation: `Customer` = whom the business sells to (Money In); `Supplier` = whom the business buys inventory from (Money Out). Independent entity, never embedded inside Product.
+  * Automated Test Suite: `Backend/tests/test-supplier-schema-model.js` (100% passing).
 
 ---
 
-## 4. Database Schemas (16 Mongoose Models)
+## 4. Database Schemas (17 Mongoose Models)
 
 | Model Name | Primary Responsibility | Key Compound Indexes |
 |---|---|---|
@@ -122,6 +139,7 @@
 | `Payment` | Multi-tranche payments against invoices | `{ businessId: 1, invoiceId: 1 }` |
 | `Customer` | Customer CRM & credit balance master | `{ businessId: 1, phone: 1 }` (partial), `{ businessId: 1, currentBalance: -1 }` |
 | `CustomerLedger` | Immutable Khata debit/credit ledger | `{ businessId: 1, customerId: 1, createdAt: -1 }` |
+| `Supplier` | Master supplier / vendor procurement entity | `{ businessId: 1, phone: 1 }` (partial), `{ businessId: 1, company: 1 }`, `{ businessId: 1, currentBalance: -1 }` |
 
 ---
 

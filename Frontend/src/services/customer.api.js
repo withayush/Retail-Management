@@ -111,8 +111,13 @@ export const getCustomerPaymentHistory = async (customerId, filters = {}) => {
   return res.data;
 };
 
-// T36: Full CRM Profiling — sales metrics, debt aging, top products, monthly trend
+// T36: Full 360° CRM Profiling — sales metrics, visit frequency, debt aging, recent sales & payments
 export const getCustomerCRMProfile = async (customerId) => {
-  const res = await api.get(`/customers/${customerId}/profile`, getBusinessHeader());
+  const res = await api.get(`/customers/${customerId}/crm-summary`, getBusinessHeader());
+  return res.data;
+};
+
+export const getCustomerCRMSummary = async (customerId) => {
+  const res = await api.get(`/customers/${customerId}/crm-summary`, getBusinessHeader());
   return res.data;
 };

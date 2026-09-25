@@ -4,18 +4,25 @@
 Base URL: http://localhost:3001
 Content-Type: application/json
 
-Is file me Backend ki saari 38+ APIs, unka kaam (Purpose), Headers, Testing ke liye 
-Ready-to-use Dummy Data (JSON / Params) aur Expected Response formats diye gaye hain.
+Is file me Backend ki saari APIs, unka exact purpose, required headers, Mongoose 
+Models ke exact schema ke anusaar accurate Dummy Request Bodies aur actual MongoDB 
+Database Response structures diye gaye hain.
 
 --------------------------------------------------------------------------------
 AUTHENTICATION & HEADERS OVERVIEW:
 --------------------------------------------------------------------------------
-1. Public APIs (Register, Login, Verify OTP, Resend OTP): Kisi token ki zaroorat nahi hoti.
-2. Protected APIs: 
+1. Public APIs (Register, Login, Verify OTP, Resend OTP):
+   - Headers: "Content-Type: application/json"
+   - No token required.
+
+2. Protected APIs (User Profile, Business Creation/Onboarding):
    - Header: "Authorization: Bearer <YOUR_ACCESS_TOKEN>"
-   - Ya phir browser/Postman me "accessToken" cookie automatically send hoti hai.
-3. Multi-Tenant Business APIs (Categories, Products, Inventory, Sales, Payments, Customers):
-   - Header: "x-business-id: <BUSINESS_ID>" (Optional agar user ke paas ek hi business hai, system auto-select kar leta hai).
+   - (Browser / Postman me "accessToken" cookie automatically send ho sakti hai).
+
+3. Multi-Tenant Business APIs (Categories, Products, Inventory, Sales, Payments, Customers, Suppliers):
+   - Header: "Authorization: Bearer <YOUR_ACCESS_TOKEN>"
+   - Header: "x-business-id: <BUSINESS_ID>" (Optional: agar user ke paas ek hi active business hai, system auto-select kar leta hai).
+
 
 ================================================================================
 MODULE 1: SYSTEM & HEALTH CHECK
@@ -65,7 +72,7 @@ Dummy Response (201 Created):
   "success": true,
   "message": "Registration successful. Verification OTP generated.",
   "data": {
-    "accountId": "65f1a2b3c4d5e6f7a8b9c0d1",
+    "accountId": "66f1a2b3c4d5e6f7a8b9c0d1",
     "phone": "+919876543210",
     "otp": "123456"
   }
@@ -76,8 +83,11 @@ Dummy Response (201 Created):
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/verify-phone
-Description: Phone OTP verify karta hai, Account ACTIVE karta hai, Vendor profile link karta hai aur JWT cookies set karta hai.
+Description: Phone OTP verify karta hai, Account ACTIVE karta hai, Vendor profile link karta hai aur JWT cookies/tokens set karta hai.
 Auth:        None
+
+Request Headers:
+  Content-Type: application/json
 
 Dummy Request Body:
 {
@@ -91,15 +101,15 @@ Dummy Response (200 OK):
   "message": "Phone verified successfully.",
   "data": {
     "account": {
-      "id": "65f1a2b3c4d5e6f7a8b9c0d1",
+      "id": "66f1a2b3c4d5e6f7a8b9c0d1",
       "fullName": "Ayush Sharma",
       "email": "ayush.sharma@example.com",
       "phone": "+919876543210",
       "status": "ACTIVE"
     },
     "vendor": {
-      "id": "65f1a2b3c4d5e6f7a8b9c0d2",
-      "accountId": "65f1a2b3c4d5e6f7a8b9c0d1",
+      "id": "66f1a2b3c4d5e6f7a8b9c0d2",
+      "accountId": "66f1a2b3c4d5e6f7a8b9c0d1",
       "onboardingStatus": "PENDING"
     }
   }
@@ -112,6 +122,9 @@ Method:      POST
 Endpoint:    /api/auth/resend-phone-otp
 Description: Naya 6-digit OTP generate karta hai (60s cooldown, max 3 attempts).
 Auth:        None
+
+Request Headers:
+  Content-Type: application/json
 
 Dummy Request Body:
 {
@@ -136,7 +149,10 @@ Endpoint:    /api/auth/login
 Description: Email ya Mobile Phone + Password se login karta hai aur dual tokens issue karta hai.
 Auth:        None
 
-Dummy Request Body (Email):
+Request Headers:
+  Content-Type: application/json
+
+Dummy Request Body:
 {
   "identifier": "ayush.sharma@example.com",
   "password": "Password@123"
@@ -148,7 +164,7 @@ Dummy Response (200 OK):
   "message": "Login successful.",
   "data": {
     "account": {
-      "id": "65f1a2b3c4d5e6f7a8b9c0d1",
+      "id": "66f1a2b3c4d5e6f7a8b9c0d1",
       "fullName": "Ayush Sharma",
       "email": "ayush.sharma@example.com",
       "phone": "+919876543210",
@@ -163,20 +179,20 @@ Dummy Response (200 OK):
 Method:      GET
 Endpoint:    /api/auth/me
 Description: Logged-in user ki profile aur active vendor profile details fetch karta hai.
-Auth:        Required (JWT)
+Auth:        Required (Authorization: Bearer <TOKEN>)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
     "account": {
-      "id": "65f1a2b3c4d5e6f7a8b9c0d1",
+      "id": "66f1a2b3c4d5e6f7a8b9c0d1",
       "fullName": "Ayush Sharma",
       "email": "ayush.sharma@example.com",
       "phone": "+919876543210"
     },
     "vendor": {
-      "id": "65f1a2b3c4d5e6f7a8b9c0d2",
+      "id": "66f1a2b3c4d5e6f7a8b9c0d2",
       "onboardingStatus": "COMPLETED"
     }
   }
@@ -188,7 +204,7 @@ Dummy Response (200 OK):
 Method:      POST
 Endpoint:    /api/auth/refresh
 Description: Refresh token rotation se naya access token generate karta hai.
-Auth:        Uses refreshToken Cookie
+Auth:        Uses refreshToken Cookie / Header
 
 Dummy Response (200 OK):
 {
@@ -201,8 +217,8 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/auth/logout
-Description: Session revoke karta hai aur client cookies clear karta hai.
-Auth:        Uses refreshToken Cookie
+Description: Session revoke karta hai aur cookies clear karta hai.
+Auth:        Uses refreshToken Cookie / Header
 
 Dummy Response (200 OK):
 {
@@ -219,66 +235,181 @@ MODULE 3: BUSINESS MANAGEMENT & ONBOARDING (/api/business)
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/business/onboarding/status
-Description: Returns current onboarding step, draft data, and module unlock status.
-Auth:        Required
+Description: Returns current onboarding step, draft data, and unlocked modules.
+Auth:        Required (Bearer Token)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
     "isCompleted": true,
-    "currentStep": 3,
-    "unlockedModules": ["DASHBOARD", "PRODUCTS", "CATEGORIES", "INVENTORY", "SALES", "CUSTOMERS"]
+    "onboardingCompleted": true,
+    "onboardingStatus": "COMPLETED",
+    "currentStep": 4,
+    "draftData": {},
+    "unlockedModules": [
+      "DASHBOARD",
+      "PRODUCTS",
+      "CATEGORIES",
+      "INVENTORY",
+      "SALES",
+      "CUSTOMERS",
+      "SUPPLIERS",
+      "SETTINGS"
+    ],
+    "businessId": "66b4c16c742f36877738d76c",
+    "businessName": "Sharma Supermart"
   }
 }
 
 
-3.2 ONBOARDING STEP SAVE
+3.2 ONBOARDING STEP SAVE (WIZARD STEP 1, 2, 3)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/business/onboarding/step
-Description: Saves draft data for steps 1, 2, and 3. On step 3 completion, auto-creates Business.
-Auth:        Required
+Description: Saves draft data for steps 1, 2, and 3. On final step (3), auto-creates Business in DB.
+Auth:        Required (Bearer Token)
 
-Dummy Request Body (Step 1):
+Request Headers:
+  Content-Type: application/json
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+
+Dummy Request Body (Step 1: Identity):
 {
   "step": 1,
   "data": {
     "businessName": "Sharma Supermart",
-    "retailSegment": "Supermarket"
+    "retailSegment": "Retail/Kirana",
+    "businessType": "Retail",
+    "category": "Retail"
   }
 }
 
-Dummy Response (200 OK):
+Dummy Response (Step 1 - 200 OK):
 {
   "success": true,
+  "message": "Onboarding step 1 saved.",
   "data": {
     "step": 1,
-    "nextStep": 2
+    "nextStep": 2,
+    "draft": {
+      "businessName": "Sharma Supermart",
+      "retailSegment": "Retail/Kirana",
+      "businessType": "Retail",
+      "category": "Retail"
+    }
+  }
+}
+
+Dummy Request Body (Step 2: Location & Contact):
+{
+  "step": 2,
+  "data": {
+    "addressLine": "Shop No. 4, Market Complex",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302001",
+    "businessPhone": "+919876543210",
+    "whatsappNumber": "+919876543210",
+    "businessEmail": "contact@sharmamart.com"
+  }
+}
+
+Dummy Request Body (Step 3: Setup Preferences - Final Step):
+{
+  "step": 3,
+  "data": {
+    "currency": "INR",
+    "taxMode": "GST",
+    "inventoryTracking": true,
+    "operatingHours": {
+      "open": "09:00 AM",
+      "close": "10:00 PM",
+      "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+      "notes": "Open all 7 days"
+    },
+    "description": "Premium retail grocery and FMCG mart.",
+    "website": "https://sharmamart.com"
+  },
+  "isFinalStep": true
+}
+
+Dummy Response (Step 3 Final - 200 OK):
+{
+  "success": true,
+  "message": "Business setup completed successfully.",
+  "data": {
+    "step": 3,
+    "isCompleted": true,
+    "business": {
+      "_id": "66b4c16c742f36877738d76c",
+      "ownerId": "66f1a2b3c4d5e6f7a8b9c0d1",
+      "vendorId": "66f1a2b3c4d5e6f7a8b9c0d2",
+      "businessName": "Sharma Supermart",
+      "retailSegment": "Retail/Kirana",
+      "businessType": "Retail",
+      "addressLine": "Shop No. 4, Market Complex",
+      "city": "Jaipur",
+      "state": "Rajasthan",
+      "pincode": "302001",
+      "currency": "INR",
+      "taxMode": "GST",
+      "inventoryTracking": true,
+      "operatingHours": {
+        "open": "09:00 AM",
+        "close": "10:00 PM",
+        "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+      },
+      "status": "ACTIVE",
+      "createdAt": "2026-09-24T07:28:12.589Z",
+      "updatedAt": "2026-09-24T07:28:12.589Z",
+      "__v": 0
+    },
+    "unlockedModules": [
+      "DASHBOARD",
+      "PRODUCTS",
+      "CATEGORIES",
+      "INVENTORY",
+      "SALES",
+      "CUSTOMERS",
+      "SUPPLIERS",
+      "SETTINGS"
+    ]
   }
 }
 
 
-3.3 CREATE BUSINESS (1-SHOT)
+3.3 CREATE BUSINESS (DIRECT 1-SHOT CALL)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/business
 Description: Direct single-call business creation endpoint.
-Auth:        Required
+Auth:        Required (Bearer Token)
 
 Dummy Request Body:
 {
   "businessName": "Sharma Supermart",
   "retailSegment": "Supermarket",
-  "address": {
-    "addressLine": "Shop 4, Market Complex",
-    "city": "Jaipur",
-    "state": "Rajasthan",
-    "pincode": "302001"
-  },
+  "businessType": "Retail",
+  "category": "Retail",
+  "description": "General grocery and FMCG store",
+  "businessEmail": "contact@sharmamart.com",
+  "businessPhone": "+919876543210",
+  "whatsappNumber": "+919876543210",
+  "addressLine": "Shop No. 4, Market Complex",
+  "city": "Jaipur",
+  "state": "Rajasthan",
+  "pincode": "302001",
+  "website": "https://sharmamart.com",
   "currency": "INR",
   "taxMode": "GST",
-  "inventoryTracking": true
+  "inventoryTracking": true,
+  "operatingHours": {
+    "open": "09:00 AM",
+    "close": "10:00 PM",
+    "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+    "notes": "Open all 7 days"
+  }
 }
 
 Dummy Response (201 Created):
@@ -286,9 +417,47 @@ Dummy Response (201 Created):
   "success": true,
   "message": "Business created successfully.",
   "data": {
-    "_id": "65f1b2c3d4e5f6a7b8c9d0e1",
+    "operatingHours": {
+      "open": "09:00 AM",
+      "close": "10:00 PM",
+      "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+      "notes": "Open all 7 days"
+    },
+    "_id": "66b4c16c742f36877738d76c",
+    "ownerId": "66f1a2b3c4d5e6f7a8b9c0d1",
+    "vendorId": "66f1a2b3c4d5e6f7a8b9c0d2",
     "businessName": "Sharma Supermart",
-    "retailSegment": "Supermarket"
+    "retailSegment": "Supermarket",
+    "businessType": "Retail",
+    "category": "Retail",
+    "description": "General grocery and FMCG store",
+    "businessEmail": "contact@sharmamart.com",
+    "businessPhone": "+919876543210",
+    "whatsappNumber": "+919876543210",
+    "addressLine": "Shop No. 4, Market Complex",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302001",
+    "website": "https://sharmamart.com",
+    "currency": "INR",
+    "taxMode": "GST",
+    "inventoryTracking": true,
+    "status": "ACTIVE",
+    "role": "OWNER",
+    "onboardingCompleted": true,
+    "unlockedModules": [
+      "DASHBOARD",
+      "PRODUCTS",
+      "CATEGORIES",
+      "INVENTORY",
+      "SALES",
+      "CUSTOMERS",
+      "SUPPLIERS",
+      "SETTINGS"
+    ],
+    "createdAt": "2026-09-24T07:28:12.589Z",
+    "updatedAt": "2026-09-24T07:28:12.589Z",
+    "__v": 0
   }
 }
 
@@ -297,18 +466,37 @@ Dummy Response (201 Created):
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/business/me
-Description: List all stores owned by or accessible to current user.
-Auth:        Required
+Description: List all stores owned by current user with complete database document details.
+Auth:        Required (Bearer Token)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": [
     {
-      "_id": "65f1b2c3d4e5f6a7b8c9d0e1",
+      "operatingHours": {
+        "open": "09:00 AM",
+        "close": "10:00 PM",
+        "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+        "notes": "Open all 7 days"
+      },
+      "_id": "66b4c16c742f36877738d76c",
+      "ownerId": "66f1a2b3c4d5e6f7a8b9c0d1",
+      "vendorId": "66f1a2b3c4d5e6f7a8b9c0d2",
       "businessName": "Sharma Supermart",
       "retailSegment": "Supermarket",
-      "role": "OWNER"
+      "businessType": "Retail",
+      "addressLine": "Shop No. 4, Market Complex",
+      "city": "Jaipur",
+      "state": "Rajasthan",
+      "pincode": "302001",
+      "currency": "INR",
+      "taxMode": "GST",
+      "inventoryTracking": true,
+      "status": "ACTIVE",
+      "createdAt": "2026-09-24T07:28:12.589Z",
+      "updatedAt": "2026-09-24T07:28:12.589Z",
+      "__v": 0
     }
   ]
 }
@@ -319,15 +507,98 @@ Dummy Response (200 OK):
 Method:      GET
 Endpoint:    /api/business/active/context
 Description: Resolves and returns current active store context, businessId, and user role.
-Auth:        Required
+Auth:        Required (Bearer Token)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
+    "businessId": "66b4c16c742f36877738d76c",
     "businessName": "Sharma Supermart",
-    "role": "OWNER"
+    "role": "OWNER",
+    "userRole": "OWNER",
+    "permissions": ["ALL"],
+    "business": {
+      "_id": "66b4c16c742f36877738d76c",
+      "businessName": "Sharma Supermart",
+      "retailSegment": "Supermarket",
+      "businessType": "Retail",
+      "currency": "INR",
+      "taxMode": "GST",
+      "inventoryTracking": true,
+      "status": "ACTIVE"
+    }
+  }
+}
+
+
+3.6 GET BUSINESS BY ID
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/business/:id
+Description: Fetch full business profile by Business ID.
+Auth:        Required (Bearer Token)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "operatingHours": {
+      "open": "09:00 AM",
+      "close": "10:00 PM",
+      "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+    },
+    "_id": "66b4c16c742f36877738d76c",
+    "ownerId": "66f1a2b3c4d5e6f7a8b9c0d1",
+    "vendorId": "66f1a2b3c4d5e6f7a8b9c0d2",
+    "businessName": "Sharma Supermart",
+    "retailSegment": "Supermarket",
+    "businessType": "Retail",
+    "addressLine": "Shop No. 4, Market Complex",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302001",
+    "currency": "INR",
+    "taxMode": "GST",
+    "inventoryTracking": true,
+    "status": "ACTIVE",
+    "userRole": "OWNER",
+    "createdAt": "2026-09-24T07:28:12.589Z",
+    "updatedAt": "2026-09-24T07:28:12.589Z",
+    "__v": 0
+  }
+}
+
+
+3.7 UPDATE BUSINESS
+--------------------------------------------------
+Method:      PUT
+Endpoint:    /api/business/:id
+Description: Updates store profile details (Owner only).
+Auth:        Required (Bearer Token)
+
+Dummy Request Body:
+{
+  "businessName": "Sharma Supermart & Departmental Store",
+  "businessPhone": "+919876543299",
+  "operatingHours": {
+    "open": "08:30 AM",
+    "close": "10:30 PM",
+    "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+  }
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Business updated successfully.",
+  "data": {
+    "_id": "66b4c16c742f36877738d76c",
+    "businessName": "Sharma Supermart & Departmental Store",
+    "businessPhone": "+919876543299",
+    "retailSegment": "Supermarket",
+    "status": "ACTIVE",
+    "updatedAt": "2026-09-24T08:15:00.000Z"
   }
 }
 
@@ -341,22 +612,31 @@ MODULE 4: CATEGORY MANAGEMENT (/api/categories)
 Method:      POST
 Endpoint:    /api/categories
 Description: Create category for active business.
-Auth:        Required (JWT + T6)
+Auth:        Required (JWT + T6 business context)
+
+Request Headers:
+  Content-Type: application/json
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: 66b4c16c742f36877738d76c
 
 Dummy Request Body:
 {
   "name": "Dairy & Milk Products",
-  "description": "Milk, curd, butter, and cheese items"
+  "description": "Milk, curd, butter, cheese, and paneer products"
 }
 
 Dummy Response (201 Created):
 {
   "success": true,
+  "message": "Category created successfully.",
   "data": {
-    "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
-    "businessId": "65f1b2c3d4e5f6a7b8c9d0e1",
+    "_id": "66f1c3d4e5f6a7b8c9d0e1f2",
+    "businessId": "66b4c16c742f36877738d76c",
     "name": "Dairy & Milk Products",
-    "description": "Milk, curd, butter, and cheese items"
+    "description": "Milk, curd, butter, cheese, and paneer products",
+    "createdAt": "2026-09-24T08:20:00.000Z",
+    "updatedAt": "2026-09-24T08:20:00.000Z",
+    "__v": 0
   }
 }
 
@@ -364,18 +644,23 @@ Dummy Response (201 Created):
 4.2 LIST CATEGORIES
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/categories
-Description: List all categories for active store with optional search query.
-Auth:        Required
+Endpoint:    /api/categories?search=Dairy
+Description: List all categories for active store with search filter.
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
+  "count": 1,
   "data": [
     {
-      "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
+      "_id": "66f1c3d4e5f6a7b8c9d0e1f2",
+      "businessId": "66b4c16c742f36877738d76c",
       "name": "Dairy & Milk Products",
-      "productCount": 14
+      "description": "Milk, curd, butter, cheese, and paneer products",
+      "createdAt": "2026-09-24T08:20:00.000Z",
+      "updatedAt": "2026-09-24T08:20:00.000Z",
+      "__v": 0
     }
   ]
 }
@@ -385,14 +670,19 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/categories/:id
-Auth:        Required
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "_id": "65f1c3d4e5f6a7b8c9d0e1f2",
-    "name": "Dairy & Milk Products"
+    "_id": "66f1c3d4e5f6a7b8c9d0e1f2",
+    "businessId": "66b4c16c742f36877738d76c",
+    "name": "Dairy & Milk Products",
+    "description": "Milk, curd, butter, cheese, and paneer products",
+    "createdAt": "2026-09-24T08:20:00.000Z",
+    "updatedAt": "2026-09-24T08:20:00.000Z",
+    "__v": 0
   }
 }
 
@@ -401,18 +691,27 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      PUT
 Endpoint:    /api/categories/:id
-Auth:        Required
+Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
-  "name": "Fresh Dairy & Milk Products",
-  "description": "Updated description"
+  "name": "Fresh Dairy & Milk Items",
+  "description": "All dairy, cheese and pasteurized milk items"
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Category updated successfully."
+  "message": "Category updated successfully.",
+  "data": {
+    "_id": "66f1c3d4e5f6a7b8c9d0e1f2",
+    "businessId": "66b4c16c742f36877738d76c",
+    "name": "Fresh Dairy & Milk Items",
+    "description": "All dairy, cheese and pasteurized milk items",
+    "createdAt": "2026-09-24T08:20:00.000Z",
+    "updatedAt": "2026-09-24T08:25:00.000Z",
+    "__v": 0
+  }
 }
 
 
@@ -420,12 +719,15 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      DELETE
 Endpoint:    /api/categories/:id
-Auth:        Required
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Category deleted successfully."
+  "message": "Category deleted successfully.",
+  "data": {
+    "id": "66f1c3d4e5f6a7b8c9d0e1f2"
+  }
 }
 
 
@@ -437,7 +739,7 @@ MODULE 5: PRODUCT CATALOG & BARCODE LOOKUP (/api/products)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/products
-Description: Adds new product, auto-provisions inventory, and seeds opening stock.
+Description: Adds new product, creates inventory record, and seeds opening stock in ledger.
 Auth:        Required (JWT + T6)
 
 Dummy Request Body:
@@ -445,12 +747,13 @@ Dummy Request Body:
   "name": "Amul Taaza Toned Milk 500ml",
   "sku": "MILK-AMUL-500",
   "barcode": "8901262010053",
-  "categoryId": "65f1c3d4e5f6a7b8c9d0e1f2",
+  "categoryId": "66f1c3d4e5f6a7b8c9d0e1f2",
   "sellingPrice": 27.00,
   "costPrice": 24.50,
   "unit": "packet",
   "packSize": 1,
   "packagingType": "Pouch",
+  "description": "Pasteurized toned milk 500ml pouch",
   "openingStock": 50,
   "reorderLevel": 10
 }
@@ -460,12 +763,24 @@ Dummy Response (201 Created):
   "success": true,
   "message": "Product created successfully.",
   "data": {
-    "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
+    "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "businessId": "66b4c16c742f36877738d76c",
+    "categoryId": "66f1c3d4e5f6a7b8c9d0e1f2",
     "name": "Amul Taaza Toned Milk 500ml",
     "sku": "MILK-AMUL-500",
     "barcode": "8901262010053",
-    "sellingPrice": 27,
-    "costPrice": 24.5
+    "sellingPrice": 27.00,
+    "costPrice": 24.50,
+    "unit": "packet",
+    "packSize": 1,
+    "packagingType": "Pouch",
+    "description": "Pasteurized toned milk 500ml pouch",
+    "isActive": true,
+    "isArchived": false,
+    "archivedAt": null,
+    "createdAt": "2026-09-24T08:30:00.000Z",
+    "updatedAt": "2026-09-24T08:30:00.000Z",
+    "__v": 0
   }
 }
 
@@ -473,85 +788,179 @@ Dummy Response (201 Created):
 5.2 LIST PRODUCTS (PAGINATED & FILTERED)
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/products?limit=20&search=Amul&status=active
-Auth:        Required
+Endpoint:    /api/products?page=1&limit=20&search=Amul&status=active
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": [
     {
-      "id": "65f1d4e5f6a7b8c9d0e1f2a3",
+      "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+      "businessId": "66b4c16c742f36877738d76c",
+      "categoryId": "66f1c3d4e5f6a7b8c9d0e1f2",
       "name": "Amul Taaza Toned Milk 500ml",
       "sku": "MILK-AMUL-500",
       "barcode": "8901262010053",
-      "sellingPrice": 27,
-      "costPrice": 24.5,
+      "sellingPrice": 27.00,
+      "costPrice": 24.50,
       "unit": "packet",
+      "packSize": 1,
+      "packagingType": "Pouch",
+      "description": "Pasteurized toned milk 500ml pouch",
       "isActive": true,
-      "isArchived": false
+      "isArchived": false,
+      "archivedAt": null,
+      "createdAt": "2026-09-24T08:30:00.000Z",
+      "updatedAt": "2026-09-24T08:30:00.000Z",
+      "__v": 0
     }
   ],
   "pagination": {
+    "page": 1,
     "limit": 20,
+    "total": 1,
+    "totalPages": 1,
     "nextCursor": null,
     "hasMore": false
   }
 }
 
 
-5.3 FAST BARCODE SCAN LOOKUP (POS BILLING)
+5.3 FAST PRODUCT SEARCH (CATALOG & BILLING)
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/products/barcode/:barcode
-Description: Sub-millisecond barcode lookup endpoint for cashier barcode scanning.
-Auth:        Required
+Endpoint:    /api/products/search?q=Amul&limit=10
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+      "businessId": "66b4c16c742f36877738d76c",
+      "categoryId": "66f1c3d4e5f6a7b8c9d0e1f2",
+      "name": "Amul Taaza Toned Milk 500ml",
+      "sku": "MILK-AMUL-500",
+      "barcode": "8901262010053",
+      "sellingPrice": 27.00,
+      "costPrice": 24.50,
+      "unit": "packet",
+      "isActive": true,
+      "isArchived": false
+    }
+  ],
+  "count": 1,
+  "query": "Amul"
+}
+
+
+5.4 FAST BARCODE SCAN LOOKUP (POS BILLING)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/products/barcode/8901262010053
+Description: Instant barcode lookup for scanner guns and camera scanners.
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "_id": "65f1d4e5f6a7b8c9d0e1f2a3",
+    "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "businessId": "66b4c16c742f36877738d76c",
+    "categoryId": "66f1c3d4e5f6a7b8c9d0e1f2",
     "name": "Amul Taaza Toned Milk 500ml",
     "sku": "MILK-AMUL-500",
     "barcode": "8901262010053",
-    "sellingPrice": 27,
-    "costPrice": 24.5,
-    "unit": "packet"
+    "sellingPrice": 27.00,
+    "costPrice": 24.50,
+    "unit": "packet",
+    "packSize": 1,
+    "packagingType": "Pouch",
+    "description": "Pasteurized toned milk 500ml pouch",
+    "isActive": true,
+    "isArchived": false
   }
 }
 
 
-5.4 UPDATE PRODUCT
+5.5 GET PRODUCT BY ID
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/products/:id
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "businessId": "66b4c16c742f36877738d76c",
+    "categoryId": "66f1c3d4e5f6a7b8c9d0e1f2",
+    "name": "Amul Taaza Toned Milk 500ml",
+    "sku": "MILK-AMUL-500",
+    "barcode": "8901262010053",
+    "sellingPrice": 27.00,
+    "costPrice": 24.50,
+    "unit": "packet",
+    "packSize": 1,
+    "packagingType": "Pouch",
+    "description": "Pasteurized toned milk 500ml pouch",
+    "isActive": true,
+    "isArchived": false,
+    "archivedAt": null,
+    "createdAt": "2026-09-24T08:30:00.000Z",
+    "updatedAt": "2026-09-24T08:30:00.000Z",
+    "__v": 0
+  }
+}
+
+
+5.6 UPDATE PRODUCT
 --------------------------------------------------
 Method:      PUT
 Endpoint:    /api/products/:id
-Description: Updates product attributes without breaking past invoice snapshots.
-Auth:        Required
+Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
   "sellingPrice": 28.00,
-  "costPrice": 25.00
+  "costPrice": 25.00,
+  "description": "Updated MRP & price"
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Product updated successfully."
+  "message": "Product updated successfully.",
+  "data": {
+    "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "businessId": "66b4c16c742f36877738d76c",
+    "name": "Amul Taaza Toned Milk 500ml",
+    "sku": "MILK-AMUL-500",
+    "sellingPrice": 28.00,
+    "costPrice": 25.00,
+    "updatedAt": "2026-09-24T08:40:00.000Z"
+  }
 }
 
 
-5.5 ARCHIVE / RESTORE PRODUCT
+5.7 ARCHIVE / RESTORE PRODUCT
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/products/:id/archive (Restore: /api/products/:id/restore)
-Auth:        Required
+Auth:        Required (JWT + T6)
 
-Dummy Response (200 OK):
+Dummy Response (Archive - 200 OK):
 {
   "success": true,
-  "message": "Product archived successfully."
+  "message": "Product archived successfully.",
+  "data": {
+    "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "isArchived": true,
+    "archivedAt": "2026-09-24T08:45:00.000Z"
+  }
 }
 
 
@@ -563,8 +972,8 @@ MODULE 6: INVENTORY & LEDGER ENGINE (/api/inventory)
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/inventory/summary
-Description: Returns store inventory metrics (total SKUs, low stock, out of stock, asset value).
-Auth:        Required
+Description: Store-wide inventory metrics (SKUs, low stock, out of stock, asset value).
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
@@ -583,142 +992,262 @@ Dummy Response (200 OK):
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/inventory/store-state?search=milk&lowStockOnly=false
-Description: Fetches active physical stock, reorder levels, and asset valuations.
-Auth:        Required
+Description: Fetches active physical stock, reorder levels, product relations, and asset valuations.
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
+  "count": 1,
   "data": [
     {
-      "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
-      "productName": "Amul Taaza Toned Milk 500ml",
-      "sku": "MILK-AMUL-500",
-      "availableStock": 45,
+      "_id": "66f1e1a2b3c4d5e6f7a8b9c0",
+      "businessId": "66b4c16c742f36877738d76c",
+      "productId": {
+        "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+        "name": "Amul Taaza Toned Milk 500ml",
+        "sku": "MILK-AMUL-500",
+        "barcode": "8901262010053",
+        "sellingPrice": 27.00,
+        "costPrice": 24.50,
+        "unit": "packet"
+      },
+      "availableStock": 50,
       "reorderLevel": 10,
+      "reservedStock": 0,
       "lowStockAlert": false,
-      "assetValuation": 1102.50
+      "lastRestockedAt": "2026-09-24T08:30:00.000Z",
+      "assetValuation": 1225.00,
+      "createdAt": "2026-09-24T08:30:00.000Z",
+      "updatedAt": "2026-09-24T08:30:00.000Z"
     }
   ]
 }
 
 
-6.3 STOCK IN (PURCHASE / GOODS RECEIPT)
+6.3 GET PRODUCT INVENTORY BY PRODUCT ID
 --------------------------------------------------
-Method:      POST
-Endpoint:    /api/inventory/stock-in
-Description: Positively increments stock and records detailed source logs.
-Auth:        Required
+Method:      GET
+Endpoint:    /api/inventory/product/:productId
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "66f1e1a2b3c4d5e6f7a8b9c0",
+    "businessId": "66b4c16c742f36877738d76c",
+    "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "availableStock": 50,
+    "reorderLevel": 10,
+    "reservedStock": 0,
+    "lowStockAlert": false,
+    "lastRestockedAt": "2026-09-24T08:30:00.000Z",
+    "createdAt": "2026-09-24T08:30:00.000Z",
+    "updatedAt": "2026-09-24T08:30:00.000Z"
+  }
+}
+
+
+6.4 UPDATE REORDER LEVEL
+--------------------------------------------------
+Method:      PUT
+Endpoint:    /api/inventory/product/:productId/reorder-level
+Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
-  "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+  "reorderLevel": 15
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Reorder level updated successfully.",
+  "data": {
+    "_id": "66f1e1a2b3c4d5e6f7a8b9c0",
+    "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "reorderLevel": 15,
+    "lowStockAlert": false
+  }
+}
+
+
+6.5 STOCK IN (PURCHASE / GOODS RECEIPT)
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/inventory/stock-in
+Description: Increments stock and records immutable audit ledger entry.
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
   "quantity": 30,
   "source": "PURCHASE",
   "supplierName": "Amul Dairy Distro",
   "unitCost": 24.50,
   "referenceNumber": "PO-9941",
-  "reason": "Weekly replenishment"
+  "reason": "Weekly replenishment",
+  "notes": "Delivered fresh batches"
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Stock added successfully.",
+  "message": "Stock in recorded successfully in ledger.",
   "data": {
-    "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "previousStock": 45,
-    "newStock": 75
+    "ledgerId": "66f1e5f6a7b8c9d0e1f2a3b4",
+    "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "previousStock": 50,
+    "addedQuantity": 30,
+    "newStock": 80,
+    "type": "IN",
+    "source": "PURCHASE"
   }
 }
 
 
-6.4 STOCK OUT (SALE / DAMAGE / MANUAL)
+6.6 STOCK OUT (MANUAL / DAMAGE / SHRINKAGE)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/inventory/stock-out
-Description: Deducts stock with strict insufficient stock prevention guard.
-Auth:        Required
+Description: Deducts stock with strict negative stock prevention guard.
+Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
-  "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+  "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
   "quantity": 5,
   "source": "DAMAGE",
   "reason": "Damaged during handling",
-  "referenceNumber": "DMG-102"
+  "referenceNumber": "DMG-102",
+  "notes": "Pouch leaked"
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Stock deducted successfully.",
+  "message": "Stock out recorded successfully in ledger.",
   "data": {
-    "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
-    "previousStock": 75,
-    "newStock": 70
+    "ledgerId": "66f1e5f6a7b8c9d0e1f2a3b5",
+    "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "previousStock": 80,
+    "deductedQuantity": 5,
+    "newStock": 75,
+    "type": "OUT",
+    "source": "DAMAGE"
   }
 }
 
 
-6.5 STOCK RECONCILIATION / ADJUST
+6.7 STOCK RECONCILIATION / ADJUST
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/inventory/adjust
 Description: Reconciles physical count discrepancy and logs reason.
-Auth:        Required
+Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
-  "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
-  "physicalCount": 68,
+  "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+  "physicalCount": 73,
   "reason": "Audit physical count verification",
-  "referenceNumber": "AUDIT-2026-W38"
+  "referenceNumber": "AUDIT-2026-W38",
+  "notes": "2 units missing in count"
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Inventory adjusted successfully.",
+  "message": "Inventory stock adjusted successfully.",
   "data": {
-    "previousStock": 70,
-    "physicalCount": 68,
-    "discrepancy": -2
+    "ledgerId": "66f1e5f6a7b8c9d0e1f2a3b6",
+    "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+    "previousStock": 75,
+    "physicalCount": 73,
+    "discrepancy": -2,
+    "type": "ADJUST",
+    "source": "AUDIT_RECONCILIATION"
   }
 }
 
 
-6.6 INVENTORY MOVEMENT LEDGER (AUDIT STATEMENT)
+6.8 INVENTORY MOVEMENT LEDGER (AUDIT STATEMENT)
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/inventory/ledger?type=ALL&datePreset=LAST_7_DAYS
-Description: Bank-statement-style chronological audit trail.
-Auth:        Required
+Endpoint:    /api/inventory/ledger?page=1&limit=20&type=ALL
+Description: Bank-statement style chronological audit trail of all inventory transactions.
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": [
     {
-      "_id": "65f1e5f6a7b8c9d0e1f2a3b4",
-      "product": {
+      "_id": "66f1e5f6a7b8c9d0e1f2a3b4",
+      "businessId": "66b4c16c742f36877738d76c",
+      "productId": {
+        "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
         "name": "Amul Taaza Toned Milk 500ml",
-        "sku": "MILK-AMUL-500"
+        "sku": "MILK-AMUL-500",
+        "barcode": "8901262010053"
       },
+      "qtyChange": 30,
+      "balanceAfter": 80,
       "type": "IN",
       "source": "PURCHASE",
-      "qtyChange": 30,
-      "balanceAfter": 75,
+      "supplierName": "Amul Dairy Distro",
+      "unitCost": 24.50,
       "referenceNumber": "PO-9941",
-      "createdAt": "2026-09-21T09:30:00.000Z"
+      "reason": "Weekly replenishment",
+      "invoiceId": null,
+      "createdBy": "66f1a2b3c4d5e6f7a8b9c0d1",
+      "createdByName": "Ayush Sharma",
+      "notes": "Delivered fresh batches",
+      "createdAt": "2026-09-24T08:50:00.000Z"
     }
-  ]
+  ],
+  "summary": {
+    "totalEntries": 1,
+    "totalIn": 30,
+    "totalOut": 0
+  },
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
 }
 
 
-6.7 LOW-STOCK ALERTS QUEUE & ACTIONS
+6.9 LOW-STOCK ALERTS QUEUE & ACTIONS
 --------------------------------------------------
 - GET /api/inventory/alerts : List active triggers (CRITICAL / WARNING)
+  Dummy Response:
+  {
+    "success": true,
+    "data": [
+      {
+        "_id": "66f1f1a2b3c4d5e6f7a8b9c0",
+        "businessId": "66b4c16c742f36877738d76c",
+        "productId": {
+          "_id": "66f1d4e5f6a7b8c9d0e1f2a3",
+          "name": "Amul Butter 500g",
+          "sku": "BUTTER-AMUL-500"
+        },
+        "currentStock": 2,
+        "reorderLevel": 10,
+        "severity": "CRITICAL",
+        "status": "ACTIVE",
+        "alertType": "OUT_OF_STOCK",
+        "createdAt": "2026-09-24T09:00:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  }
+
 - GET /api/inventory/alerts/summary : Alert counts KPI
 - PUT /api/inventory/alerts/:id/acknowledge : Mark alert acknowledged
 - PUT /api/inventory/alerts/:id/resolve : Resolve alert
@@ -732,45 +1261,85 @@ MODULE 7: SALES TRANSACTIONS & INVOICING (/api/sales)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/sales
-Description: Atomic checkout creating invoice, freezing line item prices, deducting inventory, and recording payments.
+Description: Atomic checkout creating invoice, freezing item costs & sale prices, deducting inventory stock, and recording payment settlements.
 Auth:        Required (JWT + T6)
+
+Request Headers:
+  Content-Type: application/json
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: 66b4c16c742f36877738d76c
 
 Dummy Request Body:
 {
-  "customerId": "65f1f6a7b8c9d0e1f2a3b4c5",
+  "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+  "customerName": "Rahul Sharma",
+  "customerPhone": "+919876543210",
   "items": [
     {
-      "productId": "65f1d4e5f6a7b8c9d0e1f2a3",
+      "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+      "name": "Amul Taaza Toned Milk 500ml",
+      "sku": "MILK-AMUL-500",
       "quantity": 2,
-      "unitPrice": 27.00,
+      "unit": "packet",
+      "soldPrice": 27.00,
+      "costPrice": 24.50,
       "discount": 0
     }
   ],
   "subtotal": 54.00,
   "discount": 4.00,
-  "taxAmount": 0.00,
-  "grandTotal": 50.00,
-  "paymentMethod": "CASH",
-  "amountPaid": 50.00,
-  "notes": "Walk-in checkout"
+  "tax": 0.00,
+  "total": 50.00,
+  "paidAmount": 50.00,
+  "dueAmount": 0.00,
+  "paymentStatus": "PAID",
+  "paymentMode": "CASH",
+  "notes": "Counter POS Cash Billing"
 }
 
 Dummy Response (201 Created):
 {
   "success": true,
-  "message": "Sale created successfully.",
+  "message": "Sale transaction INV-1001 created successfully.",
   "data": {
-    "invoice": {
-      "_id": "65f1a1b2c3d4e5f6a7b8c9d0",
-      "invoiceNumber": "INV-1001",
-      "grandTotal": 50,
-      "paidAmount": 50,
-      "balanceDue": 0,
-      "paymentStatus": "PAID",
-      "paymentMethod": "CASH",
-      "status": "COMPLETED"
-    },
-    "itemsCount": 1
+    "_id": "66f1a1b2c3d4e5f6a7b8c9d0",
+    "businessId": "66b4c16c742f36877738d76c",
+    "invoiceNumber": "INV-1001",
+    "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+    "customerName": "Rahul Sharma",
+    "customerPhone": "+919876543210",
+    "subtotal": 54.00,
+    "discount": 4.00,
+    "tax": 0.00,
+    "total": 50.00,
+    "paidAmount": 50.00,
+    "dueAmount": 0.00,
+    "paymentStatus": "PAID",
+    "paymentMode": "CASH",
+    "status": "COMPLETED",
+    "createdBy": "66f1a2b3c4d5e6f7a8b9c0d1",
+    "createdByName": "Ayush Sharma",
+    "notes": "Counter POS Cash Billing",
+    "items": [
+      {
+        "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
+        "name": "Amul Taaza Toned Milk 500ml",
+        "sku": "MILK-AMUL-500",
+        "quantity": 2,
+        "unit": "packet",
+        "soldPrice": 27.00,
+        "costPrice": 24.50,
+        "totalPrice": 54.00,
+        "grossProfit": 5.00,
+        "_id": "66f1a1b2c3d4e5f6a7b8c9d1"
+      }
+    ],
+    "invoicePdfUrl": null,
+    "pdfFileKey": null,
+    "pdfGeneratedAt": null,
+    "createdAt": "2026-09-24T09:10:00.000Z",
+    "updatedAt": "2026-09-24T09:10:00.000Z",
+    "__v": 0
   }
 }
 
@@ -778,77 +1347,105 @@ Dummy Response (201 Created):
 7.2 LIST SALES INVOICES
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/sales?page=1&limit=20&status=COMPLETED
-Auth:        Required
+Endpoint:    /api/sales?page=1&limit=20&paymentStatus=PAID
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f1a1b2c3d4e5f6a7b8c9d0",
+      "businessId": "66b4c16c742f36877738d76c",
+      "invoiceNumber": "INV-1001",
+      "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+      "customerName": "Rahul Sharma",
+      "customerPhone": "+919876543210",
+      "total": 50.00,
+      "paidAmount": 50.00,
+      "dueAmount": 0.00,
+      "paymentStatus": "PAID",
+      "paymentMode": "CASH",
+      "status": "COMPLETED",
+      "createdAt": "2026-09-24T09:10:00.000Z",
+      "updatedAt": "2026-09-24T09:10:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+
+
+7.3 GET NEXT INVOICE NUMBER
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/invoice-number/next
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "sales": [
-      {
-        "_id": "65f1a1b2c3d4e5f6a7b8c9d0",
-        "invoiceNumber": "INV-1001",
-        "customerName": "Rahul Verma",
-        "grandTotal": 50,
-        "paymentStatus": "PAID",
-        "createdAt": "2026-09-22T14:10:00.000Z"
-      }
-    ],
-    "pagination": {
-      "total": 1,
-      "page": 1,
-      "pages": 1
-    }
+    "nextInvoiceNumber": "INV-1002"
   }
 }
 
 
-7.3 GET SALE DETAILS WITH LINE ITEMS
+7.4 GET SALE DETAILS BY ID
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/sales/:id
-Auth:        Required
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "_id": "65f1a1b2c3d4e5f6a7b8c9d0",
+    "_id": "66f1a1b2c3d4e5f6a7b8c9d0",
+    "businessId": "66b4c16c742f36877738d76c",
     "invoiceNumber": "INV-1001",
-    "grandTotal": 50,
+    "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+    "customerName": "Rahul Sharma",
+    "customerPhone": "+919876543210",
+    "subtotal": 54.00,
+    "discount": 4.00,
+    "tax": 0.00,
+    "total": 50.00,
+    "paidAmount": 50.00,
+    "dueAmount": 0.00,
+    "paymentStatus": "PAID",
+    "paymentMode": "CASH",
+    "status": "COMPLETED",
     "items": [
       {
+        "_id": "66f1a1b2c3d4e5f6a7b8c9d1",
+        "productId": "66f1d4e5f6a7b8c9d0e1f2a3",
         "name": "Amul Taaza Toned Milk 500ml",
         "sku": "MILK-AMUL-500",
-        "soldPrice": 27,
-        "costPrice": 24.5,
         "quantity": 2,
-        "totalPrice": 54,
-        "grossProfit": 5
+        "unit": "packet",
+        "soldPrice": 27.00,
+        "costPrice": 24.50,
+        "totalPrice": 54.00,
+        "grossProfit": 5.00
       }
-    ]
+    ],
+    "createdAt": "2026-09-24T09:10:00.000Z",
+    "updatedAt": "2026-09-24T09:10:00.000Z",
+    "__v": 0
   }
 }
 
 
-7.4 DOWNLOAD INVOICE PDF
+7.5 GROSS PROFIT REPORT
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/sales/:id/pdf
-Description: Generates and streams GST-compliant branded invoice PDF.
-Auth:        Required
-
-Response:
-  Content-Type: application/pdf (Binary PDF Stream)
-
-
-7.5 GROSS PROFIT ANALYTICS
---------------------------------------------------
-Method:      GET
-Endpoint:    /api/sales/analytics/gross-profit?startDate=2026-09-01&endDate=2026-09-23
-Description: Financial analytics aggregating revenue, COGS, gross margin %, and top products.
-Auth:        Required
+Endpoint:    /api/sales/analytics/gross-profit?startDate=2026-09-01&endDate=2026-09-24
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
@@ -862,12 +1459,19 @@ Dummy Response (200 OK):
       {
         "name": "Amul Butter 500g",
         "soldQty": 40,
-        "revenue": 11200,
-        "profit": 1600
+        "revenue": 11200.00,
+        "profit": 1600.00
       }
     ]
   }
 }
+
+
+7.6 GENERATE & DOWNLOAD INVOICE PDF
+--------------------------------------------------
+- POST /api/sales/:id/pdf/generate : Generates PDF and saves file link
+- GET /api/sales/:id/pdf : Binary PDF download (Content-Type: application/pdf)
+- GET /api/sales/:id/pdf/preview : Inline browser PDF stream
 
 
 ================================================================================
@@ -878,33 +1482,46 @@ MODULE 8: PAYMENT RECORDING & SETTLEMENTS (/api/payments)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/payments
-Description: Records full or partial installment payment against an invoice and updates settlement status.
+Description: Records installment payment against an invoice and updates dueAmount.
 Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
-  "invoiceId": "65f1a1b2c3d4e5f6a7b8c9d0",
+  "invoiceId": "66f1a1b2c3d4e5f6a7b8c9d0",
+  "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
   "amount": 400.00,
-  "paymentMethod": "UPI",
-  "referenceId": "UPI/20260923/981245",
-  "notes": "Second installment via GPay"
+  "method": "UPI",
+  "referenceId": "UPI/20260924/981245",
+  "notes": "Second installment via PhonePe"
 }
 
 Dummy Response (201 Created):
 {
   "success": true,
-  "message": "Payment recorded successfully.",
+  "message": "Payment of ₹400 recorded successfully for Invoice #INV-1001.",
   "data": {
     "payment": {
-      "_id": "65f1b2a3c4d5e6f7a8b9c0d1",
-      "amount": 400,
-      "paymentMethod": "UPI",
-      "referenceId": "UPI/20260923/981245"
+      "_id": "66f1b2a3c4d5e6f7a8b9c0d1",
+      "businessId": "66b4c16c742f36877738d76c",
+      "invoiceId": "66f1a1b2c3d4e5f6a7b8c9d0",
+      "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+      "amount": 400.00,
+      "method": "UPI",
+      "referenceId": "UPI/20260924/981245",
+      "status": "SUCCESS",
+      "notes": "Second installment via PhonePe",
+      "createdBy": "66f1a2b3c4d5e6f7a8b9c0d1",
+      "createdByName": "Ayush Sharma",
+      "createdAt": "2026-09-24T09:20:00.000Z",
+      "updatedAt": "2026-09-24T09:20:00.000Z",
+      "__v": 0
     },
     "invoice": {
+      "_id": "66f1a1b2c3d4e5f6a7b8c9d0",
       "invoiceNumber": "INV-1001",
-      "paidAmount": 1000,
-      "balanceDue": 0,
+      "total": 1000.00,
+      "paidAmount": 1000.00,
+      "dueAmount": 0.00,
       "paymentStatus": "PAID"
     }
   }
@@ -915,24 +1532,34 @@ Dummy Response (201 Created):
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/payments/invoice/:invoiceId
-Auth:        Required
+Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
+  "count": 2,
   "data": [
     {
-      "_id": "65f1b2a3c4d5e6f7a8b9c0d1",
-      "amount": 600,
-      "paymentMethod": "CASH",
-      "receivedAt": "2026-09-22T14:10:00.000Z"
+      "_id": "66f1b2a3c4d5e6f7a8b9c0d1",
+      "businessId": "66b4c16c742f36877738d76c",
+      "invoiceId": "66f1a1b2c3d4e5f6a7b8c9d0",
+      "amount": 600.00,
+      "method": "CASH",
+      "referenceId": null,
+      "status": "SUCCESS",
+      "notes": "Advance counter cash",
+      "createdAt": "2026-09-24T09:10:00.000Z"
     },
     {
-      "_id": "65f1b2a3c4d5e6f7a8b9c0d2",
-      "amount": 400,
-      "paymentMethod": "UPI",
-      "referenceId": "UPI/20260923/981245",
-      "receivedAt": "2026-09-23T10:00:00.000Z"
+      "_id": "66f1b2a3c4d5e6f7a8b9c0d2",
+      "businessId": "66b4c16c742f36877738d76c",
+      "invoiceId": "66f1a1b2c3d4e5f6a7b8c9d0",
+      "amount": 400.00,
+      "method": "UPI",
+      "referenceId": "UPI/20260924/981245",
+      "status": "SUCCESS",
+      "notes": "Second installment via PhonePe",
+      "createdAt": "2026-09-24T09:20:00.000Z"
     }
   ]
 }
@@ -946,210 +1573,195 @@ MODULE 9: CUSTOMER PROFILES & KHATA / UDHAAR LEDGER (/api/customers)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/customers
-Description: Registers new customer with credit limit.
+Description: Registers new customer master entity with contact info & credit limit.
 Auth:        Required (JWT + T6)
+
+Request Headers:
+  Content-Type: application/json
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: 66b4c16c742f36877738d76c
 
 Dummy Request Body:
 {
-  "name": "Rahul Verma",
-  "phone": "+919811223344",
-  "email": "rahul.verma@example.com",
+  "name": "Rahul Sharma",
+  "phone": "+919876543210",
+  "email": "rahul.sharma@example.com",
   "address": "House 12, Block B, Malviya Nagar",
-  "creditLimit": 10000.00
+  "city": "Jaipur",
+  "state": "Rajasthan",
+  "pincode": "302001",
+  "creditLimit": 10000.00,
+  "notes": "Regular loyal customer",
+  "tags": ["REGULAR", "VIP"]
 }
 
 Dummy Response (201 Created):
 {
   "success": true,
-  "message": "Customer created successfully.",
+  "message": "Customer registered successfully.",
   "data": {
-    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-    "name": "Rahul Verma",
-    "phone": "+919811223344",
-    "creditLimit": 10000,
-    "outstandingBalance": 0
+    "_id": "66f1f6a7b8c9d0e1f2a3b4c5",
+    "businessId": "66b4c16c742f36877738d76c",
+    "name": "Rahul Sharma",
+    "phone": "+919876543210",
+    "email": "rahul.sharma@example.com",
+    "address": "House 12, Block B, Malviya Nagar",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302001",
+    "currentBalance": 0.00,
+    "creditLimit": 10000.00,
+    "lastPaymentDate": null,
+    "lastPurchaseDate": null,
+    "totalSpent": 0.00,
+    "totalOrders": 0,
+    "status": "ACTIVE",
+    "notes": "Regular loyal customer",
+    "tags": ["REGULAR", "VIP"],
+    "createdAt": "2026-09-24T09:30:00.000Z",
+    "updatedAt": "2026-09-24T09:30:00.000Z",
+    "__v": 0
   }
 }
 
 
-9.2 LIST CUSTOMERS WITH STATS & SEARCH
+9.2 LIST CUSTOMERS WITH STATS & FILTERS
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/customers?search=Rahul&hasBalance=false
-Auth:        Required
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "customers": [
-      {
-        "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-        "name": "Rahul Verma",
-        "phone": "+919811223344",
-        "outstandingBalance": 1900.00,
-        "totalCredit": 3500.00,
-        "totalPaid": 1600.00
-      }
-    ],
-    "pagination": {
-      "total": 1,
-      "page": 1
-    }
-  }
-}
-
-
-9.3 GET CUSTOMER KHATA LEDGER STATEMENT
---------------------------------------------------
-Method:      GET
-Endpoint:    /api/customers/:id/ledger
-Description: Chronological debit/credit statement of all sales and repayments.
-Auth:        Required
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "customer": {
-      "name": "Rahul Verma",
-      "outstandingBalance": 1900.00
-    },
-    "ledger": [
-      {
-        "_id": "65f1c4d5e6f7a8b9c0d1e2f3",
-        "type": "SALE_CREDIT",
-        "amount": 1900.00,
-        "balanceBefore": 0.00,
-        "balanceAfter": 1900.00,
-        "invoiceNumber": "INV-1005",
-        "createdAt": "2026-09-22T16:20:00.000Z"
-      }
-    ]
-  }
-}
-
-
-9.4 SETTLE CUSTOMER KHATA / RECORD PAYMENT
---------------------------------------------------
-Method:      POST
-Endpoint:    /api/customers/:id/settle
-Description: Records customer debt repayment, reduces outstanding balance, and logs ledger entry.
+Endpoint:    /api/customers?page=1&limit=20&search=Rahul
 Auth:        Required (JWT + T6)
-
-Dummy Request Body:
-{
-  "amount": 1000.00,
-  "paymentMethod": "CASH",
-  "notes": "Paid cash at store counter"
-}
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "message": "Customer khata payment settled successfully.",
-  "data": {
-    "customer": {
-      "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-      "name": "Rahul Verma",
-      "previousBalance": 1900.00,
-      "paidAmount": 1000.00,
-      "remainingBalance": 900.00
-    },
-    "transactionId": "65f1d5e6f7a8b9c0d1e2f3a4"
-  }
-}
-
-
-9.5 FAST CUSTOMER SEARCH (POS AUTOCOMPLETE)
---------------------------------------------------
-Method:      GET
-Endpoint:    /api/customers/search?q=9811
-Auth:        Required
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": [
     {
-      "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-      "name": "Rahul Verma",
-      "phone": "+919811223344",
-      "outstandingBalance": 900.00
+      "_id": "66f1f6a7b8c9d0e1f2a3b4c5",
+      "businessId": "66b4c16c742f36877738d76c",
+      "name": "Rahul Sharma",
+      "phone": "+919876543210",
+      "email": "rahul.sharma@example.com",
+      "address": "House 12, Block B, Malviya Nagar",
+      "city": "Jaipur",
+      "state": "Rajasthan",
+      "pincode": "302001",
+      "currentBalance": 3000.00,
+      "creditLimit": 10000.00,
+      "lastPaymentDate": "2026-09-24T09:45:00.000Z",
+      "lastPurchaseDate": "2026-09-24T09:35:00.000Z",
+      "totalSpent": 5000.00,
+      "totalOrders": 2,
+      "status": "ACTIVE",
+      "notes": "Regular loyal customer",
+      "tags": ["REGULAR", "VIP"],
+      "createdAt": "2026-09-24T09:30:00.000Z",
+      "updatedAt": "2026-09-24T09:45:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+
+
+9.3 FAST CUSTOMER SEARCH (POS AUTOCOMPLETE)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/search?q=987654&limit=10
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Sharma",
+      "phone": "+919876543210",
+      "currentBalance": 3000.00,
+      "creditLimit": 10000.00,
+      "status": "ACTIVE"
     }
   ]
 }
 
 
-9.6 GET CUSTOMER BY PHONE (T32)
+9.4 GET CUSTOMER BY PHONE
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/customers/phone/+919876543210 (or raw: 9876543210)
-Description: Auto-normalizes the raw phone parameter and retrieves customer profile.
+Endpoint:    /api/customers/phone/+919876543210
 Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-    "businessId": "65f1e2a3b4c5d6e7f8a9b0c1",
+    "_id": "66f1f6a7b8c9d0e1f2a3b4c5",
+    "businessId": "66b4c16c742f36877738d76c",
     "name": "Rahul Sharma",
     "phone": "+919876543210",
-    "email": "rahul@example.com",
-    "status": "ACTIVE",
-    "outstandingBalance": 0
-  }
-}
-
-
-9.7 GET SINGLE CUSTOMER BY ID (T32)
---------------------------------------------------
-Method:      GET
-Endpoint:    /api/customers/:id
-Description: Retrieves full demographic details and credit metrics for a single customer.
-Auth:        Required (JWT + T6)
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "data": {
-    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-    "businessId": "65f1e2a3b4c5d6e7f8a9b0c1",
-    "name": "Rahul Sharma",
-    "phone": "+919876543210",
-    "email": "rahul@example.com",
-    "address": "Shop 4, Market Complex",
+    "email": "rahul.sharma@example.com",
+    "address": "House 12, Block B, Malviya Nagar",
     "city": "Jaipur",
     "state": "Rajasthan",
     "pincode": "302001",
-    "creditLimit": 10000,
-    "status": "ACTIVE",
-    "outstandingBalance": 1900.00,
-    "totalCredit": 3500.00,
-    "totalPaid": 1600.00
+    "currentBalance": 3000.00,
+    "creditLimit": 10000.00,
+    "totalSpent": 5000.00,
+    "totalOrders": 2,
+    "status": "ACTIVE"
   }
 }
 
 
-9.8 UPDATE CUSTOMER PROFILE (T32)
+9.5 GET CUSTOMER BY ID
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "66f1f6a7b8c9d0e1f2a3b4c5",
+    "businessId": "66b4c16c742f36877738d76c",
+    "name": "Rahul Sharma",
+    "phone": "+919876543210",
+    "email": "rahul.sharma@example.com",
+    "address": "House 12, Block B, Malviya Nagar",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302001",
+    "currentBalance": 3000.00,
+    "creditLimit": 10000.00,
+    "totalSpent": 5000.00,
+    "totalOrders": 2,
+    "status": "ACTIVE",
+    "notes": "Regular loyal customer",
+    "tags": ["REGULAR", "VIP"],
+    "createdAt": "2026-09-24T09:30:00.000Z",
+    "updatedAt": "2026-09-24T09:45:00.000Z"
+  }
+}
+
+
+9.6 UPDATE CUSTOMER PROFILE
 --------------------------------------------------
 Method:      PUT
 Endpoint:    /api/customers/:id
-Description: Updates customer demographic details, phone (with re-normalization & collision checks), and credit limit.
 Auth:        Required (JWT + T6)
 
 Dummy Request Body:
 {
-  "name": "Rahul Sharma Jr.",
-  "phone": "9876543210",
-  "email": "rahul.jr@example.com",
-  "address": "Shop 4, Market Complex",
-  "city": "Jaipur",
-  "state": "Rajasthan",
-  "pincode": "302001",
-  "creditLimit": 15000,
-  "status": "ACTIVE"
+  "name": "Rahul Sharma",
+  "phone": "+919876543210",
+  "email": "rahul.updated@example.com",
+  "creditLimit": 15000.00,
+  "notes": "Credit limit increased to 15k"
 }
 
 Dummy Response (200 OK):
@@ -1157,59 +1769,22 @@ Dummy Response (200 OK):
   "success": true,
   "message": "Customer profile updated successfully.",
   "data": {
-    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-    "name": "Rahul Sharma Jr.",
+    "_id": "66f1f6a7b8c9d0e1f2a3b4c5",
+    "name": "Rahul Sharma",
     "phone": "+919876543210",
-    "email": "rahul.jr@example.com",
-    "creditLimit": 15000,
-    "status": "ACTIVE"
+    "email": "rahul.updated@example.com",
+    "creditLimit": 15000.00,
+    "status": "ACTIVE",
+    "updatedAt": "2026-09-24T09:50:00.000Z"
   }
 }
 
 
-9.9 SOFT DELETE / DEACTIVATE CUSTOMER (T32)
---------------------------------------------------
-Method:      DELETE
-Endpoint:    /api/customers/:id
-Description: Safe soft-delete marking status = 'INACTIVE' to preserve historical invoices and ledger records.
-Auth:        Required (JWT + T6)
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "message": "Customer archived / deactivated successfully.",
-  "data": {
-    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-    "name": "Rahul Sharma",
-    "status": "INACTIVE"
-  }
-}
-
-
-9.10 ARCHIVE & RESTORE CUSTOMER (T32)
---------------------------------------------------
-Method:      POST
-Endpoint:    /api/customers/:id/archive (or /api/customers/:id/restore)
-Description: Explicit archival and restoration endpoints for customer accounts.
-Auth:        Required (JWT + T6)
-
-Dummy Response (200 OK):
-{
-  "success": true,
-  "message": "Customer restored successfully.",
-  "data": {
-    "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
-    "name": "Rahul Sharma",
-    "status": "ACTIVE"
-  }
-}
-
-
-9.11 GET CUSTOMER LEDGER STATEMENT (T33)
+9.7 GET CUSTOMER KHATA LEDGER STATEMENT (T33)
 --------------------------------------------------
 Method:      GET
-Endpoint:    /api/customers/:id/ledger
-Description: Bank-statement style chronological audit log of all Udhaar credit purchases, payments, adjustments, and running balances.
+Endpoint:    /api/customers/:id/ledger?page=1&limit=50
+Description: Bank-statement style chronological audit log of all Udhaar credit sales, payments, and running balance.
 Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
@@ -1217,34 +1792,40 @@ Dummy Response (200 OK):
   "success": true,
   "data": {
     "customer": {
-      "id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "id": "66f1f6a7b8c9d0e1f2a3b4c5",
       "name": "Rahul Sharma",
       "phone": "+919876543210",
       "currentBalance": 3000.00
     },
     "entries": [
       {
-        "_id": "65f1f9a1b8c9d0e1f2a3b4c9",
+        "_id": "66f1f9a1b8c9d0e1f2a3b4c9",
+        "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+        "saleId": "66f1a1b2c3d4e5f6a7b8c9d0",
+        "invoiceId": "66f1a1b2c3d4e5f6a7b8c9d0",
+        "invoiceNumber": "INV-1001",
+        "entryType": "SALE_CREDIT",
         "creditAmount": 5000.00,
         "debitAmount": 0.00,
         "balance": 5000.00,
         "balanceSnapshot": 5000.00,
-        "saleId": "65f1f8b2c9d0e1f2a3b4c7",
-        "invoiceId": "65f1f8b2c9d0e1f2a3b4c7",
-        "invoiceNumber": "INV-1001",
-        "entryType": "SALE_CREDIT",
         "notes": "Credit purchase from POS Invoice INV-1001",
-        "createdAt": "2026-09-23T10:00:00.000Z"
+        "createdBy": "66f1a2b3c4d5e6f7a8b9c0d1",
+        "createdByName": "Ayush Sharma",
+        "createdAt": "2026-09-24T09:35:00.000Z"
       },
       {
-        "_id": "65f1fa02b8c9d0e1f2a3b4d0",
+        "_id": "66f1fa02b8c9d0e1f2a3b4d0",
+        "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+        "entryType": "PAYMENT_RECEIVED",
         "creditAmount": 0.00,
         "debitAmount": 2000.00,
         "balance": 3000.00,
         "balanceSnapshot": 3000.00,
-        "entryType": "PAYMENT_SETTLEMENT",
-        "notes": "Counter Cash Settlement",
-        "createdAt": "2026-09-23T11:00:00.000Z"
+        "notes": "Counter Cash Repayment",
+        "createdBy": "66f1a2b3c4d5e6f7a8b9c0d1",
+        "createdByName": "Ayush Sharma",
+        "createdAt": "2026-09-24T09:45:00.000Z"
       }
     ],
     "pagination": {
@@ -1262,22 +1843,18 @@ Dummy Response (200 OK):
 }
 
 
-9.12 APPEND CUSTOMER LEDGER ENTRY (MANUAL / ADJUSTMENT) (T33)
+9.8 APPEND CUSTOMER LEDGER ENTRY (MANUAL / OPENING BALANCE)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/customers/:id/ledger
-Description: Appends an immutable opening balance or manual adjustment transaction to customer sub-ledger.
 Auth:        Required (JWT + T6)
 
-Request Headers:
-  Content-Type: application/json
-
-Dummy Request Body (Opening Balance / Udhaar Migration):
+Dummy Request Body:
 {
-  "creditAmount": 5000,
-  "debitAmount": 0,
-  "entryType": "OPENING_BALANCE",
-  "notes": "Migrated opening Khata balance"
+  "creditAmount": 5000.00,
+  "debitAmount": 0.00,
+  "entryType": "SALE_CREDIT",
+  "notes": "Migrated opening Khata balance from paper ledger"
 }
 
 Dummy Response (201 Created):
@@ -1285,78 +1862,74 @@ Dummy Response (201 Created):
   "success": true,
   "message": "Customer ledger entry appended successfully.",
   "data": {
-    "entryId": "65f1fa50b8c9d0e1f2a3b4d2",
+    "entryId": "66f1fa50b8c9d0e1f2a3b4d2",
+    "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
     "creditAmount": 5000.00,
     "debitAmount": 0.00,
     "balance": 5000.00,
     "currentOutstanding": 5000.00,
-    "entryType": "OPENING_BALANCE",
-    "notes": "Migrated opening Khata balance"
+    "entryType": "SALE_CREDIT",
+    "notes": "Migrated opening Khata balance from paper ledger",
+    "createdAt": "2026-09-24T09:35:00.000Z"
   }
 }
 
 
-9.13 SETTLE CUSTOMER UDHAAR BALANCE (T29 / T33)
+9.9 SETTLE CUSTOMER UDHAAR BALANCE (REPAYMENT)
 --------------------------------------------------
 Method:      POST
 Endpoint:    /api/customers/:id/settle
-Description: Settle customer pending Udhaar debt via Cash / UPI / Card / Bank, reducing outstanding balance and appending a Debit transaction to the ledger.
 Auth:        Required (JWT + T6)
-
-Request Headers:
-  Content-Type: application/json
 
 Dummy Request Body:
 {
-  "amount": 2000,
+  "amount": 2000.00,
   "paymentMethod": "CASH",
-  "notes": "Counter cash payment received"
+  "notes": "Counter cash repayment received"
 }
 
 Dummy Response (200 OK):
 {
   "success": true,
-  "message": "Payment recorded and customer ledger updated successfully.",
+  "message": "Customer debt settled successfully.",
   "data": {
-    "customerId": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
     "amountPaid": 2000.00,
     "previousBalance": 5000.00,
     "newBalance": 3000.00,
     "paymentMethod": "CASH",
-    "ledgerEntryId": "65f1fa02b8c9d0e1f2a3b4d0"
+    "ledgerEntryId": "66f1fa02b8c9d0e1f2a3b4d0"
   }
 }
 
 
-9.14 GET CUSTOMER REAL-TIME OUTSTANDING (T34)
+9.10 GET CUSTOMER REAL-TIME OUTSTANDING
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/customers/:id/outstanding
-Description: High-speed O(1) single-document fetch of customer's current outstanding balance, credit limit, available credit, and limit status.
 Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "customerId": "65f1f6a7b8c9d0e1f2a3b4c5",
+    "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
     "name": "Rahul Sharma",
     "phone": "+919876543210",
     "currentBalance": 3000.00,
-    "creditLimit": 10000.00,
-    "availableCredit": 7000.00,
+    "creditLimit": 15000.00,
+    "availableCredit": 12000.00,
     "isLimitExceeded": false,
-    "lastPaymentDate": "2026-09-23T11:00:00.000Z",
-    "lastPurchaseDate": "2026-09-23T10:00:00.000Z"
+    "lastPaymentDate": "2026-09-24T09:45:00.000Z",
+    "lastPurchaseDate": "2026-09-24T09:35:00.000Z"
   }
 }
 
 
-9.15 GET BUSINESS OUTSTANDING DEBTORS SUMMARY (T34)
+9.11 GET BUSINESS OUTSTANDING DEBTORS SUMMARY
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/customers/outstanding/summary?limit=50
-Description: Fast indexed retrieval of all customers with active credit debt, ranked by highest outstanding balance first.
 Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
@@ -1364,40 +1937,289 @@ Dummy Response (200 OK):
   "success": true,
   "data": [
     {
-      "_id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "_id": "66f1f6a7b8c9d0e1f2a3b4c5",
       "name": "Rahul Sharma",
       "phone": "+919876543210",
-      "currentBalance": 3500.00,
-      "creditLimit": 10000.00,
-      "lastPaymentDate": "2026-09-23T11:00:00.000Z",
-      "lastPurchaseDate": "2026-09-23T10:00:00.000Z"
-    },
-    {
-      "_id": "65f1f6b8c9d0e1f2a3b4c6",
-      "name": "Amit Kumar",
-      "phone": "+919876543211",
-      "currentBalance": 1500.00,
-      "creditLimit": 5000.00,
-      "lastPaymentDate": "2026-09-22T14:30:00.000Z",
-      "lastPurchaseDate": "2026-09-23T09:15:00.000Z"
+      "currentBalance": 3000.00,
+      "creditLimit": 15000.00,
+      "lastPaymentDate": "2026-09-24T09:45:00.000Z",
+      "lastPurchaseDate": "2026-09-24T09:35:00.000Z"
     }
   ]
 }
 
 
-9.16 GET STORE-WIDE OUTSTANDING TOTALS (T34)
+9.12 GET STORE-WIDE OUTSTANDING TOTALS
 --------------------------------------------------
 Method:      GET
 Endpoint:    /api/customers/outstanding/totals
-Description: Instant store-wide aggregate debt totals and active debtor customer count for dashboard widgets and POS KPIs.
 Auth:        Required (JWT + T6)
 
 Dummy Response (200 OK):
 {
   "success": true,
   "data": {
-    "totalOutstanding": 5000.00,
-    "debtorCustomersCount": 2
+    "totalOutstanding": 3000.00,
+    "debtorCustomersCount": 1
+  }
+}
+
+
+9.13 GET CUSTOMER 360° CRM & PROFILING SUMMARY
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id/crm-summary
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "profile": {
+      "id": "66f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Sharma",
+      "phone": "+919876543210",
+      "email": "rahul.sharma@example.com",
+      "address": "House 12, Block B, Malviya Nagar",
+      "city": "Jaipur",
+      "state": "Rajasthan",
+      "pincode": "302001",
+      "notes": "Regular loyal customer",
+      "tags": ["REGULAR", "VIP"],
+      "createdAt": "2026-09-24T09:30:00.000Z"
+    },
+    "metrics": {
+      "totalSales": 5000.00,
+      "visitFrequency": 2,
+      "averageSpend": 2500.00
+    },
+    "outstanding": {
+      "currentBalance": 3000.00,
+      "creditLimit": 15000.00,
+      "availableCredit": 12000.00,
+      "isLimitExceeded": false,
+      "lastPaymentDate": "2026-09-24T09:45:00.000Z",
+      "lastPurchaseDate": "2026-09-24T09:35:00.000Z"
+    },
+    "aging": {
+      "current": 3000.00,
+      "days31To60": 0.00,
+      "days61To90": 0.00,
+      "days90Plus": 0.00,
+      "totalAged": 3000.00
+    },
+    "recentPayments": [
+      {
+        "id": "66f1fa02b8c9d0e1f2a3b4d0",
+        "date": "2026-09-24T09:45:00.000Z",
+        "amount": 2000.00,
+        "method": "CASH",
+        "balanceAfter": 3000.00,
+        "reference": "PAY-1001",
+        "notes": "Counter Cash Repayment"
+      }
+    ],
+    "recentSales": [
+      {
+        "id": "66f1a1b2c3d4e5f6a7b8c9d0",
+        "invoiceNumber": "INV-1001",
+        "date": "2026-09-24T09:35:00.000Z",
+        "grandTotal": 5000.00,
+        "paidAmount": 0.00,
+        "dueAmount": 5000.00,
+        "paymentStatus": "PENDING",
+        "itemCount": 2
+      }
+    ]
+  }
+}
+
+
+================================================================================
+MODULE 10: SUPPLIER & PROCUREMENT MANAGEMENT (/api/suppliers)
+================================================================================
+
+10.1 CREATE SUPPLIER
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/suppliers
+Description: Registers new supplier / distributor for inventory procurement.
+Auth:        Required (JWT + T6)
+
+Request Headers:
+  Content-Type: application/json
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: 66b4c16c742f36877738d76c
+
+Dummy Request Body:
+{
+  "company": "ABC Distributors Pvt Ltd",
+  "contactName": "Amit Sharma",
+  "phone": "+919876543210",
+  "email": "amit@abcdistro.com",
+  "address": "Plot 14, Industrial Area Phase 2",
+  "city": "Jaipur",
+  "state": "Rajasthan",
+  "pincode": "302013",
+  "gstin": "08ABCDE1234F1Z5",
+  "notes": "Primary dairy and FMCG wholesaler",
+  "tags": ["FMCG", "WHOLESALER"]
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Supplier created successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "businessId": "66b4c16c742f36877738d76c",
+    "company": "ABC Distributors Pvt Ltd",
+    "contactName": "Amit Sharma",
+    "phone": "+919876543210",
+    "email": "amit@abcdistro.com",
+    "address": "Plot 14, Industrial Area Phase 2",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302013",
+    "gstin": "08ABCDE1234F1Z5",
+    "currentBalance": 0.00,
+    "totalPurchases": 0.00,
+    "totalOrders": 0,
+    "lastPurchaseDate": null,
+    "lastPaymentDate": null,
+    "status": "ACTIVE",
+    "notes": "Primary dairy and FMCG wholesaler",
+    "tags": ["FMCG", "WHOLESALER"],
+    "createdAt": "2026-09-24T10:00:00.000Z",
+    "updatedAt": "2026-09-24T10:00:00.000Z",
+    "__v": 0
+  }
+}
+
+
+10.2 LIST SUPPLIERS (PAGINATED & SEARCHABLE)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers?page=1&limit=20&search=ABC
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+      "businessId": "66b4c16c742f36877738d76c",
+      "company": "ABC Distributors Pvt Ltd",
+      "contactName": "Amit Sharma",
+      "phone": "+919876543210",
+      "email": "amit@abcdistro.com",
+      "address": "Plot 14, Industrial Area Phase 2",
+      "city": "Jaipur",
+      "state": "Rajasthan",
+      "pincode": "302013",
+      "gstin": "08ABCDE1234F1Z5",
+      "currentBalance": 0.00,
+      "totalPurchases": 0.00,
+      "totalOrders": 0,
+      "lastPurchaseDate": null,
+      "lastPaymentDate": null,
+      "status": "ACTIVE",
+      "notes": "Primary dairy and FMCG wholesaler",
+      "tags": ["FMCG", "WHOLESALER"],
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:00:00.000Z",
+      "__v": 0
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+
+
+10.3 GET SUPPLIER BY ID
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/:id
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "businessId": "66b4c16c742f36877738d76c",
+    "company": "ABC Distributors Pvt Ltd",
+    "contactName": "Amit Sharma",
+    "phone": "+919876543210",
+    "email": "amit@abcdistro.com",
+    "address": "Plot 14, Industrial Area Phase 2",
+    "city": "Jaipur",
+    "state": "Rajasthan",
+    "pincode": "302013",
+    "gstin": "08ABCDE1234F1Z5",
+    "currentBalance": 0.00,
+    "totalPurchases": 0.00,
+    "totalOrders": 0,
+    "lastPurchaseDate": null,
+    "lastPaymentDate": null,
+    "status": "ACTIVE",
+    "notes": "Primary dairy and FMCG wholesaler",
+    "tags": ["FMCG", "WHOLESALER"],
+    "createdAt": "2026-09-24T10:00:00.000Z",
+    "updatedAt": "2026-09-24T10:00:00.000Z",
+    "__v": 0
+  }
+}
+
+
+10.4 UPDATE SUPPLIER
+--------------------------------------------------
+Method:      PUT
+Endpoint:    /api/suppliers/:id
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "company": "ABC Distributors & Logistics Pvt Ltd",
+  "contactName": "Amit Sharma",
+  "phone": "+919876543210",
+  "notes": "Updated firm registered name"
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Supplier updated successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "company": "ABC Distributors & Logistics Pvt Ltd",
+    "contactName": "Amit Sharma",
+    "phone": "+919876543210",
+    "status": "ACTIVE",
+    "updatedAt": "2026-09-24T10:10:00.000Z"
+  }
+}
+
+
+10.5 DELETE / DEACTIVATE SUPPLIER
+--------------------------------------------------
+Method:      DELETE
+Endpoint:    /api/suppliers/:id
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Supplier deactivated successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "company": "ABC Distributors & Logistics Pvt Ltd",
+    "status": "INACTIVE"
   }
 }
 

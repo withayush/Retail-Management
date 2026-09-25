@@ -280,6 +280,51 @@ const appendLedgerEntry = async (req, res, next) => {
   }
 };
 
+/**
+ * Phase 5 - Task T35: Get Customer Credit Payment History
+ */
+const getCustomerPaymentHistory = async (req, res, next) => {
+  try {
+    const businessId = req.businessId;
+    const { id } = req.params;
+    const { page, limit, from, to, method, paymentMethod } = req.query;
+
+    const history = await customerService.getCustomerPaymentHistory(businessId, id, {
+      page,
+      limit,
+      from,
+      to,
+      method: method || paymentMethod,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: history,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Phase 5 - Task T36: Get Complete Customer 360° CRM & Profiling Summary
+ */
+const getCustomerCRMSummary = async (req, res, next) => {
+  try {
+    const businessId = req.businessId;
+    const { id } = req.params;
+
+    const summary = await customerService.getCustomerCRMSummary(businessId, id);
+
+    return res.status(200).json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCustomer,
   getCustomers,
@@ -295,4 +340,6 @@ module.exports = {
   getCustomerLedger,
   recordCustomerPayment,
   appendLedgerEntry,
+  getCustomerPaymentHistory,
+  getCustomerCRMSummary,
 };

@@ -1,10 +1,12 @@
 import React from "react";
-import { BookOpen, Plus, Phone, AlertCircle, CheckCircle, Clock, Pencil } from "lucide-react";
+import { BookOpen, Plus, Phone, AlertCircle, CheckCircle, Clock, Pencil, History, UserCheck } from "lucide-react";
 
 export default function CustomersTable({
   loading,
   customers = [],
+  onViewProfile,
   onViewLedger,
+  onViewPaymentHistory,
   onSettlePayment,
   onEditCustomer,
 }) {
@@ -63,9 +65,14 @@ export default function CustomersTable({
                 <tr key={custId} className="hover:bg-[#151518] transition-colors group">
                   <td className="py-3 px-4">
                     <div className="space-y-0.5">
-                      <span className="font-semibold text-xs text-zinc-100 group-hover:text-white transition-colors">
-                        {c.name}
-                      </span>
+                      <button
+                        onClick={() => onViewProfile && onViewProfile(c)}
+                        className="font-semibold text-xs text-zinc-100 group-hover:text-amber-400 transition-colors text-left flex items-center gap-1.5 cursor-pointer hover:underline"
+                        title="Open 360° Customer Profile (T36)"
+                      >
+                        <span>{c.name}</span>
+                        <span className="text-[10px] text-zinc-600 group-hover:text-amber-500/70 font-mono">↗</span>
+                      </button>
                       {c.address && (
                         <p className="text-[11px] text-zinc-500 truncate max-w-[220px]">{c.address}</p>
                       )}
@@ -111,6 +118,17 @@ export default function CustomersTable({
 
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      {onViewProfile && (
+                        <button
+                          onClick={() => onViewProfile(c)}
+                          className="px-2.5 py-1.5 rounded-lg bg-[#18181b] hover:bg-zinc-800 text-amber-400 hover:text-amber-300 border border-[#27272a] text-xs font-medium transition-colors cursor-pointer flex items-center gap-1"
+                          title="Open 360° Customer Profile (T36)"
+                        >
+                          <UserCheck className="w-3 h-3 text-amber-400" />
+                          <span>360° Profile</span>
+                        </button>
+                      )}
+
                       {onEditCustomer && (
                         <button
                           onClick={() => onEditCustomer(c)}
@@ -129,6 +147,17 @@ export default function CustomersTable({
                         <BookOpen className="w-3 h-3 text-amber-400" />
                         <span>Ledger</span>
                       </button>
+
+                      {onViewPaymentHistory && (
+                        <button
+                          onClick={() => onViewPaymentHistory(c)}
+                          className="px-2.5 py-1.5 rounded-lg bg-[#18181b] hover:bg-zinc-800 text-zinc-200 hover:text-white border border-[#27272a] text-xs font-medium transition-colors cursor-pointer flex items-center gap-1"
+                          title="View Repayment History (T35)"
+                        >
+                          <History className="w-3 h-3 text-emerald-400" />
+                          <span>Payments</span>
+                        </button>
+                      )}
 
                       {debt > 0 && (
                         <button

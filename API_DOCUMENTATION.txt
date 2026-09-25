@@ -1401,6 +1401,173 @@ Dummy Response (200 OK):
   }
 }
 
+
+9.17 GET CUSTOMER CREDIT PAYMENT HISTORY (T35)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id/payments (or /api/customers/:id/payment-history)
+Query Params:
+  - from (ISO Date string, e.g. 2026-09-01)
+  - to (ISO Date string, e.g. 2026-09-30)
+  - method (Payment method: CASH, UPI, CARD, OTHER)
+  - page (Default: 1)
+  - limit (Default: 20)
+Description: Fetches chronological repayment settlement logs made by the customer against past credit debt, including summary aggregations and method breakdown.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "customer": {
+      "id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Sharma",
+      "phone": "+919876543210",
+      "currentBalance": 3000.00,
+      "creditLimit": 10000.00
+    },
+    "payments": [
+      {
+        "id": "65f1fa02b8c9d0e1f2a3b4d0",
+        "date": "2026-09-23T11:00:00.000Z",
+        "amount": 2000.00,
+        "paymentMethod": "CASH",
+        "balanceAfter": 3000.00,
+        "reference": "PAY-1001",
+        "notes": "Counter cash payment received",
+        "invoiceNumber": null
+      }
+    ],
+    "summary": {
+      "totalAmountPaid": 2000.00,
+      "totalPaymentsCount": 1,
+      "averagePaymentAmount": 2000.00,
+      "methodBreakdown": {
+        "CASH": 2000.00,
+        "UPI": 0,
+        "CARD": 0
+      }
+    },
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "totalRecords": 1,
+      "totalPages": 1
+    }
+  }
+}
+
+
+9.18 GET CUSTOMER 360° CRM & PROFILING SUMMARY (T36)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/:id/crm-summary (Aliases: /api/customers/:id/summary, /api/customers/:id/profile, /api/customers/:id/360)
+Description: Complete single-roundtrip 360° Customer CRM summary aggregating demographic profile, lifetime sales KPIs, visit frequency, average spend per order, real-time outstanding balance, 4-tier FIFO debt aging analysis (0-30d, 31-60d, 61-90d, 90+d), 5 recent billing sales invoices, and 5 recent repayment settlement logs.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "profile": {
+      "id": "65f1f6a7b8c9d0e1f2a3b4c5",
+      "name": "Rahul Sharma",
+      "phone": "+919876543210",
+      "email": "rahul@gmail.com",
+      "address": "42 Connaught Place, New Delhi",
+      "city": "New Delhi",
+      "state": "Delhi",
+      "pincode": "110001",
+      "notes": "Regular VIP customer",
+      "tags": ["VIP", "Regular"],
+      "createdAt": "2026-09-20T10:00:00.000Z"
+    },
+    "metrics": {
+      "totalSales": 48500.00,
+      "visitFrequency": 18,
+      "averageSpend": 2694.44
+    },
+    "outstanding": {
+      "currentBalance": 5000.00,
+      "creditLimit": 15000.00,
+      "availableCredit": 10000.00,
+      "isLimitExceeded": false,
+      "lastPaymentDate": "2026-09-23T11:00:00.000Z",
+      "lastPurchaseDate": "2026-09-23T10:00:00.000Z"
+    },
+    "aging": {
+      "current": 2000.00,
+      "days31To60": 1500.00,
+      "days61To90": 1000.00,
+      "days90Plus": 500.00,
+      "totalAged": 5000.00
+    },
+    "recentPayments": [
+      {
+        "id": "65f1fa02b8c9d0e1f2a3b4d0",
+        "date": "2026-09-23T11:00:00.000Z",
+        "amount": 2000.00,
+        "method": "CASH",
+        "balanceAfter": 5000.00,
+        "reference": "PAY-1001",
+        "notes": "Partial repayment"
+      }
+    ],
+    "recentSales": [
+      {
+        "id": "65f1f9a1b8c9d0e1f2a3b4cf",
+        "invoiceNumber": "INV-1021",
+        "date": "2026-09-23T10:00:00.000Z",
+        "grandTotal": 2500.00,
+        "paidAmount": 500.00,
+        "dueAmount": 2000.00,
+        "paymentStatus": "PARTIAL",
+        "itemCount": 3
+      }
+    ]
+  }
+}
+
+
+================================================================================
+MODULE 10: SUPPLIER & PROCUREMENT SYSTEM (/api/suppliers)
+================================================================================
+
+10.1 SUPPLIER SCHEMA DB MODEL & MASTER ENTITY (T37)
+--------------------------------------------------
+Description: Defines the business-scoped Supplier master entity representing distributors, manufacturers, wholesalers, and stock vendors from whom the merchant procures inventory.
+
+Schema Definition (`src/models/supplier.model.js`):
+- `_id`: ObjectId (Primary Key)
+- `businessId`: ObjectId (ref: 'Business', Required, Indexed)
+- `company`: String (Required, Trimmed, Max 120 chars, e.g. "ABC Distributors")
+- `contactName`: String (Trimmed, Max 100 chars, e.g. "Amit Sharma")
+- `phone`: String (Canonical format e.g. "+919876543210")
+- `email`: String (Trimmed, lowercase, Max 255 chars)
+- `address`: String (Trimmed, warehouse/office address)
+- `city`: String (Trimmed)
+- `state`: String (Trimmed)
+- `pincode`: String (Trimmed)
+- `gstin`: String (Trimmed, uppercase, Max 20 chars)
+- `currentBalance`: Number (Default 0.0, Materialized supplier payable outstanding)
+- `totalPurchases`: Number (Default 0.0, Total procurement volume)
+- `totalOrders`: Number (Default 0, Total purchase orders / stock-in receipts)
+- `lastPurchaseDate`: Date (Default null)
+- `lastPaymentDate`: Date (Default null)
+- `status`: String (Enum: ['ACTIVE', 'INACTIVE', 'BLOCKED'], Default 'ACTIVE')
+- `notes`: String (Trimmed)
+- `tags`: Array of Strings (e.g. ['WHOLESALER', 'FMCG'])
+- `timestamps`: true (createdAt, updatedAt)
+
+Compound Indexes:
+- `{ businessId: 1, phone: 1 }` (Unique, partialFilterExpression on non-empty phone)
+- `{ businessId: 1, company: 1 }`
+- `{ businessId: 1, currentBalance: -1 }`
+- `{ businessId: 1, status: 1 }`
+- `{ businessId: 1, createdAt: -1 }`
+
 ================================================================================
 END OF API DOCUMENTATION & TESTING GUIDE
 ================================================================================
+
+

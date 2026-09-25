@@ -16,8 +16,9 @@ API Base URL : http://localhost:3001/api
 [✓] Phase 2: Category & Product Catalog Engine          --> 100% (DONE - T7-T14)
 [✓] Phase 3: Inventory Stock & Ledger Engine            --> 100% (DONE - T15-T22)
 [✓] Phase 4: Sales, Billing, Payments & POS Terminal    --> 100% (DONE - T23-T30)
-[✓] Phase 5: Customer System & Profiles Master (T31-T34) --> 100% (DONE - T31, T32, T33, T34)
-[ ] Phase 6: Analytics, Multi-Store & Advanced Reports  -->   0% (UPCOMING)
+[✓] Phase 5: Customer System & Profiles Master (T31-T36) --> 100% (DONE - T31, T32, T33, T34, T35, T36)
+[⧗] Phase 6: Supplier & Procurement Management (T37-T42)   -->  17% (IN PROGRESS - T37 DONE)
+
 
 ================================================================================
 2. COMPLETED WORK (KAISE & KYA-KYA HO GAYA HAI)
@@ -259,8 +260,52 @@ API Base URL : http://localhost:3001/api
     - Frontend Integration:
       * `CustomersStatsCards.jsx`, `CustomersTable.jsx`, and `POSCustomerModal.jsx` render real-time outstanding balances and debt alerts.
 
+[✓] C28. T35: Customer Credit Payment History & Repayment Log
+    - Purpose & Core Rule: "T35 provides a dedicated, transparent query and visualization layer specifically for customer repayments/settlements made toward past credit balances ('deep trust tracking'). It preserves a transparent chronological history answering 'Ab tak customer ne kab-kab kitna repay kiya?' without mutating data."
+    - Distinction from T33 & T34:
+      * T33: Full sub-ledger (Debit + Credit).
+      * T34: Real-time outstanding debt state ('Abhi kitna baaki hai?').
+      * T35: Repayments-only chronological query layer ('Kab-kab aur kitna repay kiya?').
+    - Aggregation & Filtering Capabilities:
+      * Calculated summary metrics: `totalAmountPaid`, `totalPaymentsCount`, `averagePaymentAmount`, `currentOutstanding`, and `methodBreakdown` ({ CASH, UPI, CARD, OTHER }).
+      * Flexible filtering by `paymentMethod` (CASH, UPI, CARD), date range (`from`, `to`), and cursor/page pagination (`limit`, `page`).
+    - Endpoints Implemented:
+      * `GET /api/customers/:id/payments` (or `/api/customers/:id/payment-history`): Repayment settlements history with filters and summary totals.
+    - Automated Test Suite:
+      * `Backend/tests/test-customer-payment-history.js` (100% tests passing, covering 6 test groups).
+    - Frontend Implementation:
+      * `CustomerPaymentHistoryModal.jsx`: Interactive modal with KPI cards (Total Repaid, Avg Settlement, Remaining Debt), payment method badges, date range filter, and repayment ledger table.
+      * Integrated "Payments" action button in `CustomersTable.jsx` and quick switch in `CustomerLedgerModal.jsx`.
+
+[✓] C29. T36: Customer CRM, 360° Profiling & Debt Aging Engine
+    - Purpose & Core Rule: "T36 unites customer demographics, lifetime sales metrics, visit frequency, average basket size, real-time outstanding balances, debt aging risk analysis (0-30d, 31-60d, 61-90d, 90+d), and recent billing/repayment history into a single high-performance Customer 360° CRM dashboard."
+    - Aggregation & Debt Aging Architecture:
+      * Single aggregation endpoint (`GET /api/customers/:id/crm-summary`): Eliminates multiple round trips by returning full profile, lifetime sales KPIs, real-time debt, aged debt breakdown, 5 recent sales, and 5 recent repayments.
+      * Multi-tier Debt Aging FIFO calculation: Categorizes unpaid receivables into `0-30 Days` (Recent), `31-60 Days` (Moderate), `61-90 Days` (Attention), and `90+ Days` (Critical Overdue).
+      * Lifetime metrics: `totalSalesAmount`, `totalVisits`, `averageSpend`, `firstPurchaseDate`, and `lastPurchaseDate`.
+    - Endpoints Implemented:
+      * `GET /api/customers/:id/crm-summary` (aliases: `/summary`, `/profile`, `/360`): Comprehensive 360° customer CRM aggregation payload.
+    - Automated Test Suite:
+      * `Backend/tests/test-customer-crm-profiling.js` (100% tests passing, covering 5 comprehensive test groups).
+    - Frontend Implementation:
+      * `CustomerCRMModal.jsx`: Modern 360° CRM modal with 4x KPI cards, visual debt aging distribution bar, recent sales tab, recent repayments tab, and demographics inspector.
+      * Direct 360° profile trigger on customer row clicks and dedicated `360° Profile` action button in `CustomersTable.jsx`.
+
+--- [ PHASE 6 : SUPPLIER & PROCUREMENT MANAGEMENT ] ---
+[✓] C30. T37: Supplier Schema DB Model & Master Entity (`src/models/supplier.model.js`)
+    - Purpose & Core Rule: "T37 establishes the permanent Supplier master entity (ID, BusinessID, Company, ContactName, Phone, Email, Address, City, State, Pincode, GSTIN, CurrentBalance, TotalPurchases, TotalOrders, LastPurchaseDate, LastPaymentDate, Status, Notes, Tags) anchored strictly under businessId. It acts as the identity anchor for purchase orders, stock-in inventory receipts, and vendor payments."
+    - Multi-Tenant Scoping Guarantee:
+      * Supplier is strictly scoped to `businessId`. Supplier 'ABC Distributors' in Store A is completely distinct and isolated from Store B.
+      * Compound Partial Unique Index: `{ businessId: 1, phone: 1 }` with `partialFilterExpression: { phone: { $type: "string", $gt: "" } }` ensuring unique phone numbers within a store without collision on optional/empty supplier phone numbers.
+    - Separation of Customer vs Supplier:
+      * Customer (T31-T36): Whom the merchant sells goods to (Money In / Receivables).
+      * Supplier (T37-T42): Whom the merchant procures inventory from (Money Out / Payables).
+      * Clean architectural isolation: Supplier is an independent entity and never embedded inside Product.
+    - Automated Test Suite:
+      * `Backend/tests/test-supplier-schema-model.js` (100% tests passing, covering 8 test groups).
+
 ================================================================================
-3. CURRENT ACTIVE ENDPOINT SUMMARY (71+ APIs)
+3. CURRENT ACTIVE ENDPOINT SUMMARY (73+ APIs)
 ================================================================================
 1.  Health Check              : GET    /
 2.  Register User             : POST   /api/auth/register
@@ -333,12 +378,18 @@ API Base URL : http://localhost:3001/api
 69. Customer Outstanding (T34): GET    /api/customers/:id/outstanding
 70. Debtor Summary List (T34) : GET    /api/customers/outstanding/summary
 71. Store Debt Totals (T34)   : GET    /api/customers/outstanding/totals
+72. Payment History (T35)     : GET    /api/customers/:id/payments
+73. Customer CRM 360 (T36)    : GET    /api/customers/:id/crm-summary
 
 ================================================================================
 4. VERIFICATION & TEST STATUS
 ================================================================================
 - Frontend Build Status: Passed (`npm run build` -> Exit code 0, 0 errors).
 - Backend Automated Test Suites:
+  * `test-supplier-schema-model.js` (T37) -> 100% Passed (8/8 tests).
+  * `test-customer-crm-profiling.js` (T36) -> 100% Passed (5/5 tests).
+
+  * `test-customer-payment-history.js` (T35) -> 100% Passed (6/6 tests).
   * `test-customer-realtime-outstanding.js` (T34) -> 100% Passed (7/7 tests).
   * `test-customer-ledger-transaction-log.js` (T33) -> 100% Passed (7/7 tests).
   * `test-customer-crud-apis.js` (T32) -> 100% Passed (8/8 tests).

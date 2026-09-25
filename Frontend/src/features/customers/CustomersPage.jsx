@@ -9,6 +9,8 @@ import CustomersTable from "./components/CustomersTable";
 import AddCustomerModal from "./components/AddCustomerModal";
 import EditCustomerModal from "./components/EditCustomerModal";
 import CustomerLedgerModal from "./components/CustomerLedgerModal";
+import CustomerPaymentHistoryModal from "./components/CustomerPaymentHistoryModal";
+import CustomerCRMModal from "./components/CustomerCRMModal";
 import SettleKhataModal from "./components/SettleKhataModal";
 
 export default function CustomersPage() {
@@ -23,7 +25,9 @@ export default function CustomersPage() {
   // Modals State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCRMModalOpen, setIsCRMModalOpen] = useState(false);
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+  const [isPaymentHistoryModalOpen, setIsPaymentHistoryModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
@@ -61,6 +65,11 @@ export default function CustomersPage() {
   }, [loadCustomers]);
 
   // Handlers
+  const handleViewProfile = (customer) => {
+    setSelectedCustomer(customer);
+    setIsCRMModalOpen(true);
+  };
+
   const handleEditCustomer = (customer) => {
     setSelectedCustomer(customer);
     setIsEditModalOpen(true);
@@ -69,6 +78,11 @@ export default function CustomersPage() {
   const handleViewLedger = (customer) => {
     setSelectedCustomer(customer);
     setIsLedgerModalOpen(true);
+  };
+
+  const handleViewPaymentHistory = (customer) => {
+    setSelectedCustomer(customer);
+    setIsPaymentHistoryModalOpen(true);
   };
 
   const handleSettlePayment = (customer) => {
@@ -101,8 +115,10 @@ export default function CustomersPage() {
       <CustomersTable
         loading={loading}
         customers={customers}
+        onViewProfile={handleViewProfile}
         onEditCustomer={handleEditCustomer}
         onViewLedger={handleViewLedger}
+        onViewPaymentHistory={handleViewPaymentHistory}
         onSettlePayment={handleSettlePayment}
       />
 
@@ -124,7 +140,33 @@ export default function CustomersPage() {
         onSuccess={() => loadCustomers()}
       />
 
-      {/* ── Customer Khata Ledger Statement Modal (Task T29) ───────── */}
+      {/* ── Customer 360° CRM & Profiling Modal (Task T36) ───────────── */}
+      <CustomerCRMModal
+        isOpen={isCRMModalOpen}
+        onClose={() => {
+          setIsCRMModalOpen(false);
+          setSelectedCustomer(null);
+        }}
+        customer={selectedCustomer}
+        onEditCustomer={(cust) => {
+          setIsCRMModalOpen(false);
+          handleEditCustomer(cust);
+        }}
+        onViewLedger={(cust) => {
+          setIsCRMModalOpen(false);
+          handleViewLedger(cust);
+        }}
+        onViewPaymentHistory={(cust) => {
+          setIsCRMModalOpen(false);
+          handleViewPaymentHistory(cust);
+        }}
+        onSettlePayment={(cust) => {
+          setIsCRMModalOpen(false);
+          handleSettlePayment(cust);
+        }}
+      />
+
+      {/* ── Customer Khata Ledger Statement Modal (Task T33) ───────── */}
       <CustomerLedgerModal
         isOpen={isLedgerModalOpen}
         onClose={() => {
@@ -132,8 +174,34 @@ export default function CustomersPage() {
           setSelectedCustomer(null);
         }}
         customer={selectedCustomer}
+        onViewProfile={(cust) => {
+          setIsLedgerModalOpen(false);
+          handleViewProfile(cust);
+        }}
+        onViewPaymentHistory={(cust) => {
+          setIsLedgerModalOpen(false);
+          handleViewPaymentHistory(cust);
+        }}
         onSettlePayment={(cust) => {
           setIsLedgerModalOpen(false);
+          handleSettlePayment(cust);
+        }}
+      />
+
+      {/* ── Customer Credit Payment History Modal (Task T35) ──────── */}
+      <CustomerPaymentHistoryModal
+        isOpen={isPaymentHistoryModalOpen}
+        onClose={() => {
+          setIsPaymentHistoryModalOpen(false);
+          setSelectedCustomer(null);
+        }}
+        customer={selectedCustomer}
+        onViewProfile={(cust) => {
+          setIsPaymentHistoryModalOpen(false);
+          handleViewProfile(cust);
+        }}
+        onSettlePayment={(cust) => {
+          setIsPaymentHistoryModalOpen(false);
           handleSettlePayment(cust);
         }}
       />

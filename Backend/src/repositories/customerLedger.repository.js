@@ -499,6 +499,128 @@ const getBusinessOutstandingTotals = async (businessId) => {
   };
 };
 
+/**
+ * Phase 5 - Task T35: Customer Credit Payment History
+ * Fetches dedicated, chronological history of all credit repayments & settlements made by a customer toward past balances.
+ */
+const getCustomerPaymentHistory = async (businessId, customerId, filters = {}) => {
+  const customer = await Customer.findOne({ _id: customerId, businessId });
+  if (!customer) {
+    const error = new Error("Customer not found in this business.");
+    error.statusCode = 404;
+    error.code = "CUSTOMER_NOT_FOUND";
+    throw error;
+  }
+
+  const ledgerDoc = await CustomerLedger.findOne({ businessId, customerId });
+  const allEntries = ledgerDoc ? [...ledgerDoc.entries] : [];
+
+  // Filter strictly to repayment / debit settlement events (T35 scope)
+  const paymentEntries = allEntries.filter((e) => {
+    if (e.entryType === "PAYMENT_SETTLEMENT" || e.entryType === "PAYMENT_RECEIVED") {
+      return true;
+    }
+    // Also include debit payments that reduce debt if not explicitly typed
+    const debit = e.debitAmount !== undefined ? e.debitAmount : (e.entryType === "PAYMENT_RECEIVED" ? e.creditAmount : 0);
+    return debit > 0 && e.entryType !== "SALE_CREDIT";
+  });
+
+  // Apply optional filters
+  let filtered = paymentEntries;
+
+  // Date range filter
+  if (filters.from) {
+    const fromDate = new Date(filters.from);
+    if (!isNaN(fromDate.getTime())) {
+      filtered = filtered.filter((p) => new Date(p.createdAt) >= fromDate);
+    }
+  }
+  if (filters.to) {
+    const toDate = new Date(filters.to);
+    if (!isNaN(toDate.getTime())) {
+      // Set to end of day if only date is passed
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((p) => new Date(p.createdAt) <= toDate);
+    }
+  }
+
+  // Payment method filter (e.g. CASH, UPI, CARD, BANK)
+  if (filters.method || filters.paymentMethod) {
+    const targetMethod = (filters.method || filters.paymentMethod).toUpperCase();
+    filtered = filtered.filter((p) => (p.paymentMethod || "CASH").toUpperCase() === targetMethod);
+  }
+
+  // Sort descending (newest repayments first)
+  filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  // Pagination
+  const page = Math.max(1, parseInt(filters.page, 10) || 1);
+  const limit = Math.max(1, Math.min(100, parseInt(filters.limit, 10) || 50));
+  const skip = (page - 1) * limit;
+
+  const paginated = filtered.slice(skip, skip + limit);
+
+  // Compute aggregated summary metrics
+  let totalPaid = 0;
+  const methodBreakdown = {};
+  for (const p of filtered) {
+    const amt = p.debitAmount !== undefined && p.creditAmount !== undefined ? p.debitAmount : (p.entryType === "PAYMENT_RECEIVED" ? p.creditAmount : p.amount || 0);
+    totalPaid += amt || 0;
+    const mode = (p.paymentMethod || "CASH").toUpperCase();
+    methodBreakdown[mode] = Math.round(((methodBreakdown[mode] || 0) + amt) * 100) / 100;
+  }
+  totalPaid = Math.round(totalPaid * 100) / 100;
+  const avgPayment = filtered.length > 0 ? Math.round((totalPaid / filtered.length) * 100) / 100 : 0;
+
+  // Format payment records
+  const formattedPayments = paginated.map((p) => {
+    const amt = p.debitAmount !== undefined && p.creditAmount !== undefined ? p.debitAmount : (p.entryType === "PAYMENT_RECEIVED" ? p.creditAmount : p.amount || 0);
+    const bal = p.balance !== undefined ? p.balance : (p.balanceSnapshot !== undefined ? p.balanceSnapshot : 0);
+
+    return {
+      _id: p._id,
+      paymentId: p._id,
+      amount: amt,
+      paymentMethod: p.paymentMethod || "CASH",
+      date: p.createdAt,
+      createdAt: p.createdAt,
+      balanceAfter: bal,
+      balanceSnapshot: bal,
+      invoiceId: p.saleId || p.invoiceId || null,
+      invoiceNumber: p.invoiceNumber || "",
+      referenceId: p.idempotencyKey || "",
+      notes: p.notes || "",
+      recordedBy: p.createdByName || "Cashier",
+    };
+  });
+
+  return {
+    customer: {
+      id: customer._id,
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      currentBalance: customer.currentBalance,
+      creditLimit: customer.creditLimit,
+      lastPaymentDate: customer.lastPaymentDate,
+    },
+    summary: {
+      totalAmountPaid: totalPaid,
+      totalPaymentsCount: filtered.length,
+      averagePaymentAmount: avgPayment,
+      lastPaymentDate: filtered.length > 0 ? filtered[0].createdAt : customer.lastPaymentDate,
+      methodBreakdown,
+    },
+    payments: formattedPayments,
+    pagination: {
+      total: filtered.length,
+      page,
+      limit,
+      totalPages: Math.ceil(filtered.length / limit) || 1,
+    },
+  };
+};
+
 module.exports = {
   recordSaleCredit,
   recordPaymentSettlement,
@@ -507,4 +629,5 @@ module.exports = {
   getCustomerOutstanding,
   getBusinessOutstandingSummary,
   getBusinessOutstandingTotals,
+  getCustomerPaymentHistory,
 };

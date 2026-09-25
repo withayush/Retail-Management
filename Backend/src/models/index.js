@@ -12,6 +12,7 @@ const OtpChallenge = require("./otpChallenge.model");
 const Payment = require("./payment.model");
 const Product = require("./product.model");
 const Session = require("./session.model");
+const Supplier = require("./supplier.model");
 const Vendor = require("./vendor.model");
 
 module.exports = {
@@ -31,5 +32,7 @@ module.exports = {
   Payment,
   Product,
   Session,
+  Supplier,
   Vendor,
 };
+

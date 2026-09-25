@@ -141,6 +141,20 @@ const appendLedgerEntry = async (businessId, customerId, entryData, user = {}) =
   });
 };
 
+/**
+ * Phase 5 - Task T35: Customer Credit Payment History Service
+ */
+const getCustomerPaymentHistory = async (businessId, customerId, filters = {}) => {
+  return await customerLedgerRepo.getCustomerPaymentHistory(businessId, customerId, filters);
+};
+
+/**
+ * Phase 5 - Task T36: Customer 360° CRM & Profiling Summary Service
+ */
+const getCustomerCRMSummary = async (businessId, customerId) => {
+  return await customerRepo.getCustomerCRMSummary(businessId, customerId);
+};
+
 module.exports = {
   createCustomer,
   getCustomers,
@@ -156,4 +170,6 @@ module.exports = {
   getBusinessOutstandingSummary,
   getBusinessOutstandingTotals,
   recordCustomerPayment,
+  getCustomerPaymentHistory,
+  getCustomerCRMSummary,
 };

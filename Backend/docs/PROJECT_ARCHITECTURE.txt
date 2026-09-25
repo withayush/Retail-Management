@@ -3,7 +3,7 @@
 ====================================================================================================
 Project Name   : VendorOS (Retail & Kirana Store Management Operating System)
 Repository     : https://github.com/withayush/Retail-Management.git
-Current Status : Phase 0 to Phase 5 (Tasks T1 to T34) - 100% Implemented & Verified
+Current Status : Phase 0 to Phase 5 (Tasks T1 to T36) - 100% Implemented & Verified
 Architecture   : 6-Layer Clean Architecture + Multi-Tenant Isolation + Keyboard-First POS
 Author/Vendor  : Ayush Sharma
 Last Updated   : 2026-09-23
@@ -14,10 +14,10 @@ TABLE OF CONTENTS
 1. PROJECT OVERVIEW & CORE DESIGN PRINCIPLES
 2. COMPLETE TECHNOLOGY STACK
 3. 6-LAYER CLEAN ARCHITECTURE PATTERN (DATA FLOW)
-4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6, T31, T32, T33, T34)
+4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6, T31, T32, T33, T34, T35, T36)
 5. COMPLETE REPOSITORY DIRECTORY TREE & FILE ANATOMY
 6. DATABASE SCHEMAS (16 MONGOOSE MODELS) & RELATIONSHIPS
-7. COMPLETE API MATRIX (71+ ENDPOINTS ACROSS 9 MODULES)
+7. COMPLETE API MATRIX (73+ ENDPOINTS ACROSS 9 MODULES)
 8. DETAILED END-TO-END WORKFLOW PIPELINES (ASCII FLOWCHARTS)
    - 8.1 Authentication & Phone OTP Verification Flow
    - 8.2 Multi-Step Business Onboarding Wizard Flow
@@ -535,8 +535,68 @@ Cashier / POS / CRM Frontend         Customer Controller / Service           Cus
         │ 7. 200 OK (Ranked Debtors List)           │                                      │
         │◄──────────────────────────────────────────┤                                      │
 
+----------------------------------------------------------------------------------------------------
+8.14 CUSTOMER CREDIT PAYMENT HISTORY & REPAYMENT LOG ARCHITECTURE (T35)
+----------------------------------------------------------------------------------------------------
+
+Customer / POS Frontend             Customer Controller / Service          CustomerLedger (Repayments)
+        │                                           │                                      │
+        │ 1. GET /api/customers/:id/payments        │                                      │
+        │    (?from, ?to, ?method, ?limit, ?page)   │                                      │
+        ├──────────────────────────────────────────►│ 2. Filter Customer Ledger:           │
+        │                                           │    { businessId, customerId,         │
+        │                                           │      entryType: 'PAYMENT_SETTLEMENT'}│
+        │                                           ├─────────────────────────────────────►│
+        │                                           │ 3. Aggregate Repayment KPIs:         │
+        │                                           │    - totalAmountPaid                 │
+        │                                           │    - averagePaymentAmount            │
+        │                                           │    - methodBreakdown (CASH, UPI...)  │
+        │                                           │ 4. Paginate & Sort (Newest First)    │
+        │                                           │                                      │
+        │ 5. 200 OK (Repayment History + Summary)   │                                      │
+        │    { customer, payments, summary, pagin. }│                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
+----------------------------------------------------------------------------------------------------
+8.15 CUSTOMER 360° CRM & DEBT AGING AGGREGATION ARCHITECTURE (T36)
+----------------------------------------------------------------------------------------------------
+
+Owner / Cashier / CRM Frontend       Customer Controller / Service       Invoice & Customer Master
+        │                                           │                                      │
+        │ 1. GET /api/customers/:id/crm-summary     │                                      │
+        ├──────────────────────────────────────────►│ 2. Multi-Entity Aggregation Pipeline:│
+        │                                           │    - Customer Profile & Contacts     │
+        │                                           │    - Total Spend & Visits Frequency  │
+        │                                           │    - Real-Time Balance & Credit Limit│
+        │                                           │    - FIFO Debt Aging Breakdown:      │
+        │                                           │      [0-30d, 31-60d, 61-90d, 90+d]   │
+        │                                           │    - 5 Recent Sales Invoices         │
+        │                                           │    - 5 Recent Repayments             │
+        │                                           ├─────────────────────────────────────►│
+----------------------------------------------------------------------------------------------------
+8.16 SUPPLIER MASTER SCHEMA & PROCUREMENT ARCHITECTURE (T37)
+----------------------------------------------------------------------------------------------------
+
+Merchant / Inventory Admin           Supplier Service / Repository          MongoDB (Supplier Model)
+        │                                           │                                      │
+        │ 1. Supplier Creation / Procurement Anchor │                                      │
+        │    (Company, Contact, Phone, GSTIN, etc.) │                                      │
+        ├──────────────────────────────────────────►│ 2. Canonical Phone Normalization:    │
+        │                                           │    (+91XXXXXXXXXX)                   │
+        │                                           │ 3. Compound Index Duplicate Check:   │
+        │                                           │    { businessId, phone }             │
+        │                                           ├─────────────────────────────────────►│
+        │                                           │ 4. Persist Supplier Master:          │
+        │                                           │    - Business Scoped (Multi-Tenant)  │
+        │                                           │    - Clean Domain Separation from    │
+        │                                           │      Customer (Money Out vs In)      │
+        │                                           │    - Independent from Product Catalog│
+        │                                           │                                      │
+        │ 5. 200 OK (Supplier Master Registered)    │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
 ====================================================================================================
-9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T33, T34)
+9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T33, T34, T35, T36)
 ====================================================================================================
 
 1. Hardware Barcode Scanner Hook (`useBarcodeScanner.js`):
@@ -566,6 +626,15 @@ Cashier / POS / CRM Frontend         Customer Controller / Service           Cus
 
 7. Real-Time Financial Cards (`CustomersStatsCards.jsx`):
    Displays live store-wide receivable totals, debtor counts, and accounts status without lag.
+
+8. Customer Payment History Modal (`CustomerPaymentHistoryModal.jsx`):
+   Renders dedicated customer repayment history with KPI cards (Total Repaid, Avg Repayment, Current Debt),
+   payment mode breakdown badges, date range filter, and chronological repayment log table.
+
+9. Customer 360° CRM & Profiling Modal (`CustomerCRMModal.jsx`):
+   Combines customer demographic profile, lifetime purchase metrics, order frequency, average basket size,
+   real-time outstanding debt, 4-tier visual debt aging distribution (0-30d, 31-60d, 61-90d, 90+d), recent
+   billing invoices, and recent repayments in an interactive dashboard.
 
 ====================================================================================================
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
@@ -606,27 +675,34 @@ Cashier / POS / CRM Frontend         Customer Controller / Service           Cus
 
 All backend test suites are located in `Backend/tests/`:
 
-1. Real-Time Customer Outstanding Calculations Test (T34):
+1. Supplier Schema DB Model & Multi-Tenant Test (T37):
+   `node tests/test-supplier-schema-model.js`
+2. Customer 360° CRM & Debt Aging Profiling Test (T36):
+   `node tests/test-customer-crm-profiling.js`
+
+2. Customer Credit Payment History Test (T35):
+   `node tests/test-customer-payment-history.js`
+3. Real-Time Customer Outstanding Calculations Test (T34):
    `node tests/test-customer-realtime-outstanding.js`
-2. Customer Ledger Transaction Log Test (T33):
+4. Customer Ledger Transaction Log Test (T33):
    `node tests/test-customer-ledger-transaction-log.js`
-3. Customer CRUD APIs & Phone Normalization Test (T32):
+5. Customer CRUD APIs & Phone Normalization Test (T32):
    `node tests/test-customer-crud-apis.js`
-4. Customer Schema DB Model Test (T31):
+6. Customer Schema DB Model Test (T31):
    `node tests/test-customer-schema-model.js`
-5. Customer Credit & Khata Ledger Test (T29):
+7. Customer Credit & Khata Ledger Test (T29):
    `node tests/test-customer-credit-integration.js`
-6. Payment Recording & Multi-Tranche Settlement Test (T28):
+8. Payment Recording & Multi-Tranche Settlement Test (T28):
    `node tests/test-payment-recording-entity.js`
-7. POS Checkout Atomic Transaction & Rollback Test (T25):
+9. POS Checkout Atomic Transaction & Rollback Test (T25):
    `node tests/test-pos-checkout-transaction.js`
-8. Sale Line Items Price Snapshot Test (T24):
+10. Sale Line Items Price Snapshot Test (T24):
    `node tests/test-sale-items-snapshot.js`
-9. Invoice PDF Generation Test (T27):
+11. Invoice PDF Generation Test (T27):
    `node tests/test-invoice-pdf-generation.js`
-10. Low-Stock Alerts Queue Test (T22):
+12. Low-Stock Alerts Queue Test (T22):
    `node tests/test-low-stock-notifications.js`
-11. Inventory Ledger Statement Test (T21):
+13. Inventory Ledger Statement Test (T21):
    `node tests/test-inventory-ledger-ui.js`
 
 Frontend Build Verification:

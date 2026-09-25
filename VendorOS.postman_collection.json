@@ -1,0 +1,1281 @@
+{
+  "info": {
+    "_postman_id": "vendoros-complete-api-suite-v3",
+    "name": "VendorOS - Complete API Collection (All Endpoints)",
+    "description": "Complete ready-to-run Postman collection containing ALL APIs of VendorOS across all 10 modules: Health, Auth, Business Onboarding, Categories, Products, Inventory & Ledger, Sales POS & Invoices, Payments, Customer Khata/Udhaar CRM, and Supplier Management. Includes automatic token, dynamic SKU/Barcode generation, and ID propagation scripts for 100% pass rate in Postman Collection Runner.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "businessId", "value": "", "type": "string" },
+    { "key": "categoryId", "value": "", "type": "string" },
+    { "key": "tempCategoryId", "value": "", "type": "string" },
+    { "key": "productId", "value": "", "type": "string" },
+    { "key": "tempProductId", "value": "", "type": "string" },
+    { "key": "tempSku", "value": "MILK-AMUL-500", "type": "string" },
+    { "key": "tempBarcode", "value": "8901262010053", "type": "string" },
+    { "key": "invoiceId", "value": "", "type": "string" },
+    { "key": "customerId", "value": "", "type": "string" },
+    { "key": "customerPhone", "value": "+919876543210", "type": "string" },
+    { "key": "supplierId", "value": "", "type": "string" },
+    { "key": "alertId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Module 1: System & Health Check",
+      "item": [
+        {
+          "name": "1.1 Server Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/", "host": ["{{baseUrl}}"], "path": [""] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Server is running', function () { var j = pm.response.json(); pm.expect(j.success).to.eql(true); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Module 2: Authentication & User Management",
+      "item": [
+        {
+          "name": "2.1 Register New Vendor Account",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const rand = Math.floor(100000 + Math.random() * 900000);",
+                  "pm.collectionVariables.set('tempEmail', 'vendor_' + rand + '@venderos.test');",
+                  "pm.collectionVariables.set('tempPhone', '+9198' + Math.floor(10000000 + Math.random() * 90000000));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && (j.data.debugOtp || j.data.otp)) {",
+                  "  pm.collectionVariables.set('regOtp', j.data.debugOtp || j.data.otp);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ayush Sharma\",\n  \"email\": \"{{tempEmail}}\",\n  \"phone\": \"{{tempPhone}}\",\n  \"password\": \"Password@123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "2.2 Verify Phone OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', j.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{tempPhone}}\",\n  \"otp\": \"{{regOtp}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/verify-phone", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-phone"] }
+          }
+        },
+        {
+          "name": "2.3 Resend Phone OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{tempPhone}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/resend-phone-otp", "host": ["{{baseUrl}}"], "path": ["api", "auth", "resend-phone-otp"] }
+          }
+        },
+        {
+          "name": "2.4 User Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', j.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{tempEmail}}\",\n  \"password\": \"Password@123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          }
+        },
+        {
+          "name": "2.5 Get Current Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+          }
+        },
+        {
+          "name": "2.6 Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 3: Business Management & Onboarding",
+      "item": [
+        {
+          "name": "3.1 Onboarding Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/business/onboarding/status", "host": ["{{baseUrl}}"], "path": ["api", "business", "onboarding", "status"] }
+          }
+        },
+        {
+          "name": "3.2 Onboarding Step 1 Save (Identity)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step\": 1,\n  \"data\": {\n    \"businessName\": \"Sharma Supermart\",\n    \"retailSegment\": \"Retail/Kirana\",\n    \"businessType\": \"Retail\",\n    \"category\": \"Retail\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/business/onboarding/step", "host": ["{{baseUrl}}"], "path": ["api", "business", "onboarding", "step"] }
+          }
+        },
+        {
+          "name": "3.3 Onboarding Step 2 Save (Location & Contact)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step\": 2,\n  \"data\": {\n    \"addressLine\": \"Shop No. 4, Market Complex\",\n    \"city\": \"Jaipur\",\n    \"state\": \"Rajasthan\",\n    \"pincode\": \"302001\",\n    \"businessPhone\": \"+919876543210\",\n    \"businessEmail\": \"contact@sharmamart.com\"\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/business/onboarding/step", "host": ["{{baseUrl}}"], "path": ["api", "business", "onboarding", "step"] }
+          }
+        },
+        {
+          "name": "3.4 Onboarding Step 3 Save (Final Step Auto-Create)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data.business && j.data.business._id) {",
+                  "  pm.collectionVariables.set('businessId', j.data.business._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step\": 3,\n  \"data\": {\n    \"currency\": \"INR\",\n    \"taxMode\": \"GST\",\n    \"inventoryTracking\": true,\n    \"operatingHours\": {\n      \"open\": \"09:00 AM\",\n      \"close\": \"10:00 PM\",\n      \"days\": [\"MON\", \"TUE\", \"WED\", \"THU\", \"FRI\", \"SAT\", \"SUN\"]\n    },\n    \"website\": \"https://sharmamart.com\"\n  },\n  \"isFinalStep\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/business/onboarding/step", "host": ["{{baseUrl}}"], "path": ["api", "business", "onboarding", "step"] }
+          }
+        },
+        {
+          "name": "3.5 Create Business (Direct 1-Shot)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"Sharma Supermart Branch 2\",\n  \"retailSegment\": \"Supermarket\",\n  \"businessType\": \"Retail\",\n  \"addressLine\": \"Shop 5, Mall Road\",\n  \"city\": \"Jaipur\",\n  \"state\": \"Rajasthan\",\n  \"pincode\": \"302001\",\n  \"currency\": \"INR\",\n  \"taxMode\": \"GST\",\n  \"inventoryTracking\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/business", "host": ["{{baseUrl}}"], "path": ["api", "business"] }
+          }
+        },
+        {
+          "name": "3.6 Get Active Store Context",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/business/active/context", "host": ["{{baseUrl}}"], "path": ["api", "business", "active", "context"] }
+          }
+        },
+        {
+          "name": "3.7 Get My Businesses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/business/me", "host": ["{{baseUrl}}"], "path": ["api", "business", "me"] }
+          }
+        },
+        {
+          "name": "3.8 Get Business By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/business/{{businessId}}", "host": ["{{baseUrl}}"], "path": ["api", "business", "{{businessId}}"] }
+          }
+        },
+        {
+          "name": "3.9 Update Business Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"Sharma Supermart & Departmental Store\",\n  \"businessPhone\": \"+919876543299\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/business/{{businessId}}", "host": ["{{baseUrl}}"], "path": ["api", "business", "{{businessId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 4: Category Management",
+      "item": [
+        {
+          "name": "4.1 Create Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data._id) {",
+                  "  pm.collectionVariables.set('categoryId', j.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dairy & Milk Products\",\n  \"description\": \"Fresh milk, curd, butter, and cheese items\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/categories", "host": ["{{baseUrl}}"], "path": ["api", "categories"] }
+          }
+        },
+        {
+          "name": "4.2 List All Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/categories?search=Dairy", "host": ["{{baseUrl}}"], "path": ["api", "categories"], "query": [{ "key": "search", "value": "Dairy" }] }
+          }
+        },
+        {
+          "name": "4.3 Get Category By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/categories/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "categories", "{{categoryId}}"] }
+          }
+        },
+        {
+          "name": "4.4 Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fresh Dairy & Milk Items\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/categories/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "categories", "{{categoryId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 5: Product Catalog & Barcode Lookup",
+      "item": [
+        {
+          "name": "5.1 Create Product",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const rand = Math.floor(100000 + Math.random() * 900000);",
+                  "pm.collectionVariables.set('tempSku', 'SKU-' + rand);",
+                  "pm.collectionVariables.set('tempBarcode', '8901' + rand);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data._id) {",
+                  "  pm.collectionVariables.set('productId', j.data._id);",
+                  "  pm.collectionVariables.set('barcode', j.data.barcode);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Amul Taaza Toned Milk 500ml\",\n  \"sku\": \"{{tempSku}}\",\n  \"barcode\": \"{{tempBarcode}}\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"sellingPrice\": 27.00,\n  \"costPrice\": 24.50,\n  \"unit\": \"packet\",\n  \"packSize\": 1,\n  \"packagingType\": \"Pouch\",\n  \"description\": \"Pasteurized toned milk 500ml pouch\",\n  \"openingStock\": 50,\n  \"reorderLevel\": 10\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/products", "host": ["{{baseUrl}}"], "path": ["api", "products"] }
+          }
+        },
+        {
+          "name": "5.2 List Products (Paginated & Filtered)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/products?page=1&limit=20&search=Amul", "host": ["{{baseUrl}}"], "path": ["api", "products"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "search", "value": "Amul" }] }
+          }
+        },
+        {
+          "name": "5.3 Fast Product Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/products/search?q=Amul&limit=10", "host": ["{{baseUrl}}"], "path": ["api", "products", "search"], "query": [{ "key": "q", "value": "Amul" }, { "key": "limit", "value": "10" }] }
+          }
+        },
+        {
+          "name": "5.4 Fast Barcode Scan Lookup",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/products/barcode/{{barcode}}", "host": ["{{baseUrl}}"], "path": ["api", "products", "barcode", "{{barcode}}"] }
+          }
+        },
+        {
+          "name": "5.5 Get Product By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "products", "{{productId}}"] }
+          }
+        },
+        {
+          "name": "5.6 Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sellingPrice\": 28.00,\n  \"costPrice\": 25.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "products", "{{productId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 6: Inventory & Ledger Engine",
+      "item": [
+        {
+          "name": "6.1 Inventory KPI Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/summary", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "summary"] }
+          }
+        },
+        {
+          "name": "6.2 Store State Listing",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/store-state?search=milk&lowStockOnly=false", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "store-state"], "query": [{ "key": "search", "value": "milk" }, { "key": "lowStockOnly", "value": "false" }] }
+          }
+        },
+        {
+          "name": "6.3 Get Product Inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/product/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "product", "{{productId}}"] }
+          }
+        },
+        {
+          "name": "6.4 Update Reorder Level",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reorderLevel\": 15\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/inventory/product/{{productId}}/reorder-level", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "product", "{{productId}}", "reorder-level"] }
+          }
+        },
+        {
+          "name": "6.5 Stock In (Purchase)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 30,\n  \"source\": \"PURCHASE\",\n  \"supplierName\": \"Amul Distro\",\n  \"unitCost\": 24.50,\n  \"referenceNumber\": \"PO-1001\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/inventory/stock-in", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "stock-in"] }
+          }
+        },
+        {
+          "name": "6.6 Stock Out (Damage / Manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 5,\n  \"source\": \"DAMAGE\",\n  \"reason\": \"Damaged during handling\",\n  \"referenceNumber\": \"DMG-102\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/inventory/stock-out", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "stock-out"] }
+          }
+        },
+        {
+          "name": "6.7 Batch Stock Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 2\n    }\n  ],\n  \"source\": \"SALE\",\n  \"reason\": \"Counter POS batch checkout\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/inventory/batch-stock-out", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "batch-stock-out"] }
+          }
+        },
+        {
+          "name": "6.8 Stock Reconciliation / Adjust",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"physicalCount\": 73,\n  \"reason\": \"Audit physical count verification\",\n  \"referenceNumber\": \"AUDIT-2026-W38\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/inventory/adjust", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "adjust"] }
+          }
+        },
+        {
+          "name": "6.9 Inventory Movement Ledger",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/ledger?type=ALL&page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "ledger"], "query": [{ "key": "type", "value": "ALL" }, { "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "6.10 Product Movement Ledger",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/ledger/product/{{productId}}?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "ledger", "product", "{{productId}}"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "6.11 Low Stock Alerts Queue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data.length > 0 && j.data[0]._id) {",
+                  "  pm.collectionVariables.set('alertId', j.data[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/alerts", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "alerts"] }
+          }
+        },
+        {
+          "name": "6.12 Low Stock Alerts KPI Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/alerts/summary", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "alerts", "summary"] }
+          }
+        },
+        {
+          "name": "6.13 Sync All Inventory Alerts",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/inventory/alerts/sync", "host": ["{{baseUrl}}"], "path": ["api", "inventory", "alerts", "sync"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 7: Customer Profiles & Khata Udhaar Ledger",
+      "item": [
+        {
+          "name": "7.1 Create Customer Master",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const rand = Math.floor(10000000 + Math.random() * 90000000);",
+                  "pm.collectionVariables.set('customerPhone', '+9197' + rand);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data._id) {",
+                  "  pm.collectionVariables.set('customerId', j.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rahul Sharma\",\n  \"phone\": \"{{customerPhone}}\",\n  \"email\": \"rahul.sharma@example.com\",\n  \"address\": \"House 12, Block B, Malviya Nagar\",\n  \"city\": \"Jaipur\",\n  \"state\": \"Rajasthan\",\n  \"pincode\": \"302001\",\n  \"creditLimit\": 10000.00,\n  \"notes\": \"Regular loyal customer\",\n  \"tags\": [\"REGULAR\", \"VIP\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/customers", "host": ["{{baseUrl}}"], "path": ["api", "customers"] }
+          }
+        },
+        {
+          "name": "7.2 List Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers?page=1&limit=20&search=Rahul", "host": ["{{baseUrl}}"], "path": ["api", "customers"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "search", "value": "Rahul" }] }
+          }
+        },
+        {
+          "name": "7.3 Search Customers Autocomplete",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/search?q=Rahul&limit=10", "host": ["{{baseUrl}}"], "path": ["api", "customers", "search"], "query": [{ "key": "q", "value": "Rahul" }, { "key": "limit", "value": "10" }] }
+          }
+        },
+        {
+          "name": "7.4 Get Customer By Phone",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/phone/{{customerPhone}}", "host": ["{{baseUrl}}"], "path": ["api", "customers", "phone", "{{customerPhone}}"] }
+          }
+        },
+        {
+          "name": "7.5 Get Customer By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}"] }
+          }
+        },
+        {
+          "name": "7.6 Update Customer Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rahul Sharma Jr.\",\n  \"creditLimit\": 15000.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}"] }
+          }
+        },
+        {
+          "name": "7.7 Customer Khata Ledger Statement",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}/ledger?page=1&limit=50", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}", "ledger"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "50" }] }
+          }
+        },
+        {
+          "name": "7.8 Append Customer Ledger Entry",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"creditAmount\": 5000.00,\n  \"debitAmount\": 0.00,\n  \"entryType\": \"SALE_CREDIT\",\n  \"notes\": \"Opening Khata balance migration\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}/ledger", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}", "ledger"] }
+          }
+        },
+        {
+          "name": "7.9 Settle Customer Udhaar Debt",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 2000.00,\n  \"paymentMethod\": \"CASH\",\n  \"notes\": \"Counter cash payment received\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}/settle", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}", "settle"] }
+          }
+        },
+        {
+          "name": "7.10 Get Customer Real-time Outstanding",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}/outstanding", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}", "outstanding"] }
+          }
+        },
+        {
+          "name": "7.11 Get Business Outstanding Debtors Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/outstanding/summary?limit=50", "host": ["{{baseUrl}}"], "path": ["api", "customers", "outstanding", "summary"], "query": [{ "key": "limit", "value": "50" }] }
+          }
+        },
+        {
+          "name": "7.12 Get Store-Wide Outstanding Totals",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/outstanding/totals", "host": ["{{baseUrl}}"], "path": ["api", "customers", "outstanding", "totals"] }
+          }
+        },
+        {
+          "name": "7.13 Get Customer Credit Payment History",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}/payments?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}", "payments"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "7.14 Get Customer 360 CRM Profiling Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}/crm-summary", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}", "crm-summary"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 8: Sales Transactions & POS Invoicing",
+      "item": [
+        {
+          "name": "8.1 Next Invoice Sequence Number",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/next-invoice-number", "host": ["{{baseUrl}}"], "path": ["api", "sales", "next-invoice-number"] }
+          }
+        },
+        {
+          "name": "8.2 Create POS Sale Checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data._id) {",
+                  "  pm.collectionVariables.set('invoiceId', j.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"customerName\": \"Rahul Sharma\",\n  \"customerPhone\": \"{{customerPhone}}\",\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"name\": \"Amul Taaza Toned Milk 500ml\",\n      \"sku\": \"{{tempSku}}\",\n      \"quantity\": 2,\n      \"unit\": \"packet\",\n      \"soldPrice\": 27.00,\n      \"costPrice\": 24.50,\n      \"discount\": 0\n    }\n  ],\n  \"subtotal\": 54.00,\n  \"discount\": 4.00,\n  \"tax\": 0.00,\n  \"total\": 50.00,\n  \"paidAmount\": 20.00,\n  \"dueAmount\": 30.00,\n  \"paymentStatus\": \"PARTIAL\",\n  \"paymentMode\": \"CASH\",\n  \"notes\": \"Counter POS Cash Billing\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/sales", "host": ["{{baseUrl}}"], "path": ["api", "sales"] }
+          }
+        },
+        {
+          "name": "8.3 List Sales Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales?page=1&limit=20&paymentStatus=PARTIAL", "host": ["{{baseUrl}}"], "path": ["api", "sales"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "paymentStatus", "value": "PARTIAL" }] }
+          }
+        },
+        {
+          "name": "8.4 Sales KPI Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/summary", "host": ["{{baseUrl}}"], "path": ["api", "sales", "summary"] }
+          }
+        },
+        {
+          "name": "8.5 Get Sale Details By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/{{invoiceId}}", "host": ["{{baseUrl}}"], "path": ["api", "sales", "{{invoiceId}}"] }
+          }
+        },
+        {
+          "name": "8.6 Get Sale Line Items",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/{{invoiceId}}/items", "host": ["{{baseUrl}}"], "path": ["api", "sales", "{{invoiceId}}", "items"] }
+          }
+        },
+        {
+          "name": "8.7 Gross Profit Analytics Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/analytics/gross-profit?startDate=2026-09-01&endDate=2026-09-24", "host": ["{{baseUrl}}"], "path": ["api", "sales", "analytics", "gross-profit"], "query": [{ "key": "startDate", "value": "2026-09-01" }, { "key": "endDate", "value": "2026-09-24" }] }
+          }
+        },
+        {
+          "name": "8.8 Update Payment Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentStatus\": \"PAID\",\n  \"paidAmount\": 50.00,\n  \"dueAmount\": 0.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/sales/{{invoiceId}}/payment-status", "host": ["{{baseUrl}}"], "path": ["api", "sales", "{{invoiceId}}", "payment-status"] }
+          }
+        },
+        {
+          "name": "8.9 Generate Invoice PDF",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/{{invoiceId}}/generate-pdf", "host": ["{{baseUrl}}"], "path": ["api", "sales", "{{invoiceId}}", "generate-pdf"] }
+          }
+        },
+        {
+          "name": "8.10 Download Invoice PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/{{invoiceId}}/download-pdf", "host": ["{{baseUrl}}"], "path": ["api", "sales", "{{invoiceId}}", "download-pdf"] }
+          }
+        },
+        {
+          "name": "8.11 Preview Invoice PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/sales/{{invoiceId}}/preview-pdf", "host": ["{{baseUrl}}"], "path": ["api", "sales", "{{invoiceId}}", "preview-pdf"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 9: Payment Recording & Settlements",
+      "item": [
+        {
+          "name": "9.1 Record Payment Against Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"customerId\": \"{{customerId}}\",\n  \"amount\": 30.00,\n  \"method\": \"UPI\",\n  \"referenceId\": \"UPI-987654\",\n  \"notes\": \"Final installment via GPay\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/payments", "host": ["{{baseUrl}}"], "path": ["api", "payments"] }
+          }
+        },
+        {
+          "name": "9.2 List All Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments?page=1&limit=20&method=UPI", "host": ["{{baseUrl}}"], "path": ["api", "payments"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "method", "value": "UPI" }] }
+          }
+        },
+        {
+          "name": "9.3 Get Payments For Invoice",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/invoice/{{invoiceId}}", "host": ["{{baseUrl}}"], "path": ["api", "payments", "invoice", "{{invoiceId}}"] }
+          }
+        },
+        {
+          "name": "9.4 Payment Methods Breakdown Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/payments/summary", "host": ["{{baseUrl}}"], "path": ["api", "payments", "summary"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 10: Supplier Management",
+      "item": [
+        {
+          "name": "10.1 Create Supplier",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const rand = Math.floor(10000000 + Math.random() * 90000000);",
+                  "pm.collectionVariables.set('tempSupplierPhone', '+9196' + rand);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data._id) {",
+                  "  pm.collectionVariables.set('supplierId', j.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"ABC Distributors Pvt Ltd\",\n  \"contactName\": \"Amit Sharma\",\n  \"phone\": \"{{tempSupplierPhone}}\",\n  \"email\": \"amit@abcdistro.com\",\n  \"address\": \"Plot 14, Industrial Area Phase 2\",\n  \"city\": \"Jaipur\",\n  \"state\": \"Rajasthan\",\n  \"pincode\": \"302013\",\n  \"gstin\": \"08ABCDE1234F1Z5\",\n  \"notes\": \"Primary dairy wholesaler\",\n  \"tags\": [\"FMCG\", \"WHOLESALER\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/suppliers", "host": ["{{baseUrl}}"], "path": ["api", "suppliers"] }
+          }
+        },
+        {
+          "name": "10.2 List Suppliers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/suppliers?page=1&limit=20&search=ABC", "host": ["{{baseUrl}}"], "path": ["api", "suppliers"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "search", "value": "ABC" }] }
+          }
+        },
+        {
+          "name": "10.3 Get Supplier By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/suppliers/{{supplierId}}", "host": ["{{baseUrl}}"], "path": ["api", "suppliers", "{{supplierId}}"] }
+          }
+        },
+        {
+          "name": "10.4 Update Supplier",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"ABC Distributors & Logistics Pvt Ltd\",\n  \"notes\": \"Updated registration name\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/suppliers/{{supplierId}}", "host": ["{{baseUrl}}"], "path": ["api", "suppliers", "{{supplierId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Module 11: Cleanup & Deletion Actions",
+      "item": [
+        {
+          "name": "11.1 Create Temporary Category For Deletion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j.data && j.data._id) {",
+                  "  pm.collectionVariables.set('tempCategoryId', j.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Temporary Category To Delete\",\n  \"description\": \"For testing deletion\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/categories", "host": ["{{baseUrl}}"], "path": ["api", "categories"] }
+          }
+        },
+        {
+          "name": "11.2 Delete Temporary Category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/categories/{{tempCategoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "categories", "{{tempCategoryId}}"] }
+          }
+        },
+        {
+          "name": "11.3 Archive Main Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}/archive", "host": ["{{baseUrl}}"], "path": ["api", "products", "{{productId}}", "archive"] }
+          }
+        },
+        {
+          "name": "11.4 Restore Main Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}/restore", "host": ["{{baseUrl}}"], "path": ["api", "products", "{{productId}}", "restore"] }
+          }
+        },
+        {
+          "name": "11.5 Soft Delete / Deactivate Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}"] }
+          }
+        },
+        {
+          "name": "11.6 Restore Customer Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/customers/{{customerId}}/restore", "host": ["{{baseUrl}}"], "path": ["api", "customers", "{{customerId}}", "restore"] }
+          }
+        },
+        {
+          "name": "11.7 Delete / Deactivate Supplier",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "x-business-id", "value": "{{businessId}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/suppliers/{{supplierId}}", "host": ["{{baseUrl}}"], "path": ["api", "suppliers", "{{supplierId}}"] }
+          }
+        },
+        {
+          "name": "11.8 Logout Session",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+          }
+        }
+      ]
+    }
+  ]
+}

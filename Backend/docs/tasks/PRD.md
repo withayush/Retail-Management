@@ -64,7 +64,7 @@
   - Khata settlement engine (`POST /api/customers/:id/settle`) for recording customer repayments and clearing outstanding balances.
 - **T30: Billing Checkout Front Terminal**: Full-featured React cashier POS interface with barcode scanner detection, keyboard shortcuts, quick cart, customer selection modal, and payment settlement modal.
 
-### Phase 5: Customer System, Profiles Master & Transaction Log (T31–T34)
+### Phase 5: Customer System, Profiles Master & CRM (T31–T36)
 - **T31: Customer Schema DB Model & Demographics**:
   - Establishes business-scoped customer master profile entity (Name, Phone, Email, Address, City, State, Pincode, Credit Limit, Status, Notes, Tags).
   - Multi-tenant phone uniqueness: Compound index `{ businessId: 1, phone: 1 }` with partial filter expression prevents duplicate phone numbers within a store while gracefully handling optional/empty phone numbers.
@@ -87,6 +87,26 @@
   - Atomic synchronization: Balance updates happen synchronously in the same transaction as ledger appends.
   - Fast O(1) single-customer query (`GET /api/customers/:id/outstanding`) returning real-time debt, credit limits, and available credit.
   - Store-wide debtor rankings and receivables dashboard aggregation (`GET /api/customers/outstanding/summary`, `/totals`) powered by `{ businessId: 1, currentBalance: -1 }`.
+- **T35: Customer Credit Payment History & Repayment Log**:
+  - Transparent query and visualization layer specifically for customer repayments/settlements made toward past credit balances ("deep trust tracking").
+  - Answers "Ab tak customer ne kab-kab kitna repay kiya?" without mutating financial data.
+  - Dedicated endpoint `GET /api/customers/:id/payments` with date range filters (`from`, `to`), payment mode filter (`method`), and pagination.
+  - Summarizes `totalAmountPaid`, `totalPaymentsCount`, `averagePaymentAmount`, and `methodBreakdown` ({ CASH, UPI, CARD }).
+  - Dedicated interactive UI modal `CustomerPaymentHistoryModal.jsx` with KPI cards and payment mode breakdown badges.
+- **T36: Customer CRM & Profiling UI (Customer 360° View)**:
+  - Single-roundtrip Customer 360° dashboard consolidating demographic profiles, lifetime sales KPIs, visit frequencies, average order spend, real-time outstanding balances, debt aging, and recent activity logs.
+  - FIFO Debt Aging Risk Classification: Evaluates unpaid invoices to compute due balances across 4 time buckets (`0-30 Days`, `31-60 Days`, `61-90 Days`, `90+ Days`).
+  - Read-Only Aggregation Architecture: Aggregates data across `Customer`, `Invoice`, and `CustomerLedger` collections via `GET /api/customers/:id/crm-summary` with zero ledger mutation overhead.
+  - Frontend Modal `CustomerCRMModal.jsx`: Modern glassmorphism dark-themed profile dashboard featuring KPI summary cards, visual aging distribution bar, tabbed activity feeds (Sales Invoices, Repayments, Demographics), and 1-click modal shortcuts (Edit, Ledger, Settle Debt).
+
+### Phase 6: Supplier & Procurement Management (T37–T42)
+- **T37: Supplier Schema DB Model & Master Entity**:
+  - Establishes business-scoped Supplier master entity (Company, ContactName, Phone, Email, Address, City, State, Pincode, GSTIN, CurrentBalance, TotalPurchases, TotalOrders, LastPurchaseDate, LastPaymentDate, Status, Notes, Tags).
+  - Multi-tenant phone uniqueness: Compound index `{ businessId: 1, phone: 1 }` with partial filter expression prevents duplicate phone numbers within a store while gracefully handling optional/empty phone numbers.
+  - Clear domain separation: Customer (Money In / Sales) vs Supplier (Money Out / Purchases). Supplier is an independent entity and never embedded inside Product.
+  - Non-destructive soft-delete / deactivation (`status: 'INACTIVE'`) preserving historic purchase orders and inventory stock-in ledgers.
+
+
 
 ---
 
