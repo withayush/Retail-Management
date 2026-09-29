@@ -15,13 +15,15 @@ export const getInventoryLedger = async (params = {}) => {
   return response.data;
 };
 
-export const stockIn = async (payload) => {
-  const response = await api.post("/inventory/stock-in", payload);
+export const stockIn = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/inventory/stock-in", payload, { headers });
   return response.data;
 };
 
-export const stockOut = async (payload) => {
-  const response = await api.post("/inventory/stock-out", payload);
+export const stockOut = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/inventory/stock-out", payload, { headers });
   return response.data;
 };
 
@@ -35,18 +37,21 @@ export const updateReorderLevel = async (productId, payload) => {
   return response.data;
 };
 
-export const adjustStock = async (payload) => {
-  const response = await api.post("/inventory/adjust", payload);
+export const adjustStock = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/inventory/adjust", payload, { headers });
   return response.data;
 };
 
-export const initializeOpeningStock = async (payload) => {
-  const response = await api.post("/inventory/opening-stock", payload);
+export const initializeOpeningStock = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/inventory/opening-stock", payload, { headers });
   return response.data;
 };
 
-export const batchStockOut = async (payload) => {
-  const response = await api.post("/inventory/stock-out/batch", payload);
+export const batchStockOut = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/inventory/stock-out/batch", payload, { headers });
   return response.data;
 };
 

@@ -17,7 +17,11 @@ API Base URL : http://localhost:3001/api
 [✓] Phase 3: Inventory Stock & Ledger Engine            --> 100% (DONE - T15-T22)
 [✓] Phase 4: Sales, Billing, Payments & POS Terminal    --> 100% (DONE - T23-T30)
 [✓] Phase 5: Customer System & Profiles Master (T31-T36) --> 100% (DONE - T31, T32, T33, T34, T35, T36)
-[⧗] Phase 6: Supplier & Procurement Management (T37-T42)   -->  17% (IN PROGRESS - T37 DONE)
+[✓] Phase 6: Supplier & Procurement Management (T37-T41)   --> 100% (DONE - T37, T38, T39, T40, T41)
+[⧗] Phase 7: Purchasing & Stock In (T42+)                   -->  60% (IN PROGRESS - T42, T43, T44 DONE)
+
+
+
 
 
 ================================================================================
@@ -304,9 +308,147 @@ API Base URL : http://localhost:3001/api
     - Automated Test Suite:
       * `Backend/tests/test-supplier-schema-model.js` (100% tests passing, covering 8 test groups).
 
+[✓] C31. T38: Supplier REST CRUD APIs, Search & Lifecycle Engine
+    - Purpose & Core Rule: "T38 provides the complete REST CRUD API suite for managing business-scoped vendor and distributor registries, ensuring strict multi-tenant isolation, automatic canonical phone normalization (+91XXXXXXXXXX), duplicate phone collision prevention, and soft-delete/restore semantics."
+    - Endpoints Implemented:
+      * `POST /api/suppliers`: Create supplier with canonical phone formatting and duplicate prevention.
+      * `GET /api/suppliers`: Paginated supplier listing with search, city, and status filters.
+      * `GET /api/suppliers/search`: Rapid autocomplete search by company, contactName, phone.
+      * `GET /api/suppliers/phone/:phone`: Quick lookup by raw/formatted mobile phone.
+      * `GET /api/suppliers/summary`: Supplier directory KPI totals (total, active, inactive, payable balance).
+      * `GET /api/suppliers/:id`: Single supplier profile lookup.
+      * `PUT /api/suppliers/:id`: Demographic, address, status, and GSTIN updates with phone re-validation.
+      * `DELETE /api/suppliers/:id`: Safe soft-delete (sets `status: 'INACTIVE'`).
+      * `POST /api/suppliers/:id/archive`: Explicit archival with history preservation.
+      * `POST /api/suppliers/:id/restore`: Reactivation of archived/inactive suppliers.
+
+[✓] C32. T39: Supplier Ledger Transaction Log & Accounts Payable Sub-Ledger
+    - Purpose & Core Rule: "T39 establishes the supplier-side financial transaction log tracking inventory purchase deliveries vs. supplier payment disbursements (`InvoiceValue`, `PaymentAmount`, `Balance`). It acts as the inverted symmetrical counterpart to Customer Ledger (T33):
+        * Customer (T33): Customer owes Business (Receivable).
+        * Supplier (T39): Business owes Supplier (Accounts Payable).
+        * Running Balance Formula: Authoritative Balance = Previous Balance + InvoiceValue (Purchase Credit) - PaymentAmount (Disbursement)."
+    - Append-Only Financial Auditability:
+      * Historical ledger entries are strictly immutable. Corrections are handled via append-only ADJUSTMENT entries, preserving audit compliance.
+      * Materialized atomic synchronization: Every purchase delivery receipt or payout disbursement updates `Supplier.currentBalance`, `lastPurchaseDate`, `lastPaymentDate`, and `totalPurchases` atomically.
+      * Idempotency guards prevent duplicate purchase logging across retries.
+    - Endpoints Implemented:
+      * `GET /api/suppliers/:id/ledger`: Bank-statement style running ledger history with summary aggregates (`totalPurchasesValue`, `totalPaymentsMade`, `currentPayableOutstanding`).
+      * `POST /api/suppliers/:id/settle` (and `POST /api/suppliers/:id/payments`): Record payout disbursement to supplier reducing accounts payable.
+      * `POST /api/suppliers/:id/ledger`: Append manual opening balance or adjustment transaction.
+      * `POST /api/suppliers/:id/purchases/credit`: Direct inventory purchase delivery credit entry.
+      * `GET /api/suppliers/:id/outstanding`: Single-supplier real-time payable lookup.
+      * `GET /api/suppliers/payables/summary`: Store-wide supplier debt ranking.
+      * `GET /api/suppliers/payables/totals`: Store-wide aggregate payable totals and vendor counts.
+    - Automated Test Suite:
+      * `Backend/tests/test-supplier-ledger-transaction-log.js` (100% tests passing, covering 11 test groups).
+    - Frontend Implementation:
+      * `SupplierLedgerModal.jsx`: Modern dark-mode bank statement audit modal with 3x KPI cards, date-formatted ledger table, and manual adjustment form.
+      * `SettleSupplierModal.jsx`: Payment disbursement modal with payment method selector (Bank Transfer, UPI, Cash, Cheque, Card), reference ID / UTR, and quick "Pay Full" button.
+      * Action buttons integrated directly into `SuppliersTable.jsx` and `SuppliersPage.jsx`.
+
+[✓] C33. T40: Outstanding Payables Indexer & Cash Allocation Engine
+    - Purpose & Core Rule: "T40 maintains a fast-access, precomputed, and materialized indexer of accounts payable debt owed to suppliers (`Supplier.currentBalance`), tracking raw cash allocation required for stock procurement settlements. It represents the supplier-side equivalent of Customer Outstanding (T34)."
+    - Fast Materialized Balance & Indexing Architecture:
+      * Compound index `{ businessId: 1, currentBalance: -1 }` on `Supplier` collection delivers $O(1)$ single-supplier reads and sub-millisecond sorted rankings across high-volume supplier registries.
+      * Real-Time Automatic Synchronization: Every stock delivery receipt (`T39`) and settlement payment immediately synchronizes `Supplier.currentBalance`, eliminating expensive whole-collection map-reduce runs on dashboard lookups.
+      * Cash Planning & Liability Metrics: Computes `totalPayableOutstanding`, `suppliersWithPayablesCount`, `highestPayableSupplier`, and `averagePayablePerSupplier`.
+    - Endpoints Implemented:
+      * `GET /api/suppliers/:id/outstanding`: Single-supplier real-time balance check with purchase/payment recency.
+      * `GET /api/suppliers/payables/summary`: Ranked index of creditors with non-zero dues sorted descending.
+      * `GET /api/suppliers/payables/totals`: Store-wide cash allocation totals and liability KPIs.
+    - Automated Test Suite:
+      * `Backend/tests/test-supplier-outstanding-payables-indexer.js` (100% tests passing, covering 8 test groups).
+    - Frontend Implementation:
+      * `OutstandingPayablesModal.jsx`: Interactive Payables Indexer modal with 4x cash allocation metric cards, minimum-due threshold filters (All, ≥ ₹5k, ≥ ₹20k, ≥ ₹50k), ranked creditor table, and direct 1-click shortcuts to disburse payments or inspect full ledgers.
+      * Integrated 1-click Payables Indexer trigger on the `Payable Balance` KPI card in `SupplierStatsCards.jsx` and dedicated action button on `SuppliersPage.jsx`.
+
+[✓] C34. T41: Supplier Management Center UI & 360° Profile Center
+    - Purpose & Core Rule: "T41 implements the comprehensive Supplier 360° Management Center interface combining Supplier Master Directory (T37/T38), Historical Ledger Statements (T39), and Real-Time Payables Indexer (T40). It provides the merchant with an authoritative, single-screen procurement dashboard:
+        * Identifies active inventory suppliers, contact persons, phone numbers, and addresses.
+        * Displays real-time accounts payable liability owed to each supplier without client-side recalculation.
+        * Tracks chronological stock delivery receipts (latest 5) and payout settlements (latest 5).
+        * Delivers high-level procurement velocity metrics (lifetime volume, total purchase count, average purchase order size)."
+    - Single-Roundtrip Aggregation Architecture:
+      * Unified Backend 360 Endpoint: `GET /api/suppliers/:id/summary-360` (with route aliases `GET /:id/360` and `GET /:id/crm-summary`).
+      * Assembles master demographic profile, pre-aggregated financial lifetime counters, running balance, recent stock delivery receipts, and payout disbursements in a single DB roundtrip.
+    - Endpoints Implemented:
+      * `GET /api/suppliers/:id/summary-360`: Complete Supplier 360° overview and procurement velocity payload.
+      * `GET /api/suppliers/:id/360`: Route alias.
+      * `GET /api/suppliers/:id/crm-summary`: Route alias for architectural symmetry with Customer CRM (T36).
+    - Automated Test Suite:
+      * `Backend/tests/test-supplier-360-management-center.js` (100% tests passing, covering 5 test groups).
+    - Frontend Implementation:
+[✓] C34. T41: Supplier Management Center UI & 360° Profile Center
+    - Purpose & Core Rule: "T41 implements the comprehensive Supplier 360° Management Center interface combining Supplier Master Directory (T37/T38), Historical Ledger Statements (T39), and Real-Time Payables Indexer (T40)."
+    - Automated Test Suite: `Backend/tests/test-supplier-360-management-center.js` (100% Passed).
+
+--- [ PHASE 7 : PURCHASING & STOCK IN ] ---
+[✓] C35. T42: Purchase Order Schema DB Model & Procurement Order Header (`src/models/purchaseOrder.model.js`)
+    - Purpose & Core Rule: "T42 establishes the formal Purchase Order (PO) entity representing stock order requests sent to suppliers. It tracks order date, expected delivery date, status (DRAFT, PENDING, PARTIAL, RECEIVED, CANCELLED), and reliable server-calculated cost totals."
+    - Crucial Architectural Distinctions:
+      * 1. PO ≠ Inventory Stock IN: Creating a PO does NOT increase stock in product inventory (Stock increases only when items physically arrive upon receipt in future tasks).
+      * 2. PO ≠ Supplier Accounts Payable: Creating a PO does NOT post ledger debts into SupplierLedger or increase Supplier.currentBalance (Payables arise upon goods receipt / supplier invoice).
+    - Multi-Tenant & Sequential PO Generation:
+      * Compound unique index: `{ businessId: 1, poNumber: 1 }`.
+      * Automatic sequential numbering (PO-1001, PO-1002, etc.) per store tenant.
+      * Server-side cost calculation: `costTotal = Σ(item.quantity * item.unitCost)`.
+    - Endpoints Implemented:
+      * `POST /api/purchase-orders`: Create formal purchase order with validation.
+      * `GET /api/purchase-orders`: Filtered & paginated list of purchase orders.
+      * `GET /api/purchase-orders/summary`: Store-wide PO KPI metrics (draft, pending, received, total value).
+      * `GET /api/purchase-orders/number/:poNumber`: Fast lookup by PO number.
+      * `GET /api/purchase-orders/supplier/:supplierId`: All POs placed with a specific vendor.
+      * `GET /api/purchase-orders/:id`: Single PO lookup with populated supplier and product info.
+      * `PUT /api/purchase-orders/:id`: Modify PO details and recalculate totals.
+      * `PATCH /api/purchase-orders/:id/status`: Controlled lifecycle status transitions.
+      * `POST /api/purchase-orders/:id/cancel` / `DELETE /:id`: Cancel purchase order.
+    - Automated Test Suite:
+      * `Backend/tests/test-purchase-order-schema-model.js` (100% tests passing, covering 8 test groups).
+
+[✓] C36. T43: Purchase Item Schema DB Model & Line Items Snapshot (`src/models/purchaseItem.model.js`)
+    - Purpose & Core Rule: "T43 establishes the individual line item model for purchase orders (`PurchaseItem`), mirroring the sales line item architecture (`SaleItem` T24) for procurement. It captures exactly which products were ordered, how many units, and the exact negotiated purchase cost price."
+    - Architectural Principles & Invariants:
+      * 1. Cost Price Snapshot Preservation: `costPrice` is frozen at PO creation. Future changes to catalog product cost prices in `Product` collection NEVER alter historical PO line items.
+      * 2. Ordered Qty Distinction: `qty` represents ordered quantity; physical inventory remains untouched until goods receipt / stock-in (`T44+`).
+      * 3. Symmetrical Line Structure: Fields include `_id`, `businessId`, `purchaseOrderId`, `productId`, `name`, `sku`, `unit`, `costPrice`, `qty`, `totalCost`, `receivedQty`.
+      * 4. Automatic Line Deduplication: Duplicate lines for the same product in a PO are automatically aggregated and merged.
+      * 5. No Direct Payable / Ledger Posting: PO item records do NOT generate supplier ledger debts or modify `Supplier.currentBalance`.
+      * 6. Multi-Tenant Scoped: Indexed on `{ businessId: 1, purchaseOrderId: 1 }` and `{ businessId: 1, productId: 1, createdAt: -1 }`.
+    - Endpoints Implemented:
+      * `GET /api/purchase-orders/:id/items`: Retrieve all line item snapshots for a specific purchase order.
+      * `GET /api/purchase-orders/items/product/:productId`: Historic purchase cost price snapshots for a product across all POs.
+      * `GET /api/purchase-orders/product/:productId`: Direct route alias for product purchase history.
+    - Automated Test Suite:
+      * `Backend/tests/test-purchase-item-schema-model.js` (100% tests passing, covering 9 test groups).
+    - Frontend Implementation:
+      * `CreatePurchaseOrderModal.jsx`: Pre-loads store catalog products, autofills product name, SKU, unit, and default cost price upon selection, allows negotiated custom purchase cost overrides, and links `productId`.
+      * `purchaseOrder.api.js`: Added `getPurchaseOrderItems` and `getProductPurchaseHistory` API client methods.
+
+[✓] C37. T44: Goods Received Note (GRN) API & Physical Stock Receiving Engine (`src/models/grn.model.js`)
+    - Purpose & Core Rule: "T44 is the actual physical stock receipt point in the procurement workflow. While PO (T42/T43) records what was ordered, GRN records what physical inventory supplier delivered, validates partial or full deliveries, computes variances, executes atomic Inventory Stock IN (T18), writes immutable Inventory Movement Ledger logs (T16), and advances the PO lifecycle status."
+    - Core Principles & Guarantees:
+      * 1. Physical Stock Verification: Stock IN only occurs upon GRN creation, never on PO creation.
+      * 2. Partial Delivery & PO Progression: Supports partial shipments (`PENDING` -> `PARTIAL` -> `RECEIVED`).
+      * 3. Over-Delivery & Tolerance Guards: Protects against unexpected over-deliveries with configurable thresholds and explicit override toggles.
+      * 4. Atomic Inventory & Ledger Integration: Increments `availableStock` on `Inventory` and writes audited `InventoryLedger` logs (`type: 'IN'`, `source: 'GOODS_RECEIPT'`, `referenceNumber: grnNumber`, `referenceId: grnId`).
+      * 5. Line Item Received Tracking: Increments `receivedQuantity` on `PurchaseItem` and embedded PO items.
+    - Endpoints Implemented:
+      * `POST /api/purchases/receive`: Primary physical stock receipt confirmation endpoint generating a sequential GRN (`GRN-1001`).
+      * `GET /api/purchases/grn`: Paginated listing of Goods Received Notes with date, supplier, and search filters.
+      * `GET /api/purchases/grn/:id`: Single GRN record inspection with full line items and cost totals.
+      * `GET /api/purchases/grn/po/:purchaseOrderId`: All Goods Received Notes associated with a specific Purchase Order.
+      * `GET /api/purchases/grn/summary`: Store-wide GRN KPIs (total receipts count, total units received, total procurement cost received).
+    - Automated Test Suite:
+      * `Backend/tests/test-goods-received-note-api.js` (100% tests passing, covering 12 test groups).
+    - Frontend Implementation:
+      * `ReceiveGoodsModal.jsx`: Modern receiving modal with line items table (ordered, received, remaining, receiving input, line variance, line cost), 1-click "Receive All Remaining", inspection notes, and past GRN receipt history tab.
+      * Integrated 1-click "Receive Stock (GRN)" triggers inside `PurchaseOrdersListModal.jsx` and `Supplier360Modal.jsx`.
+
+
 ================================================================================
-3. CURRENT ACTIVE ENDPOINT SUMMARY (73+ APIs)
+3. CURRENT ACTIVE ENDPOINT SUMMARY (108+ APIs)
 ================================================================================
+
 1.  Health Check              : GET    /
 2.  Register User             : POST   /api/auth/register
 3.  Verify Phone OTP          : POST   /api/auth/verify-phone
@@ -380,14 +522,59 @@ API Base URL : http://localhost:3001/api
 71. Store Debt Totals (T34)   : GET    /api/customers/outstanding/totals
 72. Payment History (T35)     : GET    /api/customers/:id/payments
 73. Customer CRM 360 (T36)    : GET    /api/customers/:id/crm-summary
+74. Create Supplier (T37/T38) : POST   /api/suppliers
+75. List Suppliers (T38)      : GET    /api/suppliers
+76. Search Suppliers (T38)    : GET    /api/suppliers/search
+77. Supplier by Phone (T38)   : GET    /api/suppliers/phone/:phone
+78. Supplier Summary (T38)    : GET    /api/suppliers/summary
+79. Single Supplier (T38)     : GET    /api/suppliers/:id
+80. Update Supplier (T38)     : PUT    /api/suppliers/:id
+81. Soft-Delete Supplier (T38): DELETE /api/suppliers/:id
+82. Archive Supplier (T38)    : POST   /api/suppliers/:id/archive
+83. Restore Supplier (T38)    : POST   /api/suppliers/:id/restore
+84. Supplier Ledger (T39)      : GET    /api/suppliers/:id/ledger
+85. Disburse Supplier Payment  : POST   /api/suppliers/:id/settle
+86. Append Supplier Ledger (T39): POST   /api/suppliers/:id/ledger
+87. Purchase Credit (T39)      : POST   /api/suppliers/:id/purchases/credit
+88. Supplier Outstanding (T40) : GET    /api/suppliers/:id/outstanding
+89. Payables Summary (T40)     : GET    /api/suppliers/payables/summary
+90. Payables Totals (T40)      : GET    /api/suppliers/payables/totals
+91. Supplier 360 Summary (T41) : GET    /api/suppliers/:id/summary-360
+92. Create Purchase Order (T42): POST   /api/purchase-orders
+93. List Purchase Orders (T42) : GET    /api/purchase-orders
+94. PO Summary KPIs (T42)      : GET    /api/purchase-orders/summary
+95. PO by Number (T42)         : GET    /api/purchase-orders/number/:poNumber
+96. Supplier POs (T42)         : GET    /api/purchase-orders/supplier/:supplierId
+97. Single Purchase Order (T42): GET    /api/purchase-orders/:id
+98. Update Purchase Order (T42): PUT    /api/purchase-orders/:id
+99. Update PO Status (T42)     : PATCH  /api/purchase-orders/:id/status
+100.Cancel PO (T42)            : POST   /api/purchase-orders/:id/cancel
+101.PO Line Items (T43)         : GET    /api/purchase-orders/:id/items
+102.Product PO Line History(T43): GET    /api/purchase-orders/items/product/:productId
+103.Product PO Route Alias (T43): GET    /api/purchase-orders/product/:productId
+104.Goods Receipt Receive (T44) : POST   /api/purchases/receive
+105.List GRN History (T44)      : GET    /api/purchases/grn
+106.Single GRN Record (T44)     : GET    /api/purchases/grn/:id
+107.PO Specific GRNs (T44)      : GET    /api/purchases/grn/po/:purchaseOrderId
+108.GRN Summary KPIs (T44)      : GET    /api/purchases/grn/summary
 
-================================================================================
+===============================================================================
 4. VERIFICATION & TEST STATUS
-================================================================================
+===============================================================================
 - Frontend Build Status: Passed (`npm run build` -> Exit code 0, 0 errors).
 - Backend Automated Test Suites:
+  * `test-goods-received-note-api.js` (T44) -> 100% Passed (12/12 tests).
+  * `test-purchase-item-schema-model.js` (T43) -> 100% Passed (9/9 tests).
+  * `test-purchase-order-schema-model.js` (T42) -> 100% Passed (8/8 tests).
+  * `test-supplier-360-management-center.js` (T41) -> 100% Passed (5/5 tests).
+  * `test-supplier-outstanding-payables-indexer.js` (T40) -> 100% Passed (8/8 tests).
+  * `test-supplier-ledger-transaction-log.js` (T39) -> 100% Passed (11/11 tests).
+  * `test-supplier-crud-apis.js` (T38) -> 100% Passed (10/10 tests).
   * `test-supplier-schema-model.js` (T37) -> 100% Passed (8/8 tests).
   * `test-customer-crm-profiling.js` (T36) -> 100% Passed (5/5 tests).
+
+
+
 
   * `test-customer-payment-history.js` (T35) -> 100% Passed (6/6 tests).
   * `test-customer-realtime-outstanding.js` (T34) -> 100% Passed (7/7 tests).

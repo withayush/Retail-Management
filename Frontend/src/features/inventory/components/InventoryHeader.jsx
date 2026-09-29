@@ -10,23 +10,23 @@ export default function InventoryHeader({
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/80 flex items-center justify-center text-zinc-200">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-[#0066CC]/20 border border-[#0066CC]/30 flex items-center justify-center text-[#54A7FF]">
             <Boxes className="w-4 h-4" />
           </div>
-          <h1 className="text-lg md:text-xl font-bold text-white tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
             Inventory & Stock Ledger
           </h1>
         </div>
-        <p className="text-xs text-zinc-400 mt-1">
-          Live stock levels, movement ledger audit trail, and low-stock alerts
+        <p className="text-xs text-[#6E6E73] mt-1">
+          Real-time stock audit, movement trail, and proactive catalog alerts
         </p>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2.5 shrink-0">
         <button
           onClick={onStockIn}
-          className="px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+          className="apple-btn-primary text-xs py-2 px-4 shadow-[0_2px_12px_rgba(0,102,204,0.35)]"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Stock In</span>
@@ -34,17 +34,17 @@ export default function InventoryHeader({
 
         <button
           onClick={onStockOut}
-          className="px-3.5 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+          className="apple-btn-secondary text-xs py-2 px-4"
         >
-          <Minus className="w-3.5 h-3.5" />
+          <Minus className="w-3.5 h-3.5 text-[#FF791B]" />
           <span>Stock Out</span>
         </button>
 
         <button
           onClick={onRefresh}
-          className="px-3 py-2 rounded-xl bg-[#141417] border border-[#27272a] text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
+          className="apple-btn-secondary text-xs py-2 px-3.5"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-white" : ""}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#0066CC]" : ""}`} />
           <span>Refresh</span>
         </button>
       </div>

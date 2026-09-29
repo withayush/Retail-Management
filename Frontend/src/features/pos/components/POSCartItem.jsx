@@ -6,24 +6,24 @@ export default function POSCartItem({ item, onUpdateQuantity, onSetQuantity, onR
   const lineTotal = item.sellingPrice * item.quantity;
 
   return (
-    <div className="pt-2 first:pt-0 pb-1 flex items-center justify-between gap-2 group">
+    <div className="pt-2.5 first:pt-0 pb-1.5 flex items-center justify-between gap-3 group">
       <div className="flex-1 min-w-0">
-        <h4 className="font-semibold text-xs text-zinc-100 truncate group-hover:text-white transition-colors">
+        <h4 className="font-semibold text-xs text-white truncate group-hover:text-white transition-colors tracking-tight">
           {item.name}
         </h4>
-        <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#6E6E73] mt-0.5">
           <span>₹{item.sellingPrice.toFixed(2)}</span>
-          <span className="text-zinc-600">/</span>
-          <span className="text-zinc-500">{item.unit || "pcs"}</span>
+          <span className="text-[#6E6E73]/40">/</span>
+          <span>{item.unit || "pcs"}</span>
         </div>
       </div>
 
-      {/* Quantity Controller with Direct Input */}
-      <div className="flex items-center gap-1 bg-[#141417] border border-[#27272a] rounded-lg p-0.5">
+      {/* Quantity Stepper Controller */}
+      <div className="flex items-center gap-1 bg-[#1D1D1F] border border-[#D2D2D7]/14 rounded-full p-0.5 shadow-xs">
         <button
           type="button"
           onClick={() => onUpdateQuantity(id, -1)}
-          className="w-5 h-5 rounded flex items-center justify-center hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer active:scale-90 transition-transform"
+          className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white/10 text-[#6E6E73] hover:text-white cursor-pointer active:scale-90 transition-transform"
         >
           <Minus className="w-3 h-3" />
         </button>
@@ -39,13 +39,13 @@ export default function POSCartItem({ item, onUpdateQuantity, onSetQuantity, onR
               if (onSetQuantity) onSetQuantity(id, val);
             }
           }}
-          className="w-8 text-center font-mono font-bold text-xs text-zinc-100 bg-transparent focus:outline-none focus:bg-zinc-800 rounded py-0.5"
+          className="w-8 text-center font-mono font-bold text-xs text-white bg-transparent focus:outline-none rounded py-0.5"
         />
 
         <button
           type="button"
           onClick={() => onUpdateQuantity(id, 1)}
-          className="w-5 h-5 rounded flex items-center justify-center hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer active:scale-90 transition-transform"
+          className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-white/10 text-[#6E6E73] hover:text-white cursor-pointer active:scale-90 transition-transform"
         >
           <Plus className="w-3 h-3" />
         </button>
@@ -60,7 +60,7 @@ export default function POSCartItem({ item, onUpdateQuantity, onSetQuantity, onR
           type="button"
           onClick={() => onRemove(id)}
           title="Remove item"
-          className="text-zinc-500 hover:text-red-400 p-0.5 transition-colors cursor-pointer"
+          className="text-[#6E6E73] hover:text-[#FF791B] p-0.5 transition-colors cursor-pointer"
         >
           <Trash2 className="w-3 h-3" />
         </button>

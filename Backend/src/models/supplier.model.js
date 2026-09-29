@@ -151,4 +151,157 @@ supplierSchema.index({ businessId: 1, createdAt: -1 });
 
 const Supplier = mongoose.model("Supplier", supplierSchema);
 
-module.exports = Supplier;
+/**
+ * Phase 6 - Task T39: Supplier Ledger Transaction Log
+ * Double-entry / sub-ledger transaction log recording every procurement credit (+InvoiceValue)
+ * and payment disbursement (-PaymentAmount) to track business accounts payable owed to suppliers.
+ * 
+ * Symmetrical counterpart to Customer Ledger (T33), but inverted financial relationship:
+ * - Customer owes Business (Receivable)
+ * - Business owes Supplier (Payable)
+ * 
+ * Formula: Running Balance = Previous Balance + InvoiceValue (Purchase) - PaymentAmount (Disbursement)
+ * Schema: (ID, SupplierID, InvoiceValue, PaymentAmount, Balance, PurchaseID, ReferenceID, PaymentMethod, Notes, CreatedAt)
+ */
+const supplierLedgerEntrySchema = new mongoose.Schema(
+  {
+    supplierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      required: true,
+      index: true,
+    },
+    purchaseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Purchase",
+      default: null,
+    },
+    purchaseInvoiceNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    entryType: {
+      type: String,
+      required: true,
+      enum: ["PURCHASE_CREDIT", "PAYMENT_MADE", "OPENING_BALANCE", "ADJUSTMENT", "REFUND"],
+      default: "PURCHASE_CREDIT",
+    },
+    // Purchase / Procurement cost delivered on credit (Increases payable debt)
+    invoiceValue: {
+      type: Number,
+      required: true,
+      default: 0.0,
+      min: 0,
+    },
+    // Cash / Bank payout made to supplier (Decreases payable debt)
+    paymentAmount: {
+      type: Number,
+      required: true,
+      default: 0.0,
+      min: 0,
+    },
+    // Authoritative running payable balance after this entry
+    balance: {
+      type: Number,
+      required: true,
+      default: 0.0,
+      min: 0,
+    },
+    balanceSnapshot: {
+      type: Number,
+      required: true,
+      default: 0.0,
+      min: 0,
+    },
+    paymentMethod: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      enum: ["CASH", "UPI", "BANK_TRANSFER", "CHEQUE", "CARD", "OTHER", ""],
+      default: "",
+    },
+    referenceId: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    notes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Account",
+      default: null,
+    },
+    createdByName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
+/**
+ * Supplier Ledger Document (1:1 with Supplier per Business Tenant)
+ */
+const supplierLedgerSchema = new mongoose.Schema(
+  {
+    businessId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      required: true,
+      index: true,
+    },
+    supplierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      required: true,
+      index: true,
+    },
+    supplierCompany: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
+    },
+    supplierPhone: {
+      type: String,
+      trim: true,
+      maxlength: 20,
+      default: "",
+    },
+    balance: {
+      type: Number,
+      required: true,
+      default: 0.0,
+      min: 0,
+    },
+    entries: [supplierLedgerEntrySchema],
+  },
+  { timestamps: true }
+);
+
+// Multi-tenant unique index: 1 ledger per supplier per business
+supplierLedgerSchema.index({ businessId: 1, supplierId: 1 }, { unique: true });
+supplierLedgerSchema.index({ businessId: 1, supplierPhone: 1 });
+supplierLedgerSchema.index({ businessId: 1, balance: -1 });
+supplierLedgerSchema.index({ "entries.idempotencyKey": 1 });
+supplierLedgerSchema.index({ "entries.purchaseId": 1 });
+supplierLedgerSchema.index({ "entries.purchaseInvoiceNumber": 1 });
+
+const SupplierLedger = mongoose.model("SupplierLedger", supplierLedgerSchema);
+
+module.exports = {
+  Supplier,
+  SupplierLedger,
+};
+

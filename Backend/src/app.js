@@ -11,6 +11,9 @@ const saleRoutes = require("./routes/sale.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const customerRoutes = require("./routes/customer.routes");
 const supplierRoutes = require("./routes/supplier.routes");
+const purchaseOrderRoutes = require("./routes/purchaseOrder.routes");
+const purchaseRoutes = require("./routes/purchase.routes");
+const reconciliationRoutes = require("./routes/reconciliation.routes");
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
@@ -33,7 +36,11 @@ app.use(
       "x-business-id",
       "x-tenant-id",
       "x-requested-with",
+      "Idempotency-Key",
+      "idempotency-key",
+      "x-idempotency-key",
     ],
+    exposedHeaders: ["Idempotency-Key", "X-Cache"],
     optionsSuccessStatus: 200,
   })
 );
@@ -70,6 +77,11 @@ app.use("/api/invoices", saleRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/suppliers", supplierRoutes);
+app.use("/api/purchase-orders", purchaseOrderRoutes);
+app.use("/api/purchases/orders", purchaseOrderRoutes);
+app.use("/api/purchases", purchaseRoutes);
+app.use("/api/grn", purchaseRoutes);
+app.use("/api/reconciliation", reconciliationRoutes);
 
 app.use(errorHandler);
 

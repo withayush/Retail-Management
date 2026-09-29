@@ -32,7 +32,7 @@ export default function AppLayout({ children }) {
     });
   }, []);
 
-  // Global Keyboard Shortcuts (Ctrl+K for search, Ctrl+B for sidebar toggle, F2 for POS)
+  // Global Apple Keyboard Shortcuts (Cmd/Ctrl+K for search, Cmd/Ctrl+B for sidebar toggle, F2 for POS)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -54,8 +54,8 @@ export default function AppLayout({ children }) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen flex bg-[#09090b] text-zinc-100 antialiased font-sans">
-      {/* Persistent Responsive Sidebar */}
+    <div className="min-h-screen flex bg-black text-white antialiased font-sans selection:bg-[#0066CC]/40 selection:text-white">
+      {/* Persistent Apple Sidebar */}
       <Sidebar
         user={user}
         business={business}
@@ -66,8 +66,8 @@ export default function AppLayout({ children }) {
         onLogout={logout}
       />
 
-      {/* Main Column */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#09090b]">
+      {/* Main Apple Canvas */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-black">
         <Header
           user={user}
           onOpenMobileSidebar={() => setIsMobileOpen(true)}
@@ -75,13 +75,13 @@ export default function AppLayout({ children }) {
           onLogout={logout}
         />
 
-        {/* Dynamic Page View Area with Smooth Page Entry */}
-        <main key={location.pathname} className="flex-1 overflow-y-auto bg-[#09090b] page-enter">
+        {/* Dynamic Page View Area with Apple Page Enter animation */}
+        <main key={location.pathname} className="flex-1 overflow-y-auto bg-black page-enter">
           {children || <Outlet />}
         </main>
       </div>
 
-      {/* Universal Search Modal */}
+      {/* Apple Spotlight Search Modal */}
       <UniversalSearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}

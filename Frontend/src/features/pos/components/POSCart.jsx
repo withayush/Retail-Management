@@ -27,19 +27,19 @@ export default function POSCart({
   onCheckout,
 }) {
   return (
-    <div className="w-full md:w-[410px] flex flex-col bg-[#0c0c0e] border-l border-[#1f1f23] h-full justify-between select-none">
+    <div className="w-full md:w-[420px] flex flex-col bg-[#161617]/95 backdrop-blur-2xl border-l border-[#D2D2D7]/12 h-full justify-between select-none shadow-[0_0_32px_rgba(0,0,0,0.5)]">
       {/* ── Cart Header & Customer Indicator ──────────────────────────── */}
-      <div className="p-3 border-b border-[#1f1f23] bg-[#0c0c0e] space-y-2">
+      <div className="p-4 border-b border-[#D2D2D7]/10 bg-black/40 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-zinc-800 text-zinc-200 flex items-center justify-center font-bold shadow-inner">
-              <ShoppingCart className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[#0066CC]/20 border border-[#0066CC]/30 text-[#54A7FF] flex items-center justify-center font-bold shadow-sm">
+              <ShoppingCart className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
-                Current Order
-                <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.2 rounded font-mono">
-                  {cart.length} item{cart.length === 1 ? "" : "s"}
+              <h2 className="text-xs font-bold text-white flex items-center gap-2 tracking-tight">
+                Active Order
+                <span className="text-[10px] bg-white/10 text-[#D2D2D7] px-2 py-0.5 rounded-full font-mono">
+                  {cart.length} {cart.length === 1 ? "item" : "items"}
                 </span>
               </h2>
             </div>
@@ -49,10 +49,10 @@ export default function POSCart({
             <button
               onClick={onClearCart}
               title="Clear Cart (Ctrl+D)"
-              className="text-xs text-zinc-400 hover:text-red-400 flex items-center gap-1 cursor-pointer transition-colors px-1.5 py-0.5 rounded hover:bg-red-500/10"
+              className="text-xs text-[#6E6E73] hover:text-[#FF791B] flex items-center gap-1.5 cursor-pointer transition-colors px-2.5 py-1 rounded-full hover:bg-[#B64400]/15"
             >
               <Trash2 className="w-3 h-3" />
-              <span className="text-[10px]">Clear</span>
+              <span className="text-[11px] font-medium">Clear</span>
             </button>
           )}
         </div>
@@ -60,53 +60,53 @@ export default function POSCart({
         {/* Customer Selector / Banner (F4) */}
         <div
           onClick={onOpenCustomerModal}
-          className="p-2 rounded-xl bg-[#141417] border border-[#27272a] hover:border-zinc-500 flex items-center justify-between cursor-pointer transition-all group"
+          className="p-3 rounded-[18px] bg-[#1D1D1F] border border-[#D2D2D7]/14 hover:border-[#0066CC]/60 flex items-center justify-between cursor-pointer transition-all group shadow-sm"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-white">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#D2D2D7] group-hover:text-white group-hover:border-[#0066CC]/50 transition-colors">
               <User className="w-3.5 h-3.5" />
             </div>
             <div className="truncate">
               {customer ? (
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-xs text-zinc-100 truncate">{customer.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-xs text-white truncate">{customer.name}</span>
                     {(customer.currentBalance || 0) > 0 && (
-                      <span className="text-[9px] bg-red-500/10 text-red-400 px-1 py-0.2 rounded font-mono border border-red-500/20">
+                      <span className="text-[9px] bg-[#FF791B]/15 text-[#FFA466] px-2 py-0.5 rounded-full font-mono border border-[#FF791B]/30">
                         Khata: ₹{customer.currentBalance.toFixed(0)}
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-zinc-500 font-mono">{customer.phone}</span>
+                  <span className="text-[10px] text-[#6E6E73] font-mono">{customer.phone}</span>
                 </div>
               ) : (
                 <div>
-                  <span className="text-xs text-zinc-300 font-medium">Walk-in Customer</span>
-                  <span className="text-[10px] text-zinc-500 block">Click or press F4 to attach</span>
+                  <span className="text-xs text-white font-medium">Walk-in Customer</span>
+                  <span className="text-[10px] text-[#6E6E73] block">Click or press F4 to attach customer</span>
                 </div>
               )}
             </div>
           </div>
 
-          <kbd className="text-[10px] font-mono text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
+          <kbd className="text-[10px] font-mono text-[#D2D2D7] bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
             F4
           </kbd>
         </div>
       </div>
 
       {/* ── Cart Items List ───────────────────────────────────────────── */}
-      <div className="flex-1 p-3 overflow-y-auto space-y-1 divide-y divide-[#1f1f23]">
+      <div className="flex-1 p-3 overflow-y-auto space-y-1.5 divide-y divide-[#D2D2D7]/8">
         {cart.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500">
-            <div className="w-12 h-12 rounded-2xl bg-[#141417] border border-[#27272a] flex items-center justify-center mb-2">
-              <ShoppingCart className="w-6 h-6 text-zinc-500" />
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 text-[#6E6E73]">
+            <div className="w-14 h-14 rounded-[18px] bg-[#1D1D1F] border border-[#D2D2D7]/12 flex items-center justify-center mb-3 shadow-lg">
+              <ShoppingCart className="w-6 h-6 text-[#6E6E73]" />
             </div>
-            <p className="font-semibold text-xs text-zinc-300">Terminal Cart is Empty</p>
-            <p className="text-[11px] text-zinc-500 mt-1 max-w-[220px]">
-              Scan barcodes or select items from catalog to start billing.
+            <p className="font-semibold text-xs text-white">Cart is Empty</p>
+            <p className="text-[11px] text-[#6E6E73] mt-1 max-w-[220px]">
+              Scan barcodes or select products from catalog to build invoice.
             </p>
-            <span className="mt-3 text-[10px] bg-zinc-800/80 text-zinc-400 border border-zinc-700 px-2 py-1 rounded font-mono">
-              Press [F2] to Search / Scan
+            <span className="mt-4 text-[10px] bg-white/5 text-[#D2D2D7] border border-white/10 px-3 py-1 rounded-full font-mono">
+              Press [F2] to Scan / Search
             </span>
           </div>
         ) : (
@@ -123,21 +123,21 @@ export default function POSCart({
       </div>
 
       {/* ── Cart Billing Summary, Discount & Checkout ─────────────────── */}
-      <div className="p-3 bg-[#0c0c0e] border-t border-[#1f1f23] space-y-2.5">
+      <div className="p-4 bg-black/50 border-t border-[#D2D2D7]/12 space-y-3">
         {/* Quick Order Discount Row (F8) */}
-        <div className="flex items-center justify-between gap-2 bg-[#141417] p-1.5 rounded-xl border border-[#27272a]">
-          <div className="flex items-center gap-1.5 text-xs text-zinc-400 pl-1">
-            <Tag className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="text-[11px] font-medium">Discount (F8):</span>
+        <div className="flex items-center justify-between gap-2 bg-[#1D1D1F] p-2 rounded-[18px] border border-[#D2D2D7]/14">
+          <div className="flex items-center gap-2 text-xs text-[#D2D2D7] pl-1.5">
+            <Tag className="w-3.5 h-3.5 text-[#0066CC]" />
+            <span className="text-[11px] font-semibold">Discount (F8):</span>
           </div>
 
-          <div className="flex items-center gap-1">
-            <div className="flex rounded-lg overflow-hidden border border-[#27272a] text-[10px] font-bold">
+          <div className="flex items-center gap-1.5">
+            <div className="flex rounded-full overflow-hidden border border-[#D2D2D7]/16 text-[10px] font-bold">
               <button
                 type="button"
                 onClick={() => setDiscountType("flat")}
-                className={`px-1.5 py-0.5 ${
-                  discountType === "flat" ? "bg-zinc-700 text-white" : "bg-[#18181b] text-zinc-400"
+                className={`px-2.5 py-0.5 transition-colors ${
+                  discountType === "flat" ? "bg-[#0066CC] text-white" : "bg-[#1D1D1F] text-[#6E6E73]"
                 }`}
               >
                 ₹
@@ -145,8 +145,8 @@ export default function POSCart({
               <button
                 type="button"
                 onClick={() => setDiscountType("percent")}
-                className={`px-1.5 py-0.5 ${
-                  discountType === "percent" ? "bg-zinc-700 text-white" : "bg-[#18181b] text-zinc-400"
+                className={`px-2.5 py-0.5 transition-colors ${
+                  discountType === "percent" ? "bg-[#0066CC] text-white" : "bg-[#1D1D1F] text-[#6E6E73]"
                 }`}
               >
                 %
@@ -160,13 +160,13 @@ export default function POSCart({
               placeholder="0"
               value={discountValue}
               onChange={(e) => setDiscountValue(e.target.value)}
-              className="w-14 bg-[#18181b] border border-[#27272a] rounded-lg px-2 py-0.5 text-xs font-mono text-right text-zinc-100 focus:outline-none focus:border-zinc-500"
+              className="w-16 bg-black/40 border border-[#D2D2D7]/16 rounded-full px-2.5 py-1 text-xs font-mono text-right text-white focus:outline-none focus:border-[#0066CC]"
             />
           </div>
         </div>
 
-        {/* Payment Mode Selector */}
-        <div className="grid grid-cols-4 gap-1 bg-[#141417] p-1 rounded-xl border border-[#27272a] text-xs text-center font-medium">
+        {/* Payment Mode Segmented Control */}
+        <div className="grid grid-cols-4 gap-1.5 bg-[#1D1D1F] p-1.5 rounded-full border border-[#D2D2D7]/14 text-xs text-center font-semibold">
           {[
             { id: "CASH", label: "CASH", key: "1" },
             { id: "UPI", label: "UPI", key: "2" },
@@ -180,69 +180,69 @@ export default function POSCart({
                 key={mode.id}
                 type="button"
                 onClick={() => setPaymentMode(mode.id)}
-                className={`py-1.5 rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                className={`py-1.5 rounded-full transition-all duration-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
                   isSelected
                     ? isUdhar
-                      ? "bg-amber-400 text-zinc-950 font-bold shadow-xs"
-                      : "bg-white text-zinc-950 font-semibold shadow-xs"
+                      ? "bg-[#FF791B] text-white font-bold shadow-[0_2px_10px_rgba(255,121,27,0.4)]"
+                      : "bg-[#0066CC] text-white font-bold shadow-[0_2px_10px_rgba(0,102,204,0.4)]"
                     : isUdhar
-                    ? "text-amber-400/80 hover:text-amber-300"
-                    : "text-zinc-400 hover:text-zinc-200"
+                    ? "text-[#FF791B]/70 hover:text-[#FF791B]"
+                    : "text-[#6E6E73] hover:text-white"
                 }`}
               >
-                <span className="text-[11px] font-bold leading-none">{mode.label}</span>
+                <span className="text-[11px] leading-none">{mode.label}</span>
                 <span className="text-[8px] opacity-60 font-mono">^{mode.key}</span>
               </button>
             );
           })}
         </div>
 
-        {/* UPI Ref ID Input (If UPI is selected) */}
+        {/* UPI Ref ID Input */}
         {paymentMode === "UPI" && (
-          <div className="animate-fadeIn">
+          <div className="animate-fade-in">
             <input
               placeholder="UPI Reference ID / UTR (Optional)"
               value={upiRefId}
               onChange={(e) => setUpiRefId(e.target.value)}
-              className="w-full bg-[#141417] border border-[#27272a] rounded-lg px-2.5 py-1 text-xs text-zinc-100 placeholder:text-zinc-500 font-mono focus:outline-none focus:border-zinc-500"
+              className="w-full bg-[#1D1D1F] border border-[#D2D2D7]/16 rounded-full px-3.5 py-1.5 text-xs text-white placeholder-[#6E6E73] font-mono focus:outline-none focus:border-[#0066CC]"
             />
           </div>
         )}
 
         {/* Udhaar Helper Banner */}
         {paymentMode === "UDHAR" && (
-          <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg p-2 text-[11px] text-amber-300 flex items-center gap-1.5 animate-fadeIn">
+          <div className="bg-[#B64400]/15 border border-[#B64400]/30 rounded-[18px] p-2.5 text-[11px] text-[#FFA466] flex items-center gap-2 animate-fade-in">
             <span className="text-sm">📒</span>
             <span>
               {customer
-                ? `Routes ₹${grandTotal.toFixed(2)} to ${customer.name}'s Khata.`
+                ? `Booking ₹${grandTotal.toFixed(2)} to ${customer.name}'s Khata ledger.`
                 : "Attach customer (F4) to book sale on Udhaar."}
             </span>
           </div>
         )}
 
         {/* Billing Math Breakdown */}
-        <div className="space-y-1 text-xs pt-1">
-          <div className="flex justify-between text-zinc-400">
+        <div className="space-y-1.5 text-xs pt-1">
+          <div className="flex justify-between text-[#6E6E73]">
             <span>Subtotal:</span>
-            <span className="font-mono text-zinc-300">₹{subtotal.toFixed(2)}</span>
+            <span className="font-mono text-[#D2D2D7]">₹{subtotal.toFixed(2)}</span>
           </div>
 
           {discountAmount > 0 && (
-            <div className="flex justify-between text-emerald-400 font-medium">
-              <span>Discount:</span>
+            <div className="flex justify-between text-[#54A7FF] font-medium">
+              <span>Applied Discount:</span>
               <span className="font-mono">-₹{discountAmount.toFixed(2)}</span>
             </div>
           )}
 
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-[#6E6E73]">
             <span>GST (5%):</span>
-            <span className="font-mono text-zinc-300">₹{gstAmount.toFixed(2)}</span>
+            <span className="font-mono text-[#D2D2D7]">₹{gstAmount.toFixed(2)}</span>
           </div>
 
-          <div className="flex justify-between text-sm font-bold text-white pt-1.5 border-t border-[#1f1f23]">
+          <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-[#D2D2D7]/10">
             <span>Grand Total:</span>
-            <span className="font-mono text-base text-white">
+            <span className="font-mono text-lg text-white font-bold">
               ₹{grandTotal.toFixed(2)}
             </span>
           </div>
@@ -252,17 +252,17 @@ export default function POSCart({
         <button
           disabled={cart.length === 0 || checkingOut}
           onClick={onCheckout}
-          className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`w-full py-3 rounded-full font-bold text-xs shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
             paymentMode === "UDHAR"
-              ? "bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-amber-950/20"
-              : "bg-white hover:bg-zinc-200 text-zinc-950"
+              ? "bg-[#FF791B] hover:bg-[#FF8A4C] text-white shadow-[0_4px_20px_rgba(255,121,27,0.4)]"
+              : "bg-[#0066CC] hover:bg-[#0077ED] text-white shadow-[0_4px_20px_rgba(0,102,204,0.4)]"
           }`}
         >
-          <CreditCard className={`w-3.5 h-3.5 ${checkingOut ? "animate-pulse" : ""}`} />
+          <CreditCard className={`w-4 h-4 ${checkingOut ? "animate-pulse" : ""}`} />
           {checkingOut
             ? "Processing Checkout..."
             : paymentMode === "UDHAR"
-            ? `Book ₹${grandTotal.toFixed(2)} on Udhaar [F9] 📒`
+            ? `Book ₹${grandTotal.toFixed(2)} on Udhaar [F9]`
             : `Charge ₹${grandTotal.toFixed(2)} (${paymentMode}) [F9]`}
         </button>
       </div>

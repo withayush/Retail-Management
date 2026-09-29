@@ -636,6 +636,10 @@ Merchant / Inventory Admin           Supplier Service / Repository          Mong
    real-time outstanding debt, 4-tier visual debt aging distribution (0-30d, 31-60d, 61-90d, 90+d), recent
    billing invoices, and recent repayments in an interactive dashboard.
 
+10. Supplier Management Page & Modals (`SuppliersPage.jsx`, `SupplierStatsCards.jsx`, `SuppliersTable.jsx`, `AddSupplierModal.jsx`, `EditSupplierModal.jsx`) (T38):
+   Provides complete management of procurement vendors and distributors, tracking active supplier counts,
+   lifetime procurements, and real-time payable outstanding balances with fast search, filters, and edit modals.
+
 ====================================================================================================
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
 ====================================================================================================
@@ -675,9 +679,12 @@ Merchant / Inventory Admin           Supplier Service / Repository          Mong
 
 All backend test suites are located in `Backend/tests/`:
 
-1. Supplier Schema DB Model & Multi-Tenant Test (T37):
+1. Supplier CRUD APIs & Lifecycle Test (T38):
+   `node tests/test-supplier-crud-apis.js`
+2. Supplier Schema DB Model & Multi-Tenant Test (T37):
    `node tests/test-supplier-schema-model.js`
-2. Customer 360° CRM & Debt Aging Profiling Test (T36):
+3. Customer 360° CRM & Debt Aging Profiling Test (T36):
+
    `node tests/test-customer-crm-profiling.js`
 
 2. Customer Credit Payment History Test (T35):

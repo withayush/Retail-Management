@@ -1,12 +1,12 @@
 import React from "react";
-import { Package, Layers, Plus, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Package, Plus, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 
 export default function POSProductGrid({ loading, products, searchTerm, onAddToCart }) {
   if (loading) {
     return (
-      <div className="flex-1 p-4 overflow-y-auto bg-[#09090b]">
-        <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-500">
-          <div className="w-8 h-8 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />
+      <div className="flex-1 p-6 overflow-y-auto bg-black">
+        <div className="h-full flex flex-col items-center justify-center gap-3 text-[#6E6E73]">
+          <div className="w-8 h-8 rounded-full border-2 border-[#0066CC] border-t-transparent animate-spin" />
           <span className="text-xs font-medium">Searching catalog...</span>
         </div>
       </div>
@@ -15,16 +15,16 @@ export default function POSProductGrid({ loading, products, searchTerm, onAddToC
 
   if (products.length === 0) {
     return (
-      <div className="flex-1 p-4 overflow-y-auto bg-[#09090b]">
-        <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-500 text-center p-6">
-          <div className="w-12 h-12 rounded-xl bg-[#141417] border border-[#27272a] flex items-center justify-center">
-            <Package className="w-6 h-6 text-zinc-400" />
+      <div className="flex-1 p-6 overflow-y-auto bg-black">
+        <div className="h-full flex flex-col items-center justify-center gap-3 text-[#6E6E73] text-center p-8">
+          <div className="w-14 h-14 rounded-[18px] bg-[#161617] border border-[#D2D2D7]/15 flex items-center justify-center shadow-lg">
+            <Package className="w-7 h-7 text-[#6E6E73]" />
           </div>
-          <p className="font-semibold text-zinc-200 text-sm">No Products Found</p>
-          <p className="text-xs text-zinc-500 max-w-sm">
+          <p className="font-semibold text-white text-sm">No Products Found</p>
+          <p className="text-xs text-[#6E6E73] max-w-sm">
             {searchTerm
-              ? `No active products match "${searchTerm}". Try another term or scan barcode.`
-              : "No active products available in catalog."}
+              ? `No active items match "${searchTerm}". Try adjusting your keywords or scan a barcode.`
+              : "No items currently registered in catalog."}
           </p>
         </div>
       </div>
@@ -32,8 +32,8 @@ export default function POSProductGrid({ loading, products, searchTerm, onAddToC
   }
 
   return (
-    <div className="flex-1 p-4 overflow-y-auto bg-[#09090b]">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div className="flex-1 p-5 overflow-y-auto bg-black">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
         {products.map((p) => {
           const prodId = p.id || p._id;
           const price = Number(p.sellingPrice ?? p.selling_price ?? 0);
@@ -46,52 +46,55 @@ export default function POSProductGrid({ loading, products, searchTerm, onAddToC
             <div
               key={prodId}
               onClick={() => onAddToCart(p)}
-              className={`bg-[#111113] border transition-all rounded-xl p-3.5 flex flex-col justify-between cursor-pointer group active:scale-[0.98] ${
+              className={`relative bg-[#161617]/90 backdrop-blur-xl border transition-all duration-300 rounded-[18px] p-4 flex flex-col justify-between cursor-pointer group active:scale-[0.98] shadow-[0_4px_20px_rgba(0,0,0,0.3)] ${
                 isOutOfStock
-                  ? "border-zinc-800/80 opacity-60 hover:border-zinc-700"
+                  ? "border-[#D2D2D7]/8 opacity-50 hover:border-[#D2D2D7]/16"
                   : isLowStock
-                  ? "border-amber-500/30 hover:border-amber-500/60 hover:bg-[#141418]"
-                  : "border-[#1f1f23] hover:border-zinc-600 hover:bg-[#151518]"
+                  ? "border-[#FF791B]/35 hover:border-[#FF791B]/60 hover:bg-[#1D1D1F]"
+                  : "border-[#D2D2D7]/12 hover:border-[#D2D2D7]/28 hover:bg-[#1D1D1F]"
               }`}
             >
+              {/* Top subtle highlight */}
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#D2D2D7]/15 to-transparent" />
+
               <div>
-                <div className="flex items-start justify-between gap-1 mb-2 flex-wrap">
-                  <span className="text-[10px] font-medium text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded border border-zinc-700/60">
+                <div className="flex items-start justify-between gap-1.5 mb-2.5 flex-wrap">
+                  <span className="text-[10px] font-medium text-[#D2D2D7] bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
                     {categoryName}
                   </span>
 
-                  {/* Stock Status Badge */}
+                  {/* Stock Badges */}
                   {isOutOfStock ? (
-                    <span className="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                    <span className="text-[9px] font-bold text-[#FF791B] bg-[#B64400]/15 px-2 py-0.5 rounded-full border border-[#B64400]/30">
                       Out of Stock
                     </span>
                   ) : isLowStock ? (
-                    <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    <span className="text-[9px] font-bold text-[#FFA466] bg-[#FF791B]/15 px-2 py-0.5 rounded-full border border-[#FF791B]/30">
                       {stock} left
                     </span>
                   ) : stock !== null ? (
-                    <span className="text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                    <span className="text-[9px] font-medium text-[#54A7FF] bg-[#0066CC]/15 px-2 py-0.5 rounded-full border border-[#0066CC]/30">
                       {stock} {p.unit || "pcs"}
                     </span>
                   ) : null}
                 </div>
 
-                <h3 className="font-semibold text-xs text-zinc-200 group-hover:text-white transition-colors line-clamp-2 leading-snug">
+                <h3 className="font-semibold text-xs text-white group-hover:text-white transition-colors line-clamp-2 leading-snug tracking-tight">
                   {p.name}
                 </h3>
                 {p.sku && (
-                  <p className="text-[10px] font-mono text-zinc-500 mt-0.5">
+                  <p className="text-[10px] font-mono text-[#6E6E73] mt-1">
                     {p.sku}
                   </p>
                 )}
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-[#1f1f23] flex items-center justify-between">
+              <div className="mt-4 pt-3 border-t border-[#D2D2D7]/8 flex items-center justify-between">
                 <div>
                   <span className="font-bold text-sm text-white">
                     ₹{price.toFixed(2)}
                   </span>
-                  <span className="text-[10px] text-zinc-500 ml-1">
+                  <span className="text-[10px] text-[#6E6E73] ml-1">
                     /{p.unit || "pcs"}
                   </span>
                 </div>
@@ -99,13 +102,13 @@ export default function POSProductGrid({ loading, products, searchTerm, onAddToC
                 <button
                   type="button"
                   disabled={isOutOfStock}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
                     isOutOfStock
-                      ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                      : "bg-zinc-800 group-hover:bg-white text-zinc-300 group-hover:text-zinc-950"
+                      ? "bg-white/5 text-[#6E6E73] cursor-not-allowed"
+                      : "bg-[#0066CC] text-white shadow-[0_2px_8px_rgba(0,102,204,0.35)] group-hover:bg-[#0077ED] group-hover:scale-110 active:scale-95"
                   }`}
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                 </button>
               </div>
             </div>

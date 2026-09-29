@@ -155,7 +155,6 @@ const customerLedgerEntrySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Invoice",
       default: null,
-      index: true,
     },
     invoiceId: {
       type: mongoose.Schema.Types.ObjectId,

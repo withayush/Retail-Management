@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const saleRepo = require("../repositories/sale.repository");
 const inventoryService = require("./inventory.service");
 
+const { withTransaction } = require("../utils/transaction");
+
 /**
  * Phase 4 - Tasks T23 & T24: Sale & Line Items Service Layer
  * Multi-tenant business logic for sales transactions, line item snapshots, gross profit, and inventory reduction.
@@ -37,27 +39,10 @@ const createSale = async (businessId, payload) => {
     }
   }
 
-  // Transaction Session Management (Task T25 Atomic POS Checkout)
-  let session = null;
-  try {
-    session = await mongoose.startSession();
-  } catch {
-    session = null;
-  }
-
-  if (session) {
-    try {
-      let result;
-      await session.withTransaction(async () => {
-        result = await saleRepo.createSale(businessId, payload, session);
-      });
-      return result;
-    } finally {
-      await session.endSession();
-    }
-  } else {
-    return await saleRepo.createSale(businessId, payload, null);
-  }
+  // Execute POS Checkout atomically
+  return await withTransaction(async (session) => {
+    return await saleRepo.createSale(businessId, payload, session);
+  });
 };
 
 const getSales = async (businessId, filters = {}, pagination = {}) => {

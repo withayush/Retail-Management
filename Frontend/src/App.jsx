@@ -13,10 +13,12 @@ import ProfilePage from "./features/profile/ProfilePage";
 import ProductsPage from "./features/products/ProductsPage";
 import InventoryAuditPage from "./features/inventory/InventoryAuditPage";
 import CustomersPage from "./features/customers/CustomersPage";
+import SuppliersPage from "./features/suppliers/SuppliersPage";
 import POSTerminalPage from "./features/pos/POSTerminalPage";
 import SalesHistoryPage from "./features/pos/SalesHistoryPage";
 
 export default function App() {
+
   return (
     <AuthProvider>
       <Toaster
@@ -69,7 +71,9 @@ export default function App() {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/inventory" element={<InventoryAuditPage />} />
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/suppliers" element={<SuppliersPage />} />
             <Route path="/pos" element={<POSTerminalPage />} />
+
             <Route path="/sales" element={<SalesHistoryPage />} />
             <Route path="/invoices" element={<SalesHistoryPage />} />
           </Route>

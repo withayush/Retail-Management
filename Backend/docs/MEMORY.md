@@ -108,13 +108,19 @@
 - Interactive statement modal (`CustomerLedgerModal.jsx`) with real-time audit ledger timeline, debit/credit badges, and settlement actions.
 - Automated test suites: `Backend/tests/test-customer-schema-model.js` (T31), `Backend/tests/test-customer-crud-apis.js` (T32), `Backend/tests/test-customer-ledger-transaction-log.js` (T33), `Backend/tests/test-customer-realtime-outstanding.js` (T34), `Backend/tests/test-customer-payment-history.js` (T35), and `Backend/tests/test-customer-crm-profiling.js` (T36) (100% passing).
 
-### Phase 6: Supplier & Procurement Management (T37–T42) — [T37 IMPLEMENTED]
+### Phase 6: Supplier & Procurement Management (T37–T42) — [T37 & T38 IMPLEMENTED]
 - `Supplier` Master Schema (`src/models/supplier.model.js`) (T37):
   * Defines the business-scoped Supplier master entity representing distributors, manufacturers, wholesalers, and stock vendors from whom the merchant procures inventory.
   * Fields: `_id`, `businessId` (ObjectId, ref: 'Business'), `company` (Required, e.g. "ABC Distributors"), `contactName` (e.g. "Amit Sharma"), `phone` (Canonical e.g. "+91XXXXXXXXXX"), `email`, `address`, `city`, `state`, `pincode`, `gstin`, `currentBalance` (materialized supplier payable outstanding), `totalPurchases`, `totalOrders`, `lastPurchaseDate`, `lastPaymentDate`, `status` ('ACTIVE' | 'INACTIVE' | 'BLOCKED'), `notes`, `tags`.
   * Multi-Tenant Phone Uniqueness: Compound index `{ businessId: 1, phone: 1 }` with `{ unique: true, partialFilterExpression: { phone: { $type: "string", $gt: "" } } }` allowing multiple suppliers with empty phone numbers while preventing duplicate phone numbers within the same store.
   * Clear Domain Separation: `Customer` = whom the business sells to (Money In); `Supplier` = whom the business buys inventory from (Money Out). Independent entity, never embedded inside Product.
-  * Automated Test Suite: `Backend/tests/test-supplier-schema-model.js` (100% passing).
+- Supplier REST CRUD APIs & Lifecycle Engine (T38):
+  * Complete suite of secure REST APIs: `POST /api/suppliers`, `GET /api/suppliers`, `GET /api/suppliers/search`, `GET /api/suppliers/phone/:phone`, `GET /api/suppliers/summary`, `GET /api/suppliers/:id`, `PUT /api/suppliers/:id`, `DELETE /api/suppliers/:id`, `POST /api/suppliers/:id/archive`, `POST /api/suppliers/:id/restore`.
+  * Automatic canonical phone normalization (`+91XXXXXXXXXX`) and Zod schema validation.
+  * Safe non-destructive soft-delete / archival (`status: 'INACTIVE'`) preserving historic purchase orders and stock-in transactions.
+  * Frontend Supplier Management: Dedicated UI page (`SuppliersPage.jsx`) featuring `SupplierStatsCards.jsx` (Total Vendors, Active, Payable Balance, Total Procurements), `SuppliersTable.jsx`, `AddSupplierModal.jsx`, and `EditSupplierModal.jsx`, wired to `/suppliers` sidebar navigation.
+  * Automated Test Suites: `Backend/tests/test-supplier-schema-model.js` (T37) and `Backend/tests/test-supplier-crud-apis.js` (T38) (100% passing).
+
 
 ---
 

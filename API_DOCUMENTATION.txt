@@ -1566,8 +1566,185 @@ Compound Indexes:
 - `{ businessId: 1, status: 1 }`
 - `{ businessId: 1, createdAt: -1 }`
 
+
+10.2 CREATE SUPPLIER
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/suppliers
+Description: Registers new supplier master entity with contact info & GSTIN.
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "company": "ABC Distributors Pvt Ltd",
+  "contactName": "Amit Sharma",
+  "phone": "9876543210",
+  "email": "amit@abcdistro.com",
+  "address": "Plot 14, Industrial Area Phase 2",
+  "city": "Jaipur",
+  "state": "Rajasthan",
+  "pincode": "302013",
+  "gstin": "08ABCDE1234F1Z5",
+  "notes": "Primary dairy and FMCG wholesaler",
+  "tags": ["FMCG", "WHOLESALER"]
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Supplier registered successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "businessId": "66b4c16c742f36877738d76c",
+    "company": "ABC Distributors Pvt Ltd",
+    "contactName": "Amit Sharma",
+    "phone": "+919876543210",
+    "status": "ACTIVE"
+  }
+}
+
+
+10.3 LIST SUPPLIERS (PAGINATED & SEARCHABLE)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers?page=1&limit=20&search=ABC
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+      "company": "ABC Distributors Pvt Ltd",
+      "contactName": "Amit Sharma",
+      "phone": "+919876543210",
+      "email": "amit@abcdistro.com",
+      "city": "Jaipur",
+      "currentBalance": 0.00,
+      "status": "ACTIVE"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+
+
+10.4 GET SUPPLIER BY ID
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/:id
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "company": "ABC Distributors Pvt Ltd",
+    "contactName": "Amit Sharma",
+    "phone": "+919876543210",
+    "email": "amit@abcdistro.com",
+    "city": "Jaipur",
+    "currentBalance": 0.00,
+    "status": "ACTIVE"
+  }
+}
+
+
+10.5 UPDATE SUPPLIER
+--------------------------------------------------
+Method:      PUT
+Endpoint:    /api/suppliers/:id
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "company": "ABC Distributors & Logistics Pvt Ltd",
+  "notes": "Updated firm registered name"
+}
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Supplier profile updated successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "company": "ABC Distributors & Logistics Pvt Ltd",
+    "status": "ACTIVE"
+  }
+}
+
+
+10.6 DELETE / DEACTIVATE SUPPLIER
+--------------------------------------------------
+Method:      DELETE
+Endpoint:    /api/suppliers/:id
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Supplier deactivated successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "status": "INACTIVE"
+  }
+}
+
+
+10.7 RAPID AUTOCOMPLETE SEARCH
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/search?q=ABC&limit=10
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+      "company": "ABC Distributors Pvt Ltd",
+      "contactName": "Amit Sharma",
+      "phone": "+919876543210"
+    }
+  ]
+}
+
+
+10.8 SUPPLIER DIRECTORY KPI SUMMARY
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/summary
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalSuppliers": 12,
+    "activeSuppliers": 11,
+    "inactiveSuppliers": 1,
+    "totalPayableOutstanding": 45000.00,
+    "totalPurchasesVolume": 350000.00,
+    "suppliersWithPayablesCount": 3
+  }
+}
+
+
+10.9 ARCHIVE & RESTORE SUPPLIER
+--------------------------------------------------
+- POST /api/suppliers/:id/archive (Sets status to INACTIVE)
+- POST /api/suppliers/:id/restore (Sets status back to ACTIVE)
+
 ================================================================================
 END OF API DOCUMENTATION & TESTING GUIDE
 ================================================================================
+
 
 

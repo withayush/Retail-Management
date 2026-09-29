@@ -58,13 +58,15 @@ router.put("/alerts/:id/acknowledge", acknowledgeAlert);
 router.put("/alerts/:id/resolve", resolveAlert);
 router.post("/alerts/sync", syncAllInventoryAlerts);
 
+const idempotencyMiddleware = require("../middlewares/idempotency.middleware");
+
 // ============================================
 // ATOMIC STOCK MOVEMENTS & LEDGER RECORDER (PHASE 3 - T16, T17, T18, T19, T20)
 // ============================================
-router.post("/opening-stock", validate(initializeOpeningStockSchema), initializeOpeningStock); // Phase 3 - Task T17
-router.post("/stock-in", validate(stockInSchema), stockIn); // Phase 3 - Task T18
-router.post("/stock-out", validate(stockOutSchema), stockOut); // Phase 3 - Task T19
-router.post("/stock-out/batch", validate(batchStockOutSchema), batchStockOut); // Phase 3 - Task T19 (POS Batch)
-router.post("/adjust", validate(adjustStockSchema), adjustStock); // Phase 3 - Task T20
+router.post("/opening-stock", idempotencyMiddleware("OPENING_STOCK"), validate(initializeOpeningStockSchema), initializeOpeningStock); // Phase 3 - Task T17
+router.post("/stock-in", idempotencyMiddleware("STOCK_IN"), validate(stockInSchema), stockIn); // Phase 3 - Task T18
+router.post("/stock-out", idempotencyMiddleware("STOCK_OUT"), validate(stockOutSchema), stockOut); // Phase 3 - Task T19
+router.post("/stock-out/batch", idempotencyMiddleware("STOCK_OUT_BATCH"), validate(batchStockOutSchema), batchStockOut); // Phase 3 - Task T19 (POS Batch)
+router.post("/adjust", idempotencyMiddleware("STOCK_ADJUST"), validate(adjustStockSchema), adjustStock); // Phase 3 - Task T20
 
 module.exports = router;

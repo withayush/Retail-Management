@@ -4,120 +4,139 @@
 
 @layer base {
   :root {
-    /* Pure Modern Dark Palette (Zinc / Slate Architecture) */
-    --background: 240 10% 4%; /* #09090b */
-    --foreground: 0 0% 98%; /* #fafafa */
+    /* Apple (IN) Core Palette & Design Tokens */
+    --apple-surface: #D2D2D7;       /* color-6 */
+    --apple-dark: #1D1D1F;          /* color-1 */
+    --apple-subtext: #6E6E73;       /* color-4 */
+    --apple-blue: #0066CC;          /* color-2 (Signature Action) */
+    --apple-orange: #B64400;        /* color-3 (Burnt Orange Alert) */
+    --apple-vibrant: #FF791B;       /* color-5 (Vibrant Orange Highlight) */
+    --apple-white: #FFFFFF;         /* color-7 */
+    --apple-canvas: #000000;        /* Deep Obsidian Canvas */
+
+    /* Semantic Mappings */
+    --background: 0 0% 0%;          /* Pure Black Canvas #000000 */
+    --foreground: 0 0% 100%;        /* Pure White #FFFFFF */
     
-    --card: 240 6% 7%; /* #111113 */
-    --card-foreground: 0 0% 98%; /* #fafafa */
+    --card: 240 2% 10%;             /* #161617 */
+    --card-foreground: 0 0% 100%;
     
-    --popover: 240 6% 7%; /* #111113 */
-    --popover-foreground: 0 0% 98%;
+    --popover: 240 2% 10%;
+    --popover-foreground: 0 0% 100%;
     
-    /* Primary */
-    --primary: 0 0% 98%; /* #fafafa */
-    --primary-foreground: 240 10% 4%; /* #09090b */
+    /* Primary Action: Apple Signature Blue */
+    --primary: 210 100% 40%;        /* #0066CC */
+    --primary-foreground: 0 0% 100%;
     
-    /* Secondary / Surface Elements */
-    --secondary: 240 5% 10%; /* #18181b */
-    --secondary-foreground: 0 0% 98%;
+    /* Secondary Action: Translucent Titanium */
+    --secondary: 240 2% 14%;        /* #242426 */
+    --secondary-foreground: 0 0% 100%;
     
-    /* Muted */
-    --muted: 240 5% 10%; /* #18181b */
-    --muted-foreground: 240 5% 65%; /* #a1a1aa */
+    /* Muted / Subtext */
+    --muted: 240 2% 14%;
+    --muted-foreground: 240 3% 44%; /* #6E6E73 */
     
     /* Accent */
-    --accent: 240 5% 15%; /* #27272a */
-    --accent-foreground: 0 0% 98%;
+    --accent: 210 100% 40%;         /* #0066CC */
+    --accent-foreground: 0 0% 100%;
     
-    /* Destructive / Error */
-    --destructive: 0 84% 60%; /* #ef4444 */
-    --destructive-foreground: 0 0% 98%;
+    /* Destructive / Warning */
+    --destructive: 22 100% 36%;     /* #B64400 (Apple Burnt Orange) */
+    --destructive-foreground: 0 0% 100%;
     
-    /* Success */
-    --success: 142 71% 45%; /* #22c55e */
+    --warning: 25 100% 55%;         /* #FF791B (Apple Vibrant Orange) */
+    --warning-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     
-    /* Warning */
-    --warning: 38 92% 50%; /* #f59e0b */
-    --warning-foreground: 0 0% 100%;
+    /* Border: Subtle Micro-border matching #D2D2D7 at 12% */
+    --border: 240 3% 20%;
+    --input: 240 2% 12%;
+    --ring: 210 100% 40%;
     
-    /* Borders & Inputs */
-    --border: 240 5% 15%; /* #242427 */
-    --input: 240 5% 10%; /* #18181b */
-    --ring: 240 5% 35%;
-    
-    /* Radius */
-    --radius: 0.75rem;
-    --radius-lg: 1rem;
-    --radius-full: 9999px;
+    /* Apple Shape Radii */
+    --radius-sm: 18px;
+    --radius-md: 56px;
+    --radius: 18px;
+    --radius-lg: 18px;
+    --radius-full: 56px;
 
-    /* Smooth Motion Curve */
-    --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    /* Apple Motion Timing Functions */
+    --ease-apple-base: cubic-bezier(0, 0, 0.5, 1);
+    --ease-apple-slow: cubic-bezier(0.4, 0, 0.6, 1);
+    --ease-apple-spring: cubic-bezier(0.15, 0, 0.2, 1);
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: rgba(210, 210, 215, 0.14);
+    box-sizing: border-box;
   }
 
   html {
     scroll-behavior: smooth;
+    background-color: #000000;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #000000;
+    color: #FFFFFF;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Inter", sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply tracking-tight font-semibold text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", sans-serif;
+    font-weight: 600;
+    color: #FFFFFF;
+    letter-spacing: -0.022em;
   }
 
-  /* Universal Click Feedback & Smooth Hover Transitions */
+  /* Universal Apple Click & Tap Response */
   button, 
   [role="button"], 
   a {
-    transition: color 0.18s var(--ease-spring),
-                background-color 0.18s var(--ease-spring),
-                border-color 0.18s var(--ease-spring),
-                box-shadow 0.18s var(--ease-spring),
-                transform 0.18s var(--ease-spring),
-                opacity 0.18s var(--ease-spring);
+    transition: all 0.3s cubic-bezier(0, 0, 0.5, 1);
   }
 
   button:active:not(:disabled),
   [role="button"]:active:not(:disabled) {
     transform: scale(0.975);
+    opacity: 0.92;
   }
 
-  /* Smooth Inputs Focus Ring */
+  /* Apple Form Controls Focus System */
   input, select, textarea {
-    transition: border-color 0.2s var(--ease-spring),
-                box-shadow 0.2s var(--ease-spring),
-                background-color 0.2s var(--ease-spring);
+    transition: border-color 0.3s cubic-bezier(0, 0, 0.5, 1),
+                box-shadow 0.3s cubic-bezier(0, 0, 0.5, 1),
+                background-color 0.3s cubic-bezier(0, 0, 0.5, 1);
+    background-color: #1D1D1F;
+    color: #FFFFFF;
   }
 
   input:focus, select:focus, textarea:focus {
-    border-color: #52525b !important;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+    border-color: #0066CC !important;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.28) !important;
+    outline: none !important;
   }
 
-  /* Table Rows Hover Transition */
+  /* Table Rows Smooth Highlight */
   tr {
-    transition: background-color 0.15s ease-out;
+    transition: background-color 0.2s cubic-bezier(0, 0, 0.5, 1);
   }
 }
 
-/* Custom Ultra-Smooth Scrollbar */
+/* Custom Minimalist Apple Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -125,70 +144,164 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 9999px;
-  transition: background-color 0.2s ease;
+  background: rgba(210, 210, 215, 0.2);
+  border-radius: 56px;
+  transition: background-color 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgba(210, 210, 215, 0.38);
 }
 
 ::selection {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: rgba(0, 102, 204, 0.35);
+  color: #FFFFFF;
 }
 
-/* ── Interactive Utility Classes ─────────────────────────────────────── */
+/* ── Apple (IN) Specialized Utility Components ────────────────────────── */
 
-/* Card with subtle lift on hover */
-.hover-lift {
-  transition: transform 0.25s var(--ease-spring),
-              box-shadow 0.25s var(--ease-spring),
-              border-color 0.25s var(--ease-spring);
+/* Frosted Glass Container */
+.apple-glass {
+  background: rgba(29, 29, 31, 0.76);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(210, 210, 215, 0.12);
 }
 
-.hover-lift:hover {
+.apple-glass-card {
+  background: rgba(22, 22, 23, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(210, 210, 215, 0.12);
+  border-radius: 18px;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 8px 32px 0px, inset 0 1px 0 rgba(210, 210, 215, 0.08);
+  transition: transform 0.3s cubic-bezier(0, 0, 0.5, 1),
+              border-color 0.3s cubic-bezier(0, 0, 0.5, 1),
+              box-shadow 0.3s cubic-bezier(0, 0, 0.5, 1);
+}
+
+.apple-glass-card:hover {
+  border-color: rgba(210, 210, 215, 0.25);
+  box-shadow: rgba(0, 0, 0, 0.32) 0px 12px 36px 0px, inset 0 1px 0 rgba(210, 210, 215, 0.15);
+}
+
+/* Apple Floating Dock / Navigation Header */
+.apple-header {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(210, 210, 215, 0.12);
+}
+
+/* Apple Card Interactive */
+.card-interactive, .apple-card {
+  background: #161617;
+  border: 1px solid rgba(210, 210, 215, 0.12);
+  border-radius: 18px;
+  transition: all 0.3s cubic-bezier(0, 0, 0.5, 1);
+}
+
+.card-interactive:hover, .apple-card:hover {
+  background: #1D1D1F;
+  border-color: rgba(210, 210, 215, 0.24);
   transform: translateY(-2px);
-  border-color: #3f3f46;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  box-shadow: rgba(0, 0, 0, 0.28) 0px 12px 28px 0px;
 }
 
-/* Interactive Card */
-.card-interactive {
-  background-color: #111113;
-  border: 1px solid #1f1f23;
-  border-radius: 0.75rem;
-  transition: all 0.2s var(--ease-spring);
+/* Apple Buttons */
+.apple-btn-primary {
+  background-color: #0066CC;
+  color: #FFFFFF;
+  border-radius: 56px;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0, 0, 0.5, 1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.28);
 }
 
-.card-interactive:hover {
-  background-color: #141417;
-  border-color: #27272a;
+.apple-btn-primary:hover {
+  background-color: #0077ED;
+  box-shadow: 0 4px 16px rgba(0, 102, 204, 0.45);
   transform: translateY(-1px);
 }
 
-/* Page Entry Fade and Slide Animation */
+.apple-btn-secondary {
+  background-color: rgba(210, 210, 215, 0.08);
+  color: #FFFFFF;
+  border: 1px solid rgba(210, 210, 215, 0.16);
+  border-radius: 56px;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0, 0, 0.5, 1);
+}
+
+.apple-btn-secondary:hover {
+  background-color: rgba(210, 210, 215, 0.16);
+  border-color: rgba(210, 210, 215, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Apple Pill Badges */
+.apple-badge-blue {
+  background: rgba(0, 102, 204, 0.16);
+  color: #54A7FF;
+  border: 1px solid rgba(0, 102, 204, 0.32);
+  border-radius: 56px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.apple-badge-orange {
+  background: rgba(182, 68, 0, 0.16);
+  color: #FF8A4C;
+  border: 1px solid rgba(182, 68, 0, 0.32);
+  border-radius: 56px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.apple-badge-vibrant {
+  background: rgba(255, 121, 27, 0.16);
+  color: #FFA466;
+  border: 1px solid rgba(255, 121, 27, 0.32);
+  border-radius: 56px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.apple-badge-neutral {
+  background: rgba(210, 210, 215, 0.1);
+  color: #D2D2D7;
+  border: 1px solid rgba(210, 210, 215, 0.18);
+  border-radius: 56px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Page Entry Animations */
 .page-enter {
-  animation: pageFadeIn 0.28s var(--ease-spring) forwards;
+  animation: applePageEnter 0.35s cubic-bezier(0, 0, 0.5, 1) forwards;
 }
 
-/* Modal Pop Animation */
-.modal-pop {
-  animation: modalPopIn 0.25s var(--ease-spring) forwards;
-}
-
-/* Backdrop Fade */
-.backdrop-fade {
-  animation: backdropFadeIn 0.2s ease-out forwards;
-}
-
-/* ── Animation Keyframes ─────────────────────────────────────────────── */
-
-@keyframes pageFadeIn {
+@keyframes applePageEnter {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -196,10 +309,15 @@
   }
 }
 
-@keyframes modalPopIn {
+/* Modal Pop & Backdrop */
+.modal-pop {
+  animation: appleModalPop 0.3s cubic-bezier(0.15, 0, 0.2, 1) forwards;
+}
+
+@keyframes appleModalPop {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(8px);
+    transform: scale(0.96) translateY(10px);
   }
   to {
     opacity: 1;
@@ -207,49 +325,43 @@
   }
 }
 
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.backdrop-fade {
+  animation: appleBackdropFade 0.25s cubic-bezier(0, 0, 0.5, 1) forwards;
 }
 
-@keyframes slideDownMenu {
+@keyframes appleBackdropFade {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
 /* Card Utility */
 .card {
-  background-color: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
+  background-color: #161617;
+  border: 1px solid rgba(210, 210, 215, 0.12);
+  border-radius: 18px;
   padding: 1.25rem;
-  color: hsl(var(--card-foreground));
-  transition: all 0.2s var(--ease-spring);
+  color: #FFFFFF;
+  box-shadow: rgba(0, 0, 0, 0.08) 2px 4px 12px 0px;
+  transition: all 0.3s cubic-bezier(0, 0, 0.5, 1);
 }
 
-/* Button Utilities */
+/* Legacy Button Compatibility mapping to Apple design */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius);
+  padding: 0.5rem 1.125rem;
+  border-radius: 56px;
   font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all 0.18s var(--ease-spring);
+  transition: all 0.3s cubic-bezier(0, 0, 0.5, 1);
 }
 
 .btn:active {
@@ -257,33 +369,34 @@
 }
 
 .btn-primary {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
+  background: #0066CC;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .btn-primary:hover {
-  background: #ffffff;
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+  background: #0077ED;
+  box-shadow: 0 4px 16px rgba(0, 102, 204, 0.4);
 }
 
 .btn-secondary {
-  background: #141417;
-  color: #fafafa;
-  border-color: #27272a;
+  background: rgba(210, 210, 215, 0.08);
+  color: #FFFFFF;
+  border: 1px solid rgba(210, 210, 215, 0.16);
 }
 
 .btn-secondary:hover {
-  background: #27272a;
-  border-color: #3f3f46;
+  background: rgba(210, 210, 215, 0.16);
+  border-color: rgba(210, 210, 215, 0.28);
 }
 
 .btn-outline {
   background: transparent;
-  color: hsl(var(--foreground));
-  border-color: hsl(var(--border));
+  color: #FFFFFF;
+  border-color: rgba(210, 210, 215, 0.2);
 }
 
 .btn-outline:hover {
-  background: #18181b;
-  border-color: #3f3f46;
+  background: rgba(210, 210, 215, 0.08);
+  border-color: rgba(210, 210, 215, 0.35);
 }

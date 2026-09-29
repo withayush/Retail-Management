@@ -69,75 +69,35 @@ const getBusinessOutstandingTotals = async (businessId) => {
   return await customerLedgerRepo.getBusinessOutstandingTotals(businessId);
 };
 
+const { withTransaction } = require("../utils/transaction");
+
 const recordCustomerPayment = async (businessId, customerId, paymentData, user = {}) => {
-  const isOnlineDb = mongoose.connection.readyState === 1;
-
-  if (isOnlineDb) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      const result = await customerLedgerRepo.recordPaymentSettlement(
-        {
-          businessId,
-          customerId,
-          ...paymentData,
-          createdBy: user.id || null,
-          createdByName: user.fullName || "Cashier",
-        },
-        session
-      );
-      await session.commitTransaction();
-      return result;
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
-    }
-  }
-
-  return await customerLedgerRepo.recordPaymentSettlement({
-    businessId,
-    customerId,
-    ...paymentData,
-    createdBy: user.id || null,
-    createdByName: user.fullName || "Cashier",
+  return await withTransaction(async (session) => {
+    return await customerLedgerRepo.recordPaymentSettlement(
+      {
+        businessId,
+        customerId,
+        ...paymentData,
+        createdBy: user.id || null,
+        createdByName: user.fullName || "Cashier",
+      },
+      session
+    );
   });
 };
 
 const appendLedgerEntry = async (businessId, customerId, entryData, user = {}) => {
-  const isOnlineDb = mongoose.connection.readyState === 1;
-
-  if (isOnlineDb) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      const result = await customerLedgerRepo.appendLedgerEntry(
-        {
-          businessId,
-          customerId,
-          ...entryData,
-          createdBy: user.id || null,
-          createdByName: user.fullName || "Merchant",
-        },
-        session
-      );
-      await session.commitTransaction();
-      return result;
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
-    }
-  }
-
-  return await customerLedgerRepo.appendLedgerEntry({
-    businessId,
-    customerId,
-    ...entryData,
-    createdBy: user.id || null,
-    createdByName: user.fullName || "Merchant",
+  return await withTransaction(async (session) => {
+    return await customerLedgerRepo.appendLedgerEntry(
+      {
+        businessId,
+        customerId,
+        ...entryData,
+        createdBy: user.id || null,
+        createdByName: user.fullName || "Merchant",
+      },
+      session
+    );
   });
 };
 

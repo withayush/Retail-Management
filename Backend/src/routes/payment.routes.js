@@ -19,10 +19,12 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(businessMiddleware);
 
+const idempotencyMiddleware = require("../middlewares/idempotency.middleware");
+
 // ============================================
 // PAYMENT RECORDING ENDPOINTS (PHASE 4 - TASK T28)
 // ============================================
-router.post("/", validate(recordPaymentSchema), recordPayment);
+router.post("/", idempotencyMiddleware("PAYMENT_CREATE"), validate(recordPaymentSchema), recordPayment);
 router.get("/", validate(getPaymentsFilterSchema, "query"), getPayments);
 router.get("/summary", getPaymentSummary);
 router.get("/invoice/:invoiceId", getPaymentsByInvoice);

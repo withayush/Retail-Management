@@ -210,6 +210,7 @@ const updateReorderLevel = async (businessId, productId, reorderLevel) => {
 /**
  * Phase 3 - Task T16: Atomic Stock Movement & Immutable Ledger Recorder
  * Architectural Rule: Never overwrite stock directly. All stock movement written as ledger logs.
+ * Enforces atomic concurrency control with $inc and $gte conditions.
  */
 const recordStockMovement = async ({
   businessId,
@@ -226,57 +227,127 @@ const recordStockMovement = async ({
   createdBy = null,
   createdByName = "",
   notes = "",
+  session = null,
 }) => {
-  const inventory = await getOrCreateInventory(businessId, productId);
-  const currentStock = inventory.availableStock || 0;
-  const newBalance = currentStock + qtyChange;
+  const sessionOpt = session ? { session } : {};
+  const numQtyChange = Number(qtyChange);
 
-  if (newBalance < 0) {
-    const error = new Error(
-      `Insufficient stock for product. Available: ${currentStock}, Requested deduction: ${Math.abs(qtyChange)}`
+  // Ensure inventory record exists
+  let inventory = await Inventory.findOne({ businessId, productId }).session(session);
+  if (!inventory) {
+    const [newInv] = await Inventory.create(
+      [
+        {
+          businessId,
+          productId,
+          availableStock: 0,
+          reorderLevel: 5,
+          lowStockAlert: true,
+        },
+      ],
+      sessionOpt
     );
-    error.statusCode = 400;
-    error.code = "INSUFFICIENT_STOCK";
-    throw error;
+    inventory = newInv;
   }
+
+  let updatedInventory = null;
+
+  if (numQtyChange < 0) {
+    const deduction = Math.abs(numQtyChange);
+    // Atomic concurrency deduction guard: condition + decrement in single DB step
+    updatedInventory = await Inventory.findOneAndUpdate(
+      {
+        businessId,
+        productId,
+        availableStock: { $gte: deduction },
+      },
+      {
+        $inc: { availableStock: -deduction },
+        $set: { updatedAt: new Date() },
+      },
+      {
+        new: true,
+        ...sessionOpt,
+      }
+    );
+
+    if (!updatedInventory) {
+      const currentStock = inventory.availableStock || 0;
+      const error = new Error(
+        `Insufficient stock for product. Available: ${currentStock}, Requested deduction: ${deduction}`
+      );
+      error.statusCode = 400;
+      error.code = "INSUFFICIENT_STOCK";
+      error.productId = productId;
+      error.availableStock = currentStock;
+      error.requestedQuantity = deduction;
+      throw error;
+    }
+  } else if (numQtyChange > 0) {
+    const addition = Math.abs(numQtyChange);
+    updatedInventory = await Inventory.findOneAndUpdate(
+      {
+        businessId,
+        productId,
+      },
+      {
+        $inc: { availableStock: addition },
+        $set: {
+          lastRestockedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        ...sessionOpt,
+      }
+    );
+  } else {
+    // 0 qty change (adjustment to same value)
+    updatedInventory = inventory;
+  }
+
+  const newBalance = updatedInventory.availableStock;
+
+  // Re-evaluate low stock alert
+  updatedInventory.lowStockAlert = newBalance <= (updatedInventory.reorderLevel || 5);
+  await updatedInventory.save(sessionOpt);
 
   // 1. Create Immutable Ledger Log Entry (Who, When, Why, What)
-  const ledgerEntry = await InventoryLedger.create({
-    businessId,
-    productId,
-    qtyChange,
-    balanceAfter: newBalance,
-    type,
-    source: source || (type === "IN" ? "PURCHASE" : type === "OPENING" ? "INITIAL_OPENING" : "MANUAL"),
-    supplierName: supplierName || "",
-    unitCost: unitCost !== null && !isNaN(Number(unitCost)) ? Number(unitCost) : null,
-    referenceNumber: referenceNumber || "",
-    reason: reason || (type === "IN" ? "Stock In / Purchase" : type === "OUT" ? "Sale / Stock Out" : "Stock Adjustment"),
-    invoiceId,
-    referenceId,
-    createdBy,
-    createdByName: createdByName || "",
-    notes,
-  });
+  const [ledgerEntry] = await InventoryLedger.create(
+    [
+      {
+        businessId,
+        productId,
+        qtyChange: numQtyChange,
+        balanceAfter: newBalance,
+        type,
+        source: source || (type === "IN" ? "PURCHASE" : type === "OPENING" ? "INITIAL_OPENING" : "MANUAL"),
+        supplierName: supplierName || "",
+        unitCost: unitCost !== null && !isNaN(Number(unitCost)) ? Number(unitCost) : null,
+        referenceNumber: referenceNumber || "",
+        reason: reason || (type === "IN" ? "Stock In / Purchase" : type === "OUT" ? "Sale / Stock Out" : "Stock Adjustment"),
+        invoiceId,
+        referenceId,
+        createdBy,
+        createdByName: createdByName || "",
+        notes,
+      },
+    ],
+    sessionOpt
+  );
 
-  // 2. Update Master Inventory State
-  inventory.availableStock = newBalance;
-  inventory.lowStockAlert = newBalance <= inventory.reorderLevel;
-  if (type === "IN" || (type === "ADJUST" && qtyChange > 0) || (type === "OPENING" && qtyChange > 0)) {
-    inventory.lastRestockedAt = new Date();
-  }
-  await inventory.save();
-
-  // 3. Deterministic Alert Queue Engine Hook (Phase 3 - Task T22)
-  await evaluateAndSyncProductLowStockAlert({
+  // 2. Deterministic Alert Queue Engine Hook (Phase 3 - Task T22)
+  evaluateAndSyncProductLowStockAlert({
     businessId,
     productId,
     availableStock: newBalance,
-    reorderLevel: inventory.reorderLevel,
+    reorderLevel: updatedInventory.reorderLevel,
   }).catch((err) => console.error("Error syncing low-stock alert:", err));
 
   return {
-    inventory,
+    inventory: updatedInventory,
     ledgerEntry,
   };
 };
@@ -299,8 +370,7 @@ const adjustStock = async (
   const reason = (typeof options === "object" && options.reason) ? options.reason : "Physical Stock Reconciliation";
   const source = (typeof options === "object" && options.source) ? options.source : "AUDIT_RECONCILIATION";
   const referenceNumber = (typeof options === "object" && options.referenceNumber) ? options.referenceNumber : "";
-  const createdBy = (typeof options === "object" && options.createdBy) ? options.createdBy : null;
-  const createdByName = (typeof options === "object" && options.createdByName) ? options.createdByName : "";
+  const session = (typeof options === "object" && options.session) ? options.session : null;
 
   return await recordStockMovement({
     businessId,
@@ -313,6 +383,7 @@ const adjustStock = async (
     createdBy,
     createdByName,
     notes,
+    session,
   });
 };
 

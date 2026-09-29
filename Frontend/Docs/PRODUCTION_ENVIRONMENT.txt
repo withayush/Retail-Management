@@ -125,9 +125,68 @@ B. BACKEND WEB SERVICE (Render Dashboard):
     - Recent sales invoices & recent repayment settlement feeds with direct navigation.
     - Interactive dark-theme UI modal (`CustomerCRMModal.jsx`) with visual aging bars, KPI cards, and quick modal actions.
 
+[✓] 9. SUPPLIER MASTER REGISTRY & CRUD APIS (T37, T38)
+    - Complete vendor & distributor directory (`/suppliers`) with search, filter, and pagination.
+    - Automatic canonical phone normalization (`+91XXXXXXXXXX`) with duplicate collision guards.
+    - Real-time supplier summary KPIs (`SupplierStatsCards.jsx`) for active vendors, lifetime procurements, and pending payables.
+    - Non-destructive soft-delete / archival (`status: 'INACTIVE'`) preserving historic purchase orders and stock-in transactions.
+    - Interactive dark-theme modals (`AddSupplierModal.jsx`, `EditSupplierModal.jsx`, `SuppliersTable.jsx`).
+
+[✓] 10. SUPPLIER LEDGER & ACCOUNTS PAYABLE TRANSACTION LOG (T39)
+    - Immutable double-entry sub-ledger tracking supplier credits vs payment disbursements:
+      * Formula: Running Balance = Previous Balance + InvoiceValue (Procurement Credit) - PaymentAmount (Disbursement).
+    - Materialized real-time atomic balance updates on `Supplier.currentBalance` with idempotency guards.
+    - Full bank-statement style audit statement modal (`SupplierLedgerModal.jsx`) displaying date-time, invoice references, payment methods, credit/debit breakdowns, and running balance.
+    - Payment disbursement modal (`SettleSupplierModal.jsx`) supporting multiple payment modes (Bank Transfer, UPI, Cash, Cheque, Card) with UTR/cheque reference tracking and quick "Pay Full" shortcuts.
+    - Append-only manual adjustments preserving complete regulatory audit compliance.
+
+[✓] 11. OUTSTANDING PAYABLES INDEXER & CASH ALLOCATION ENGINE (T40)
+    - Fast-access precomputed indexing of accounts payable liability owed across suppliers backed by compound index `{ businessId: 1, currentBalance: -1 }`.
+    - Single-supplier O(1) outstanding lookup (`GET /api/suppliers/:id/outstanding`) and store-wide debt ranking (`GET /api/suppliers/payables/summary`).
+    - Raw cash allocation metrics (`GET /api/suppliers/payables/totals`): `totalPayableOutstanding`, `suppliersWithPayablesCount`, `highestPayableSupplier`, and `averagePayablePerSupplier`.
+    - Interactive Payables Indexer modal (`OutstandingPayablesModal.jsx`) with 4x cash liability cards, minimum-due threshold filters (All, ≥ ₹5k, ≥ ₹20k, ≥ ₹50k), and instant 1-click settlement shortcuts.
+    - 1-Click launcher integrated directly on the `Payable Balance` card in `SupplierStatsCards.jsx` and header button on `SuppliersPage.jsx`.
+
+[✓] 12. SUPPLIER MANAGEMENT CENTER & 360° PROFILE UI (T41)
+    - Comprehensive single-screen Supplier 360° Center (`Supplier360Modal.jsx`) combining profiles, financials, and purchasing metrics.
+    - Instant visibility into procurement velocity: Lifetime Stock Procured, Total Payments Disbursed, Real-time Outstanding Payables, and Purchase Order counts.
+    - Chronological Recent Stock Receipts feed & Payout Disbursements feed.
+    - Tabbed navigation: `Stock Purchases`, `Payouts & Settlements`, and `Vendor Terms & Details` (GSTIN, PAN, Payment Terms, Bank Details).
+    - 1-Click Action shortcuts: Disburse Payment, Inspect Full Ledger, and Edit Vendor Profile.
+    - Clickable company titles in directory table and dedicated `360° Profile` action buttons in `SuppliersTable.jsx`.
+
+[✓] 13. PURCHASE ORDER SCHEMA & PROCUREMENT SYSTEM (T42)
+    - Formal Purchase Order (PO) entity for creating official stock procurement requests to suppliers.
+    - Strict architectural isolation: PO creation does NOT inflate inventory stock or post accounts payable debt.
+    - Server-side cost calculation (`costTotal = Σ quantity * unitCost`) and sequential numbering (`PO-1001`, `PO-1002`).
+    - Dedicated Creation Modal (`CreatePurchaseOrderModal.jsx`) with dynamic product lines, delivery dates, terms, and auto-computed grand totals.
+    - Store-wide & vendor-scoped PO management hub (`PurchaseOrdersListModal.jsx`) with live status badges (`DRAFT`, `PENDING`, `PARTIAL`, `RECEIVED`, `CANCELLED`).
+    - Seamlessly integrated with `Supplier360Modal.jsx` and `SuppliersPage.jsx`.
+
+[✓] 14. PURCHASE ITEM SCHEMA & LINE ITEMS SNAPSHOT (T43)
+    - Dedicated line items entity (`PurchaseItem` model) mirroring `SaleItem (T24)` for procurement operations.
+    - Captures exact product details (`productId`, `name`, `sku`, `unit`), ordered quantity (`qty`), and negotiated unit cost (`costPrice`).
+    - Immutable historical cost price snapshot: catalog price updates in `Product` collection never alter historical PO item lines.
+    - Ordered quantity isolation: `qty` records order commitments without premature inventory stock-in or payable ledger postings.
+    - Automatic product line deduplication on identical product orders within the same PO.
+    - Product purchase history API (`GET /api/purchase-orders/items/product/:productId`) for tracking historic supply costs.
+    - Frontend auto-fills catalog items and default costs in `CreatePurchaseOrderModal.jsx` while supporting negotiated custom cost overrides.
+
+[✓] 15. GOODS RECEIVED NOTE (GRN) & PHYSICAL STOCK RECEIVING (T44)
+    - Physical stock delivery confirmation engine (`POST /api/purchases/receive`) creating sequential `GoodsReceivedNote` documents (`GRN-1001`).
+    - Compares ordered vs previously received vs newly received quantities with automated line variance calculations.
+    - Multi-stage PO lifecycle progression (`PENDING` -> `PARTIAL` -> `RECEIVED`).
+    - Configurable over-delivery tolerance guards to prevent unexpected supplier over-deliveries.
+    - Atomic Inventory Stock IN (T18) incrementing `Inventory.availableStock` and logging immutable `InventoryLedger` entries with `source: 'GOODS_RECEIPT'`.
+    - Interactive Receiving Modal (`ReceiveGoodsModal.jsx`) with live quantity counters, 1-click "Receive All Remaining" shortcuts, and past receipt history inspection.
+    - Seamlessly integrated into `PurchaseOrdersListModal.jsx` and `Supplier360Modal.jsx`.
+
+
+
 ================================================================================
 5. PRODUCTION DEPLOYMENT & SYNC CHECKLIST
 ================================================================================
+
 
 [x] Step 1: Pre-deployment Build Verification
     - Frontend: `cd Frontend && npm run build` (Must complete with 0 errors)

@@ -2223,6 +2223,100 @@ Dummy Response (200 OK):
   }
 }
 
+
+10.6 RAPID AUTOCOMPLETE SEARCH
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/search?q=ABC&limit=10
+Description: Fast autocomplete search by company name, contact person, or phone number.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+      "company": "ABC Distributors Pvt Ltd",
+      "contactName": "Amit Sharma",
+      "phone": "+919876543210"
+    }
+  ]
+}
+
+
+10.7 SUPPLIER DIRECTORY KPI SUMMARY
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/summary
+Description: Computes total suppliers count, active/inactive counts, total payable balance, and lifetime procurement volume.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalSuppliers": 12,
+    "activeSuppliers": 11,
+    "inactiveSuppliers": 1,
+    "totalPayableOutstanding": 45000.00,
+    "totalPurchasesVolume": 350000.00,
+    "suppliersWithPayablesCount": 3
+  }
+}
+
+
+10.8 LOOKUP SUPPLIER BY PHONE
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/phone/:phone
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "company": "ABC Distributors Pvt Ltd",
+    "phone": "+919876543210"
+  }
+}
+
+
+10.9 ARCHIVE SUPPLIER
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/suppliers/:id/archive
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Supplier archived successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "status": "INACTIVE"
+  }
+}
+
+
+10.10 RESTORE ARCHIVED SUPPLIER
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/suppliers/:id/restore
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Supplier restored to active successfully.",
+  "data": {
+    "_id": "66f1f7a8b9c0d1e2f3a4b5c6",
+    "status": "ACTIVE"
+  }
+}
+
 ================================================================================
 END OF API DOCUMENTATION & TESTING GUIDE
 ================================================================================
+

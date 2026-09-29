@@ -5,6 +5,8 @@ const paymentRepo = require("../repositories/payment.repository");
  * Phase 4 - Task T28: Payment Recording Service Layer
  */
 
+const { withTransaction } = require("../utils/transaction");
+
 const recordPayment = async (businessId, payload) => {
   if (!mongoose.Types.ObjectId.isValid(businessId)) {
     const error = new Error("Invalid business ID.");
@@ -13,37 +15,9 @@ const recordPayment = async (businessId, payload) => {
     throw error;
   }
 
-  // Attempt database transaction
-  let session = null;
-  let useTransaction = false;
-
-  try {
-    session = await mongoose.startSession();
-    session.startTransaction();
-    useTransaction = true;
-  } catch {
-    session = null;
-    useTransaction = false;
-  }
-
-  try {
-    const result = await paymentRepo.recordPayment(businessId, payload, session);
-
-    if (useTransaction && session) {
-      await session.commitTransaction();
-    }
-
-    return result;
-  } catch (error) {
-    if (useTransaction && session) {
-      await session.abortTransaction();
-    }
-    throw error;
-  } finally {
-    if (session) {
-      session.endSession();
-    }
-  }
+  return await withTransaction(async (session) => {
+    return await paymentRepo.recordPayment(businessId, payload, session);
+  });
 };
 
 const getPaymentsByInvoiceId = async (businessId, invoiceId) => {

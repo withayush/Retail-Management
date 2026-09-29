@@ -11,8 +11,12 @@ const SaleItem = require("./saleItem.model");
 const OtpChallenge = require("./otpChallenge.model");
 const Payment = require("./payment.model");
 const Product = require("./product.model");
+const PurchaseOrder = require("./purchaseOrder.model");
+const PurchaseItem = require("./purchaseItem.model");
+const GoodsReceivedNote = require("./grn.model");
 const Session = require("./session.model");
-const Supplier = require("./supplier.model");
+const { Supplier, SupplierLedger } = require("./supplier.model");
+const IdempotencyKey = require("./idempotency.model");
 const Vendor = require("./vendor.model");
 
 module.exports = {
@@ -31,8 +35,15 @@ module.exports = {
   OtpChallenge,
   Payment,
   Product,
+  PurchaseOrder,
+  PurchaseItem,
+  GoodsReceivedNote,
+  GRN: GoodsReceivedNote,
   Session,
   Supplier,
+  SupplierLedger,
   Vendor,
+  IdempotencyKey,
 };
+
 

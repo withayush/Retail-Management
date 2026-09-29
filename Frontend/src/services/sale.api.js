@@ -24,8 +24,9 @@ export const getNextInvoiceNumber = async () => {
   return response.data;
 };
 
-export const createSale = async (payload) => {
-  const response = await api.post("/sales", payload);
+export const createSale = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/sales", payload, { headers });
   return response.data;
 };
 
@@ -39,8 +40,9 @@ export const getGrossProfitReport = async (params = {}) => {
   return response.data;
 };
 
-export const updatePaymentStatus = async (saleId, payload) => {
-  const response = await api.put(`/sales/${saleId}/payment-status`, payload);
+export const updatePaymentStatus = async (saleId, payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.put(`/sales/${saleId}/payment-status`, payload, { headers });
   return response.data;
 };
 
@@ -88,8 +90,9 @@ export const getPaymentsByInvoice = async (saleId) => {
   return response.data;
 };
 
-export const recordPayment = async (payload) => {
-  const response = await api.post("/payments", payload);
+export const recordPayment = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/payments", payload, { headers });
   return response.data;
 };
 

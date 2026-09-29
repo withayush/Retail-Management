@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { searchProducts, getProducts, getProductByBarcode } from "../../services/product.api";
 import { getCategories } from "../../services/category.api";
 import { createSale } from "../../services/sale.api";
+import { generateIdempotencyKey } from "../../services/api";
 import usePOSKeyboard from "./hooks/usePOSKeyboard";
 import useBarcodeScanner, { playPOSBeep } from "./hooks/useBarcodeScanner";
 
@@ -285,7 +286,8 @@ export default function POSTerminalPage() {
           : `Billed at POS (${paymentMode})`,
       };
 
-      const res = await createSale(payload);
+      const idempotencyKey = generateIdempotencyKey();
+      const res = await createSale(payload, idempotencyKey);
       const createdSale = res.data || res;
 
       setLastInvoice(createdSale);

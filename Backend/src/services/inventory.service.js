@@ -77,6 +77,8 @@ const updateReorderLevel = async (businessId, productId, payload) => {
   return await inventoryRepo.updateReorderLevel(businessId, productId, reorderLevel);
 };
 
+const { withTransaction } = require("../utils/transaction");
+
 /**
  * Phase 3 - Task T18: Stock IN (Addition) Endpoint
  * Increments physical inventory count and writes detailed transaction logs with source details.
@@ -133,19 +135,22 @@ const stockIn = async (businessId, payload) => {
     reason = "Customer Return Restock";
   }
 
-  return await inventoryRepo.recordStockMovement({
-    businessId,
-    productId,
-    qtyChange: qty, // Positive signed quantity for Stock-In
-    type: "IN",
-    source: resolvedSource,
-    supplierName: resolvedSupplier,
-    unitCost: unitCost !== undefined && !isNaN(Number(unitCost)) ? Number(unitCost) : null,
-    referenceNumber: resolvedRef,
-    reason,
-    createdBy: createdBy || null,
-    createdByName: createdByName || "",
-    notes: notes?.trim() || "",
+  return await withTransaction(async (session) => {
+    return await inventoryRepo.recordStockMovement({
+      businessId,
+      productId,
+      qtyChange: qty, // Positive signed quantity for Stock-In
+      type: "IN",
+      source: resolvedSource,
+      supplierName: resolvedSupplier,
+      unitCost: unitCost !== undefined && !isNaN(Number(unitCost)) ? Number(unitCost) : null,
+      referenceNumber: resolvedRef,
+      reason,
+      createdBy: createdBy || null,
+      createdByName: createdByName || "",
+      notes: notes?.trim() || "",
+      session,
+    });
   });
 };
 
@@ -215,18 +220,21 @@ const stockOut = async (businessId, payload) => {
     resolvedReason += ` (Customer: ${customerName.trim()})`;
   }
 
-  return await inventoryRepo.recordStockMovement({
-    businessId,
-    productId,
-    qtyChange: -Math.abs(qty), // Negative signed quantity for Stock-Out
-    type: "OUT",
-    source: resolvedSource,
-    referenceNumber: resolvedRef,
-    reason: resolvedReason,
-    invoiceId: invoiceId && mongoose.Types.ObjectId.isValid(invoiceId) ? invoiceId : null,
-    createdBy: createdBy || null,
-    createdByName: createdByName || "",
-    notes: notes?.trim() || "",
+  return await withTransaction(async (session) => {
+    return await inventoryRepo.recordStockMovement({
+      businessId,
+      productId,
+      qtyChange: -Math.abs(qty), // Negative signed quantity for Stock-Out
+      type: "OUT",
+      source: resolvedSource,
+      referenceNumber: resolvedRef,
+      reason: resolvedReason,
+      invoiceId: invoiceId && mongoose.Types.ObjectId.isValid(invoiceId) ? invoiceId : null,
+      createdBy: createdBy || null,
+      createdByName: createdByName || "",
+      notes: notes?.trim() || "",
+      session,
+    });
   });
 };
 
@@ -243,26 +251,32 @@ const batchStockOut = async (businessId, payload) => {
     throw error;
   }
 
-  const results = [];
-  for (const item of items) {
-    const deduction = await stockOut(businessId, {
-      productId: item.productId,
-      quantity: item.quantity,
-      source: source || "POS_CHECKOUT",
-      invoiceId,
-      invoiceNumber,
-      reason: reason || (invoiceNumber ? `POS Sale #${invoiceNumber}` : "POS Checkout Deduction"),
-      createdBy,
-      createdByName,
-      notes: notes || "",
-    });
-    results.push(deduction);
-  }
+  return await withTransaction(async (session) => {
+    const results = [];
+    for (const item of items) {
+      const deduction = await inventoryRepo.recordStockMovement({
+        businessId,
+        productId: item.productId,
+        quantity: item.quantity,
+        qtyChange: -Math.abs(item.quantity),
+        type: "OUT",
+        source: source || "POS_CHECKOUT",
+        invoiceId: invoiceId && mongoose.Types.ObjectId.isValid(invoiceId) ? invoiceId : null,
+        referenceNumber: (invoiceNumber || "").trim(),
+        reason: reason || (invoiceNumber ? `POS Sale #${invoiceNumber}` : "POS Checkout Deduction"),
+        createdBy,
+        createdByName,
+        notes: notes || "",
+        session,
+      });
+      results.push(deduction);
+    }
 
-  return {
-    deductions: results,
-    totalItemsDeducted: results.length,
-  };
+    return {
+      deductions: results,
+      totalItemsDeducted: results.length,
+    };
+  });
 };
 
 /**
@@ -306,56 +320,61 @@ const adjustStock = async (businessId, payload) => {
     throw error;
   }
 
-  const existingInventory = await inventoryRepo.getOrCreateInventory(businessId, productId);
-  const previousStock = existingInventory.availableStock || 0;
-  const discrepancy = stockNum - previousStock;
+  return await withTransaction(async (session) => {
+    const existingInventory = await inventoryRepo.getOrCreateInventory(businessId, productId);
+    const previousStock = existingInventory.availableStock || 0;
+    const discrepancy = stockNum - previousStock;
 
-  const resolvedSource = source || "AUDIT_RECONCILIATION";
-  const resolvedRef = (referenceNumber || "").trim();
+    const resolvedSource = source || "AUDIT_RECONCILIATION";
+    const resolvedRef = (referenceNumber || "").trim();
 
-  let resolvedReason = reason?.trim();
-  if (!resolvedReason) {
-    if (resolvedSource === "DAMAGE") {
-      resolvedReason = `Damaged Goods Write-off (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
-    } else if (resolvedSource === "EXPIRED") {
-      resolvedReason = `Expired Inventory Discard (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
-    } else if (resolvedSource === "SPILLAGE") {
-      resolvedReason = `Spillage / Leakage Loss (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
-    } else if (resolvedSource === "THEFT_SHRINKAGE") {
-      resolvedReason = `Theft / Shrinkage Discrepancy (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
-    } else if (resolvedSource === "FOUND_STOCK") {
-      resolvedReason = `Found Unrecorded Stock (+${discrepancy} units)`;
-    } else if (resolvedSource === "CORRECTION") {
-      resolvedReason = `Count Correction (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
-    } else {
-      resolvedReason = discrepancy === 0
-        ? "Physical Audit: Stock count verified (0 discrepancy)"
-        : discrepancy > 0
-        ? `Physical Audit: Surplus found (+${discrepancy} units)`
-        : `Physical Audit: Shortage discrepancy (${discrepancy} units)`;
+    let resolvedReason = reason?.trim();
+    if (!resolvedReason) {
+      if (resolvedSource === "DAMAGE") {
+        resolvedReason = `Damaged Goods Write-off (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
+      } else if (resolvedSource === "EXPIRED") {
+        resolvedReason = `Expired Inventory Discard (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
+      } else if (resolvedSource === "SPILLAGE") {
+        resolvedReason = `Spillage / Leakage Loss (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
+      } else if (resolvedSource === "THEFT_SHRINKAGE") {
+        resolvedReason = `Theft / Shrinkage Discrepancy (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
+      } else if (resolvedSource === "FOUND_STOCK") {
+        resolvedReason = `Found Unrecorded Stock (+${discrepancy} units)`;
+      } else if (resolvedSource === "CORRECTION") {
+        resolvedReason = `Count Correction (${discrepancy >= 0 ? "+" : ""}${discrepancy} units)`;
+      } else {
+        resolvedReason = discrepancy === 0
+          ? "Physical Audit: Stock count verified (0 discrepancy)"
+          : discrepancy > 0
+          ? `Physical Audit: Surplus found (+${discrepancy} units)`
+          : `Physical Audit: Shortage discrepancy (${discrepancy} units)`;
+      }
     }
-  }
 
-  const result = await inventoryRepo.adjustStock(
-    businessId,
-    productId,
-    stockNum,
-    {
-      source: resolvedSource,
-      referenceNumber: resolvedRef,
-      reason: resolvedReason,
-      createdBy: createdBy || null,
-      createdByName: createdByName || "",
-      notes: notes?.trim() || "",
-    }
-  );
+    const result = await inventoryRepo.adjustStock(
+      businessId,
+      productId,
+      stockNum,
+      {
+        source: resolvedSource,
+        referenceNumber: resolvedRef,
+        reason: resolvedReason,
+        createdBy: createdBy || null,
+        createdByName: createdByName || "",
+        notes: notes?.trim() || "",
+        session,
+      }
+    );
 
-  return {
-    ...result,
-    previousStock,
-    newStock: stockNum,
-    discrepancy,
-  };
+    return {
+      ...(result?.inventory ? { inventory: result.inventory, ledgerEntry: result.ledgerEntry } : result || {}),
+      availableStock: result?.availableStock !== undefined ? result.availableStock : (result?.inventory?.availableStock ?? stockNum),
+      lowStockAlert: result?.lowStockAlert !== undefined ? result.lowStockAlert : (result?.inventory?.lowStockAlert ?? false),
+      previousStock,
+      newStock: stockNum,
+      discrepancy,
+    };
+  });
 };
 
 /**
@@ -416,25 +435,28 @@ const initializeOpeningStock = async (businessId, payload) => {
     throw error;
   }
 
-  // Record audited OPENING movement in ledger
-  const result = await inventoryRepo.recordStockMovement({
-    businessId,
-    productId,
-    qtyChange: stockNum,
-    type: "OPENING",
-    reason: "Opening Stock Initial Balance",
-    createdBy: createdBy || null,
-    createdByName: createdByName || "",
-    notes: notes || "Initialized via Opening Stock API (T17)",
+  return await withTransaction(async (session) => {
+    // Record audited OPENING movement in ledger
+    const result = await inventoryRepo.recordStockMovement({
+      businessId,
+      productId,
+      qtyChange: stockNum,
+      type: "OPENING",
+      reason: "Opening Stock Initial Balance",
+      createdBy: createdBy || null,
+      createdByName: createdByName || "",
+      notes: notes || "Initialized via Opening Stock API (T17)",
+      session,
+    });
+
+    if (reorderLevel !== undefined && !isNaN(Number(reorderLevel)) && Number(reorderLevel) >= 0) {
+      await inventoryRepo.updateReorderLevel(businessId, productId, Number(reorderLevel));
+      result.inventory.reorderLevel = Number(reorderLevel);
+      result.inventory.lowStockAlert = result.inventory.availableStock <= Number(reorderLevel);
+    }
+
+    return result;
   });
-
-  if (reorderLevel !== undefined && !isNaN(Number(reorderLevel)) && Number(reorderLevel) >= 0) {
-    await inventoryRepo.updateReorderLevel(businessId, productId, Number(reorderLevel));
-    result.inventory.reorderLevel = Number(reorderLevel);
-    result.inventory.lowStockAlert = result.inventory.availableStock <= Number(reorderLevel);
-  }
-
-  return result;
 };
 
 /**

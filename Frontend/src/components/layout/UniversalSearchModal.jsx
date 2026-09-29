@@ -9,6 +9,8 @@ import {
   Users,
   Receipt,
   X,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { searchProducts } from "../../services/product.api";
 import { getCustomers } from "../../services/customer.api";
@@ -95,17 +97,17 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
-      {/* Backdrop */}
+      {/* Apple Frosted Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity animate-fade-in"
         onClick={onClose}
       />
 
-      {/* Modal content */}
-      <div className="relative w-full max-w-lg bg-[#111113] border border-[#27272a] rounded-2xl shadow-2xl z-10 overflow-hidden animate-modal-pop">
-        {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1f1f23]">
-          <Search className="w-4 h-4 text-zinc-400 shrink-0" />
+      {/* Apple Spotlight Modal */}
+      <div className="relative w-full max-w-lg bg-[#1D1D1F]/95 backdrop-blur-3xl border border-[#D2D2D7]/20 rounded-[18px] shadow-[0_24px_64px_rgba(0,0,0,0.6)] z-10 overflow-hidden animate-modal-pop">
+        {/* Search input header */}
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-[#D2D2D7]/10">
+          <Search className="w-4 h-4 text-[#0066CC] shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -113,44 +115,50 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && onClose()}
             placeholder="Search pages, products, customers..."
-            className="w-full bg-transparent text-sm text-foreground placeholder-zinc-500 outline-none"
+            className="w-full bg-transparent text-sm text-white placeholder-[#6E6E73] outline-none font-normal"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              className="p-1 rounded text-zinc-400 hover:text-white"
+              className="p-1 rounded-full text-[#6E6E73] hover:text-white hover:bg-white/10 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
+          <kbd className="text-[10px] text-[#6E6E73] bg-white/5 px-2 py-0.5 rounded-full border border-white/10 font-mono">
             ESC
           </kbd>
         </div>
 
-        {/* Results */}
-        <div className="max-h-80 overflow-y-auto p-2 space-y-3">
+        {/* Results Container */}
+        <div className="max-h-80 overflow-y-auto p-3 space-y-3">
           {loading && (
-            <p className="text-xs text-zinc-500 text-center py-4">Searching...</p>
+            <div className="flex items-center justify-center py-6 gap-2 text-xs text-[#6E6E73]">
+              <div className="w-3 h-3 rounded-full border-2 border-[#0066CC] border-t-transparent animate-spin" />
+              <span>Searching catalog & records...</span>
+            </div>
           )}
 
-          {/* Pages */}
+          {/* Navigation Pages */}
           {filteredPages.length > 0 && (
             <div>
-              <p className="px-2 py-1 text-[11px] font-medium text-zinc-500 uppercase">
-                Pages
+              <p className="px-3 py-1 text-[10px] font-semibold text-[#6E6E73] tracking-wider uppercase">
+                Quick Navigation
               </p>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {filteredPages.map((item) => {
                   const Icon = item.icon;
                   return (
                     <button
                       key={item.path}
                       onClick={() => handleNavigate(item.path)}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-[#D2D2D7] hover:bg-white/10 hover:text-white transition-all text-left group cursor-pointer"
                     >
-                      <Icon className="w-4 h-4 text-zinc-400" />
-                      <span>{item.title}</span>
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="w-4 h-4 text-[#0066CC] group-hover:scale-110 transition-transform" />
+                        <span className="font-medium">{item.title}</span>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#6E6E73] group-hover:text-white opacity-0 group-hover:opacity-100 transition-all" />
                     </button>
                   );
                 })}
@@ -161,18 +169,21 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
           {/* Products */}
           {products.length > 0 && (
             <div>
-              <p className="px-2 py-1 text-[11px] font-medium text-zinc-500 uppercase">
+              <p className="px-3 py-1 text-[10px] font-semibold text-[#6E6E73] tracking-wider uppercase">
                 Products
               </p>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {products.map((p) => (
                   <button
                     key={p._id || p.id}
                     onClick={() => handleNavigate("/products")}
-                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors text-left"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-[#D2D2D7] hover:bg-white/10 hover:text-white transition-all text-left cursor-pointer group"
                   >
-                    <span className="truncate">{p.name}</span>
-                    <span className="text-xs text-zinc-400">₹{p.sellingPrice}</span>
+                    <div className="truncate pr-2">
+                      <span className="font-medium text-white block truncate">{p.name}</span>
+                      <span className="text-[10px] text-[#6E6E73]">{p.sku || p.barcode || "SKU N/A"}</span>
+                    </div>
+                    <span className="font-semibold text-[#FF791B] shrink-0">₹{p.sellingPrice}</span>
                   </button>
                 ))}
               </div>
@@ -182,18 +193,18 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
           {/* Customers */}
           {customers.length > 0 && (
             <div>
-              <p className="px-2 py-1 text-[11px] font-medium text-zinc-500 uppercase">
-                Customers
+              <p className="px-3 py-1 text-[10px] font-semibold text-[#6E6E73] tracking-wider uppercase">
+                Customers & Khata
               </p>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {customers.map((c) => (
                   <button
                     key={c._id || c.id}
                     onClick={() => handleNavigate("/customers")}
-                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors text-left"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-[#D2D2D7] hover:bg-white/10 hover:text-white transition-all text-left cursor-pointer"
                   >
-                    <span className="truncate">{c.name}</span>
-                    <span className="text-xs text-zinc-400">{c.phone || "No phone"}</span>
+                    <span className="font-medium text-white truncate">{c.name}</span>
+                    <span className="text-[11px] text-[#6E6E73] font-mono">{c.phone || "No phone"}</span>
                   </button>
                 ))}
               </div>
@@ -201,7 +212,7 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
           )}
 
           {filteredPages.length === 0 && products.length === 0 && customers.length === 0 && !loading && (
-            <p className="text-xs text-zinc-500 text-center py-6">No matches found</p>
+            <p className="text-xs text-[#6E6E73] text-center py-8">No matching records found</p>
           )}
         </div>
       </div>

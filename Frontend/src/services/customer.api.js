@@ -79,8 +79,12 @@ export const getBusinessOutstandingTotals = async () => {
 };
 
 // T35: Record a payment settlement
-export const recordCustomerPayment = async (customerId, data) => {
-  const res = await api.post(`/customers/${customerId}/pay`, data, getBusinessHeader());
+export const recordCustomerPayment = async (customerId, data, idempotencyKey = null) => {
+  const config = getBusinessHeader();
+  if (idempotencyKey) {
+    config.headers = { ...config.headers, "Idempotency-Key": idempotencyKey };
+  }
+  const res = await api.post(`/customers/${customerId}/pay`, data, config);
   return res.data;
 };
 
@@ -95,8 +99,12 @@ export const getCustomerLedger = async (customerId, pagination = {}) => {
 };
 
 // T33: Append a manual credit/debit or adjustment customer ledger entry
-export const appendCustomerLedgerEntry = async (customerId, data) => {
-  const res = await api.post(`/customers/${customerId}/ledger`, data, getBusinessHeader());
+export const appendCustomerLedgerEntry = async (customerId, data, idempotencyKey = null) => {
+  const config = getBusinessHeader();
+  if (idempotencyKey) {
+    config.headers = { ...config.headers, "Idempotency-Key": idempotencyKey };
+  }
+  const res = await api.post(`/customers/${customerId}/ledger`, data, config);
   return res.data;
 };
 

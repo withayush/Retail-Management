@@ -268,22 +268,49 @@ const createSale = async (businessId, saleData, session = null) => {
     await SaleItem.insertMany(saleItemDocs, sessionOpt);
   }
 
-  // 4. Atomic Inventory Stock Deduction & Immutable Ledger OUT Logging (Task T19 & T16)
+  // 4. Atomic Concurrency-Safe Inventory Stock Deduction & Immutable Ledger OUT Logging (Task T19 & T16)
   if (!skipInventoryDeduction && inventoryUpdates.length > 0) {
     const ledgerDocs = [];
 
     for (const update of inventoryUpdates) {
-      // Update inventory stock
-      update.inventory.availableStock = update.newStock;
-      update.inventory.lowStockAlert = update.newStock <= update.inventory.reorderLevel;
-      await update.inventory.save(sessionOpt);
+      // Concurrency-safe atomic database update: check + decrement in single atomic Mongo operation
+      const updatedInv = await Inventory.findOneAndUpdate(
+        {
+          _id: update.inventory._id,
+          businessId,
+          availableStock: { $gte: update.quantity },
+        },
+        {
+          $inc: { availableStock: -Math.abs(update.quantity) },
+        },
+        {
+          new: true,
+          ...sessionOpt,
+        }
+      );
 
-      // Create ledger entry
+      if (!updatedInv) {
+        const error = new Error(
+          `Insufficient stock for '${update.productName}'. Stock balance changed concurrently during checkout.`
+        );
+        error.statusCode = 400;
+        error.code = "INSUFFICIENT_STOCK";
+        error.productId = update.productId;
+        error.productName = update.productName;
+        error.requestedQuantity = update.quantity;
+        throw error;
+      }
+
+      // Re-evaluate low stock status
+      updatedInv.lowStockAlert = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
+      await updatedInv.save(sessionOpt);
+
+      // Record immutable ledger entry with exact atomically verified balanceAfter
       ledgerDocs.push({
         businessId,
         productId: update.productId,
         qtyChange: -Math.abs(update.quantity),
-        balanceAfter: update.newStock,
+        balanceAfter: updatedInv.availableStock,
         type: "OUT",
         source: paymentMode === "CREDIT_UDHAR" ? "SALE" : "POS_CHECKOUT",
         referenceNumber: invoice.invoiceNumber,
