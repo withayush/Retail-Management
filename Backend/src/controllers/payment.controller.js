@@ -6,8 +6,10 @@ const paymentService = require("../services/payment.service");
 
 const recordPayment = async (req, res, next) => {
   try {
+    const invoiceId = req.params.invoiceId || req.params.id || req.body.invoiceId;
     const result = await paymentService.recordPayment(req.businessId, {
       ...req.body,
+      invoiceId,
       createdBy: req.user?.accountId,
       createdByName: req.account?.fullName || "Staff",
     });

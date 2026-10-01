@@ -1,7 +1,7 @@
 ================================================================================
                          VENDOROS - PROJECT PROGRESS
 ================================================================================
-Last Updated : 2026-09-23
+Last Updated : 2026-09-30
 Stack        : Node.js (CommonJS), Express 5.x, MongoDB (Mongoose), JWT, Zod, Bcrypt, PDFKit
 Frontend     : React 19, Vite, Tailwind CSS, Framer Motion, Lucide React, Axios
 Architecture : Routes -> Middleware -> Controller -> Service -> Repository -> Database
@@ -18,7 +18,7 @@ API Base URL : http://localhost:3001/api
 [✓] Phase 4: Sales, Billing, Payments & POS Terminal    --> 100% (DONE - T23-T30)
 [✓] Phase 5: Customer System & Profiles Master (T31-T36) --> 100% (DONE - T31, T32, T33, T34, T35, T36)
 [✓] Phase 6: Supplier & Procurement Management (T37-T41)   --> 100% (DONE - T37, T38, T39, T40, T41)
-[⧗] Phase 7: Purchasing & Stock In (T42+)                   -->  60% (IN PROGRESS - T42, T43, T44 DONE)
+[✓] Phase 7: Purchasing & Stock In (T42-T45)                  --> 100% (DONE - T42, T43, T44, T45)
 
 
 
@@ -444,6 +444,30 @@ API Base URL : http://localhost:3001/api
       * `ReceiveGoodsModal.jsx`: Modern receiving modal with line items table (ordered, received, remaining, receiving input, line variance, line cost), 1-click "Receive All Remaining", inspection notes, and past GRN receipt history tab.
       * Integrated 1-click "Receive Stock (GRN)" triggers inside `PurchaseOrdersListModal.jsx` and `Supplier360Modal.jsx`.
 
+[✓] C38. T45: Auto Inventory IN Deductions & Immutable Ledger Integration
+    - Purpose & Core Rule: "T45 automatically converts confirmed physical goods from GRN (T44) directly into active sellable stock quantities (`Inventory.availableStock += receivedQty`) and generates audited `InventoryLedger` entries with `type: 'IN'` and `source: 'GOODS_RECEIPT'`. Cashier/admin does NOT need to perform manual stock-in. Purchasing receiving flow automatically updates inventory and preserves mathematical ledger consistency."
+    - 3 Non-Negotiable Core Rules:
+      * 1. Only newly received quantity added:
+        - For partial deliveries, only newly received quantities increment `availableStock` (never full PO quantity or previously received quantity).
+        - Example: PO ordered = 100. GRN 1 receives 60 -> Inventory +60 (20 -> 80). GRN 2 receives 40 -> Inventory +40 (80 -> 120). Total received = 100.
+      * 2. Idempotency guard & duplicate stock intake prevention:
+        - Checks `InventoryLedger.findOne({ businessId, referenceType: 'GRN', referenceId: grn._id, source: 'GOODS_RECEIPT' })`.
+        - Rejects duplicate stock intake attempts with HTTP 409 `DUPLICATE_GRN_STOCK_IN`.
+      * 3. Strict single-transaction boundary (`withTransaction`):
+        - GRN creation + Inventory update + Ledger log + PO line item & status update executed atomically in one Mongoose session.
+        - Any failure triggers atomic rollback across all affected collections.
+    - Application-Level Service Architecture (Not Database Triggers):
+      * `grnService.executeAutoInventoryIn(businessId, { grn, purchaseOrder, items, accountId, accountName, session })`
+      * `inventoryService.executeAutoInventoryInForGrn(businessId, options)`
+      * `purchaseOrderRepository._attachCurrentInventory`: Automatically attaches real-time `currentStock` to PO line items for zero-latency client calculation.
+    - Mathematical Ledger Invariant Maintained:
+      * Invariant: `Inventory.availableStock === sum(InventoryLedger.qtyChange)`.
+    - Automated Test Suite:
+      * `Backend/tests/test-auto-inventory-in-deductions.js` (100% tests passing, covering 8 test groups: PO stock isolation, partial delivery 1 stock addition, partial delivery 2 stock addition, mathematical ledger invariant, idempotency duplicate prevention, overdelivery safety, and current stock enrichment).
+    - Frontend Implementation:
+      * `ReceiveGoodsModal.jsx`: Real-time calculation showing `Current Stock`, `Receiving Now`, `Projected Stock` (`currentStock + receivingNow` with `+N` badge), and T45 automation banner.
+      * `GoodsReceivedNotesModal.jsx`: Displays `Auto Stock IN` confirmation badge on each completed GRN.
+
 
 ================================================================================
 3. CURRENT ACTIVE ENDPOINT SUMMARY (108+ APIs)
@@ -588,7 +612,42 @@ API Base URL : http://localhost:3001/api
   * `test-invoice-pdf-generation.js` (T27) -> 100% Passed.
   * `test-low-stock-notifications.js` (T22) -> 100% Passed.
   * `test-inventory-ledger-ui.js` (T21) -> 100% Passed.
+  * `test-reconciliation-engine.js` (T47) -> 100% Passed (Customer & Supplier reconciliation bug fixed).
+
+================================================================================
+CRITICAL AUDIT BUG FIXES LOG
+================================================================================
+- [RESOLVED] BUG 2.1: Customer Reconciliation Engine Running Balance Calculation:
+  * File: `Backend/src/services/reconciliation.service.js`
+  * Issue: Used non-existent fields (`unpaidAmount`, `paymentAmount`, `debit`, `credit`), causing debt to calculate as 0 and wipe out customer balances.
+  * Fix: Updated logic to accurately read `creditAmount` and `debitAmount` conforming to `CustomerLedger` schema.
+  * Test: Verified passing via `node tests/test-reconciliation-engine.js` (All assertions passed).
+
+- [RESOLVED] BUG 2.2: Concurrency Killer: Atomic Decrement followed by .save() Stock Corruption:
+  * Files:
+    - `Backend/src/repositories/sale.repository.js` (L304)
+    - `Backend/src/repositories/inventory.repository.js` (L322 & L597)
+    - `Frontend/src/features/pos/POSTerminalPage.jsx` (L314)
+    - `Frontend/src/features/inventory/InventoryAuditPage.jsx` (L431)
+  * Issue: Calling Mongoose `.save()` on an in-memory document instance after atomic `findOneAndUpdate` overwrote concurrent stock decrements made by other checkout terminals with stale values.
+  * Fix:
+    - Backend: Replaced `.save()` with targeted `Inventory.updateOne({ _id }, { $set: { lowStockAlert, updatedAt } })`, preserving exact concurrent atomic stock changes.
+    - Frontend: Added instant catalog re-fetch (`fetchPOSProducts()`) upon `INSUFFICIENT_STOCK` rejection and inventory table sync on conflict error.
+- [RESOLVED] BUG 2.3: Sequential Number Generator Race Conditions (Invoice, PO, GRN):
+  * Files:
+    - `Backend/src/models/counter.model.js` (Created dedicated atomic counter schema)
+    - `Backend/src/models/index.js` (Exported Counter model)
+    - `Backend/src/repositories/counter.repository.js` (Created centralized atomic sequence generator)
+    - `Backend/src/repositories/sale.repository.js` (Integrated atomic getNextInvoiceNumber)
+    - `Backend/src/repositories/purchaseOrder.repository.js` (Integrated atomic generateNextPoNumber)
+    - `Backend/src/repositories/grn.repository.js` (Integrated atomic generateNextGrnNumber)
+    - `Backend/src/services/grn.service.js` (Passed session context to generateNextGrnNumber)
+  * Issue: Previous generator calculated next sequential numbers via countDocuments/findOne + in-memory loop check, causing simultaneous POS checkouts or PO/GRN creations to generate identical IDs and crash with MongoServerError E11000 duplicate key error.
+  * Fix: Implemented atomic MongoDB $inc counter collection with automatic cold-start seeding from existing documents, backward compatibility, and race condition duplicate key recovery.
+  * Test: `Backend/tests/test-bug-2.3-sequential-counter-race-fix.js` -> 100% Passed (5/5 tests on MongoDB).
 
 ================================================================================
 END OF PROGRESS REPORT
 ================================================================================
+
+

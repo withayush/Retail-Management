@@ -4,8 +4,9 @@ import api from "./api";
  * Phase 4 - Task T28: Payment Recording API Client
  */
 
-export const recordPayment = async (payload) => {
-  const response = await api.post("/payments", payload);
+export const recordPayment = async (payload, idempotencyKey = null) => {
+  const headers = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
+  const response = await api.post("/payments", payload, { headers });
   return response.data;
 };
 

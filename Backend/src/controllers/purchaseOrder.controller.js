@@ -8,8 +8,8 @@ const purchaseOrderService = require("../services/purchaseOrder.service");
 const createPurchaseOrder = async (req, res, next) => {
   try {
     const businessId = req.businessId;
-    const accountId = req.user?.id || req.user?._id;
-    const accountName = req.user?.name || req.user?.email || "Merchant";
+    const accountId = req.user?.id || req.user?.accountId || req.user?._id || null;
+    const accountName = req.user?.fullName || req.user?.name || req.account?.fullName || req.user?.email || "Merchant";
 
     const order = await purchaseOrderService.createPurchaseOrder(
       businessId,

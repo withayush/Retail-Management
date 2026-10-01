@@ -212,8 +212,8 @@ const recordSupplierPayment = async (req, res, next) => {
   try {
     const businessId = req.businessId;
     const supplierId = req.params.id;
-    const accountId = req.user?.id || req.user?._id || null;
-    const accountName = req.user?.name || req.user?.username || "Admin / Cashier";
+    const accountId = req.user?.id || req.user?.accountId || req.user?._id || null;
+    const accountName = req.user?.fullName || req.user?.name || req.account?.fullName || "Admin / Cashier";
 
     const { amount, paymentMethod, referenceId, notes, idempotencyKey } = req.body;
 
@@ -243,8 +243,8 @@ const appendLedgerEntry = async (req, res, next) => {
   try {
     const businessId = req.businessId;
     const supplierId = req.params.id;
-    const accountId = req.user?.id || req.user?._id || null;
-    const accountName = req.user?.name || req.user?.username || "Admin";
+    const accountId = req.user?.id || req.user?.accountId || req.user?._id || null;
+    const accountName = req.user?.fullName || req.user?.name || req.account?.fullName || "Admin";
 
     const {
       entryType,
@@ -286,8 +286,8 @@ const recordPurchaseCredit = async (req, res, next) => {
   try {
     const businessId = req.businessId;
     const supplierId = req.params.id;
-    const accountId = req.user?.id || req.user?._id || null;
-    const accountName = req.user?.name || req.user?.username || "Inventory Manager";
+    const accountId = req.user?.id || req.user?.accountId || req.user?._id || null;
+    const accountName = req.user?.fullName || req.user?.name || req.account?.fullName || "Inventory Manager";
 
     const {
       purchaseId,

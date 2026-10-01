@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, CheckCircle, Wallet, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
 import { recordCustomerPayment } from "../../../services/customer.api";
+import { generateIdempotencyKey } from "../../../services/api";
 
 export default function SettleKhataModal({ isOpen, onClose, customer, onSuccess }) {
   const [amount, setAmount] = useState("");
@@ -24,12 +25,17 @@ export default function SettleKhataModal({ isOpen, onClose, customer, onSuccess 
     setSubmitting(true);
     try {
       const custId = customer.id || customer._id;
-      const res = await recordCustomerPayment(custId, {
-        amount: numAmount,
-        method,
-        referenceId: referenceId.trim() || undefined,
-        notes: notes.trim() || undefined,
-      });
+      const idempotencyKey = generateIdempotencyKey();
+      const res = await recordCustomerPayment(
+        custId,
+        {
+          amount: numAmount,
+          method,
+          referenceId: referenceId.trim() || undefined,
+          notes: notes.trim() || undefined,
+        },
+        idempotencyKey
+      );
 
       toast.success(`Payment of ₹${numAmount.toFixed(2)} recorded successfully!`);
       if (onSuccess) onSuccess(res.data || res);

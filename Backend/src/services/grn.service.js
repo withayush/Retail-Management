@@ -4,6 +4,7 @@ const inventoryRepo = require("../repositories/inventory.repository");
 const { PurchaseOrder } = require("../models/purchaseOrder.model");
 const { PurchaseItem } = require("../models/purchaseItem.model");
 const { Product } = require("../models/product.model");
+const { InventoryLedger } = require("../models/inventory.model");
 
 const { withTransaction } = require("../utils/transaction");
 
@@ -160,7 +161,7 @@ class GRNService {
     }
 
     // 5. Generate human-readable GRN Number (GRN-1001)
-    const grnNumber = await grnRepo.generateNextGrnNumber(bId);
+    const grnNumber = await grnRepo.generateNextGrnNumber(bId, session);
 
     // 6. Create and persist Goods Received Note
     const grnDoc = {
@@ -227,34 +228,15 @@ class GRNService {
 
     await po.save(session ? { session } : {});
 
-    // 9. Execute Physical Inventory Stock IN & Immutable Ledger (T18 & T16)
-    const inventoryUpdates = [];
-    for (const line of grnItems) {
-      if (line.receivedQty > 0 && line.productId) {
-        const movement = await inventoryRepo.recordStockMovement({
-          businessId: bId,
-          productId: line.productId,
-          qtyChange: line.receivedQty, // Positive signed increment for Stock IN
-          type: "IN",
-          source: "GOODS_RECEIPT",
-          supplierName: po.supplierCompany || "",
-          unitCost: line.costPrice,
-          referenceNumber: savedGRN.grnNumber,
-          referenceId: savedGRN._id,
-          reason: `Goods Receipt for PO #${po.poNumber} (GRN #${savedGRN.grnNumber})`,
-          createdBy: accountId ? new mongoose.Types.ObjectId(accountId) : null,
-          createdByName: accountName || "",
-          notes: line.notes || savedGRN.notes || "",
-          session,
-        });
-        inventoryUpdates.push({
-          productId: line.productId,
-          productName: line.name,
-          receivedQty: line.receivedQty,
-          newStock: movement.inventory.availableStock,
-        });
-      }
-    }
+    // 9. Execute Phase 7 - Task T45: Auto Inventory IN Deductions & Immutable Ledger
+    const inventoryUpdates = await this.executeAutoInventoryIn(bId, {
+      grn: savedGRN,
+      purchaseOrder: po,
+      items: grnItems,
+      accountId,
+      accountName,
+      session,
+    });
 
     return {
       grn: savedGRN,
@@ -340,6 +322,84 @@ class GRNService {
     }
 
     return await grnRepo.getSummary(businessId);
+  }
+
+  /**
+   * Phase 7 - Task T45: Auto Inventory IN Deductions Service Capability
+   * 
+   * Directly converts confirmed goods from GRN into active sellable inventory (T15)
+   * and creates immutable Inventory Ledger entries (T16) inside the transactional session.
+   * 
+   * 3 Non-Negotiable Core Rules:
+   * 1. Only newly received quantity added (never entire PO qty or previously received qty).
+   * 2. Idempotency guard: Same GRN receiving event must NEVER produce duplicate stock-in.
+   * 3. Single-transaction consistency: GRN + Inventory + Ledger + PO update committed or rolled back together.
+   */
+  async executeAutoInventoryIn(businessId, { grn, purchaseOrder, items, accountId = null, accountName = "", session = null }) {
+    const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
+
+    // Rule 2: Idempotency Guard - Verify same GRN has not already executed stock IN
+    const existingLedger = await InventoryLedger.findOne({
+      businessId: bId,
+      referenceType: "GRN",
+      referenceId: grn._id,
+      source: "GOODS_RECEIPT",
+    }).session(session);
+
+    if (existingLedger) {
+      const err = new Error(
+        `Auto Inventory IN has already been executed for GRN '${grn.grnNumber}'. Duplicate stock intake is prevented.`
+      );
+      err.statusCode = 409;
+      err.code = "DUPLICATE_GRN_STOCK_IN";
+      throw err;
+    }
+
+    const inventoryUpdates = [];
+
+    // Rule 1: Only newly received quantity added for each item
+    for (const line of items) {
+      const rQty = Number(line.receivedQty) || 0;
+      if (rQty <= 0 || !line.productId) continue;
+
+      // Get or create current inventory state
+      const currentInv = await inventoryRepo.getOrCreateInventory(bId, line.productId, 0, 5, session);
+      const previousStock = currentInv.availableStock || 0;
+
+      // Rule 3: Atomic stock increment & ledger write within session
+      const movement = await inventoryRepo.recordStockMovement({
+        businessId: bId,
+        productId: line.productId,
+        qtyChange: rQty, // Strictly the newly received quantity
+        type: "IN",
+        source: "GOODS_RECEIPT",
+        supplierName: purchaseOrder.supplierCompany || grn.supplierCompany || "",
+        unitCost: line.costPrice !== undefined ? Number(line.costPrice) : null,
+        referenceType: "GRN",
+        referenceNumber: grn.grnNumber,
+        referenceId: grn._id,
+        reason: `Goods Receipt for PO #${purchaseOrder.poNumber} (GRN #${grn.grnNumber})`,
+        createdBy: accountId ? new mongoose.Types.ObjectId(accountId) : null,
+        createdByName: accountName || "",
+        notes: line.notes || grn.notes || "",
+        session,
+      });
+
+      const newStock = movement.inventory.availableStock;
+
+      inventoryUpdates.push({
+        productId: line.productId,
+        productName: line.name,
+        sku: line.sku || "",
+        previousStock,
+        receivedQty: rQty,
+        newStock,
+        ledgerId: movement.ledgerEntry?._id || null,
+        referenceNumber: grn.grnNumber,
+      });
+    }
+
+    return inventoryUpdates;
   }
 }
 

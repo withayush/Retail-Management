@@ -16,6 +16,7 @@ import CustomersPage from "./features/customers/CustomersPage";
 import SuppliersPage from "./features/suppliers/SuppliersPage";
 import POSTerminalPage from "./features/pos/POSTerminalPage";
 import SalesHistoryPage from "./features/pos/SalesHistoryPage";
+import ReconciliationPage from "./features/reconciliation/ReconciliationPage";
 
 export default function App() {
 
@@ -76,6 +77,7 @@ export default function App() {
 
             <Route path="/sales" element={<SalesHistoryPage />} />
             <Route path="/invoices" element={<SalesHistoryPage />} />
+            <Route path="/reconciliation" element={<ReconciliationPage />} />
           </Route>
 
           {/* Fallback default redirect */}

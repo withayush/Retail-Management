@@ -7,6 +7,7 @@ import {
   Filter,
   Wallet,
   ShoppingBag,
+  PackageCheck,
 } from "lucide-react";
 import {
   getSuppliers,
@@ -27,6 +28,7 @@ import OutstandingPayablesModal from "./components/OutstandingPayablesModal";
 import Supplier360Modal from "./components/Supplier360Modal";
 import CreatePurchaseOrderModal from "./components/CreatePurchaseOrderModal";
 import PurchaseOrdersListModal from "./components/PurchaseOrdersListModal";
+import GoodsReceivedNotesModal from "./components/GoodsReceivedNotesModal";
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState([]);
@@ -47,6 +49,7 @@ export default function SuppliersPage() {
   const [is360ModalOpen, setIs360ModalOpen] = useState(false);
   const [isCreatePOModalOpen, setIsCreatePOModalOpen] = useState(false);
   const [isPOListModalOpen, setIsPOListModalOpen] = useState(false);
+  const [isGRNModalOpen, setIsGRNModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [supplierForPO, setSupplierForPO] = useState(null);
 
@@ -150,25 +153,38 @@ export default function SuppliersPage() {
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
               Suppliers & Vendors
             </h1>
-            <span className="text-xs bg-blue-500/10 text-blue-400 font-mono px-2 py-0.5 rounded-full border border-blue-500/20 font-semibold">
-              T39 Ledger
-            </span>
-            <span className="text-xs bg-amber-500/10 text-amber-400 font-mono px-2 py-0.5 rounded-full border border-amber-500/20 font-semibold">
+            {/* <span className="text-xs bg-blue-500/10 text-blue-400 font-mono px-2 py-0.5 rounded-full border border-blue-500/20 font-semibold">
+              T39 
+            </span> */}
+            {/* <span className="text-xs bg-amber-500/10 text-amber-400 font-mono px-2 py-0.5 rounded-full border border-amber-500/20 font-semibold">
               T40 Indexer
-            </span>
-            <span className="text-xs bg-violet-500/10 text-violet-400 font-mono px-2 py-0.5 rounded-full border border-violet-500/20 font-semibold">
+            </span> */}
+            {/* <span className="text-xs bg-violet-500/10 text-violet-400 font-mono px-2 py-0.5 rounded-full border border-violet-500/20 font-semibold">
               T41 360°
-            </span>
-            <span className="text-xs bg-emerald-500/10 text-emerald-400 font-mono px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold">
+            </span> */}
+            {/* <span className="text-xs bg-emerald-500/10 text-emerald-400 font-mono px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold">
               T42 PO
             </span>
+            <span className="text-xs bg-emerald-500/10 text-emerald-400 font-mono px-2 py-0.5 rounded-full border border-emerald-500/20 font-semibold">
+              T44 GRN
+            </span> */}
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Supplier Management Center — procurement orders, vendor profiles, ledger statements, and accounts payable
+            Supplier Management Center — procurement orders, physical GRN receipts, vendor profiles, ledger statements, and accounts payable
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Goods Received Notes (GRN) Modal Button (T44) */}
+          <button
+            onClick={() => setIsGRNModalOpen(true)}
+            className="px-3.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            title="Open Goods Received Notes (GRN) Master Log (T44)"
+          >
+            <PackageCheck className="w-4 h-4" />
+            Goods Receipts (GRN)
+          </button>
+
           {/* Purchase Orders Modal Button (T42) */}
           <button
             onClick={() => handleViewPOs(null)}
@@ -356,6 +372,12 @@ export default function SuppliersPage() {
         onClose={() => setIsPOListModalOpen(false)}
         supplier={supplierForPO}
         onCreateNewPO={handleCreatePO}
+      />
+
+      {/* Phase 7 - Task T44: Goods Received Notes Modal */}
+      <GoodsReceivedNotesModal
+        isOpen={isGRNModalOpen}
+        onClose={() => setIsGRNModalOpen(false)}
       />
     </div>
   );

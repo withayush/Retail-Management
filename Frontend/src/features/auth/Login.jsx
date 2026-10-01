@@ -122,11 +122,10 @@ export default function Login() {
 
       const data = response.data || {};
       const accessToken = data.accessToken;
-      const refreshToken = data.refreshToken;
       const account = data.account || data.user || data;
       const vendor = data.vendor;
 
-      await login(account, accessToken, refreshToken);
+      await login(account, accessToken);
 
       if (vendor) {
         localStorage.setItem("vendor", JSON.stringify(vendor));

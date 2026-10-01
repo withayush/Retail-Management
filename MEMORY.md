@@ -1,8 +1,8 @@
 # VendorOS — Project Persistent Memory & Technical Knowledge Base
 
 > **File**: `MEMORY.md`  
-> **Last Updated**: 2026-09-23  
-> **Status**: Phase 0 to Phase 5 (Tasks T1–T36) Fully Implemented & 100% Tested  
+> **Last Updated**: 2026-09-30  
+> **Status**: Phase 0 to Phase 7 (Tasks T1–T45) Fully Implemented & 100% Tested  
 > **Purpose**: Serves as the persistent memory, architectural contract, decision log, and developer reference for future AI agents and engineers working on VendorOS.
 
 ---
@@ -122,9 +122,37 @@
   * Automated Test Suites: `Backend/tests/test-supplier-schema-model.js` (T37) and `Backend/tests/test-supplier-crud-apis.js` (T38) (100% passing).
 
 
+### Phase 7: Purchasing & Stock In (T42–T45) — [T42, T43, T44, T45 FULLY IMPLEMENTED]
+- `PurchaseOrder` Schema Model (T42):
+  * Formal stock procurement request sent to suppliers (`poNumber`, `supplierId`, `orderDate`, `expectedDelivery`, `status`, `costTotal`, `itemsCount`, `totalQuantity`, `items`).
+  * Invariant: PO is an order commitment, NOT a physical stock increment or financial payable liability.
+- `PurchaseItem` Schema Model (T43):
+  * Symmetrical counterpart to `SaleItem` (T24). Freezes historical negotiated purchase cost price, ordered quantity, and product snapshot.
+  * Tracks `qty` (ordered quantity) and `receivedQty` (fulfilled goods).
+- `GoodsReceivedNote` (GRN) API & Stock Receive Engine (T44):
+  * Physical stock reception confirmation point: `POST /api/purchases/receive` (and `/api/purchases/grn`).
+  * Compares ordered vs previously received quantities, computes line-by-line variances, and prevents unauthorized over-delivery (>10% tolerance limit guard).
+  * Automatically progresses PO lifecycle (`PENDING` -> `PARTIAL` -> `RECEIVED`).
+  * Creates immutable `GoodsReceivedNote`, synchronizes `PurchaseItem.receivedQty` and PO sub-items.
+  * Complete REST API suite: `POST /api/purchases/receive`, `GET /api/purchases/grn`, `GET /api/purchases/grn/:id`, `GET /api/purchases/grn/po/:purchaseOrderId`, `GET /api/purchases/grn/summary`.
+  * Frontend GRN Receiving & Audit: `ReceiveGoodsModal.jsx` and `GoodsReceivedNotesModal.jsx`.
+  * Automated Test Suite: `Backend/tests/test-goods-received-note-api.js` (12/12 passing - 100%).
+- `Auto Inventory IN Deductions` (T45):
+  * Automatically connects confirmed goods from GRN directly into active, sellable stock quantities (`Inventory.availableStock += receivedQty`) and generates audited `InventoryLedger` entries with `source: 'GOODS_RECEIPT'`.
+  * 3 Non-Negotiable Core Rules:
+    1. ONLY newly received quantity added (never entire PO qty or previously received qty).
+    2. Idempotency guard: Same GRN receiving event must NEVER produce duplicate stock-in (checks `InventoryLedger` with `referenceType: 'GRN'`, `referenceId: grn._id`, `source: 'GOODS_RECEIPT'`; rejects duplicates with 409 DUPLICATE_GRN_STOCK_IN).
+    3. Strict single-transaction boundary: GRN creation + Inventory update + Ledger log + PO line item & status update executed atomically in one Mongoose session (`withTransaction`).
+  * Invariant: `Inventory.availableStock === sum(InventoryLedger.qtyChange)`.
+  * Service capability `executeAutoInventoryIn` integrated into `grn.service.js` and `inventory.service.js`.
+  * PO line item current inventory enrichment (`currentStock`) in `purchaseOrder.repository.js`.
+  * Frontend: `ReceiveGoodsModal.jsx` live calculation showing `Current Stock`, `Receiving Now`, `Projected Stock`, and T45 automation banner; `GoodsReceivedNotesModal.jsx` displays `Auto Stock IN` confirmation badge.
+  * Automated Test Suite: `Backend/tests/test-auto-inventory-in-deductions.js` (8/8 passing - 100%).
+
+
 ---
 
-## 4. Database Schemas (17 Mongoose Models)
+## 4. Database Schemas (18 Mongoose Models)
 
 | Model Name | Primary Responsibility | Key Compound Indexes |
 |---|---|---|
@@ -146,6 +174,9 @@
 | `Customer` | Customer CRM & credit balance master | `{ businessId: 1, phone: 1 }` (partial), `{ businessId: 1, currentBalance: -1 }` |
 | `CustomerLedger` | Immutable Khata debit/credit ledger | `{ businessId: 1, customerId: 1, createdAt: -1 }` |
 | `Supplier` | Master supplier / vendor procurement entity | `{ businessId: 1, phone: 1 }` (partial), `{ businessId: 1, company: 1 }`, `{ businessId: 1, currentBalance: -1 }` |
+| `PurchaseOrder` | Procurement order commitment sent to supplier | `{ businessId: 1, poNumber: 1 }`, `{ businessId: 1, supplierId: 1, status: 1 }` |
+| `PurchaseItem` | Frozen order cost, quantity, and product snapshot | `{ businessId: 1, purchaseOrderId: 1 }`, `{ businessId: 1, productId: 1 }` |
+| `GoodsReceivedNote` | Physical delivery confirmation & stock receipt | `{ businessId: 1, grnNumber: 1 }`, `{ businessId: 1, purchaseOrderId: 1 }` |
 
 ---
 
@@ -188,6 +219,12 @@
 
 All test suites in `Backend/tests/` can be executed directly:
 ```bash
+# 0. Auto Inventory IN Deductions & Invariant Test (T45)
+node Backend/tests/test-auto-inventory-in-deductions.js
+
+# 1. Goods Received Note (GRN) API Test (T44)
+node Backend/tests/test-goods-received-note-api.js
+
 # 1. Real-Time Customer Outstanding Calculations Test (T34)
 node Backend/tests/test-customer-realtime-outstanding.js
 

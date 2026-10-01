@@ -149,9 +149,16 @@ const inventoryLedgerSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    referenceType: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
     referenceId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
+      index: true,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -180,6 +187,7 @@ inventoryLedgerSchema.index({ businessId: 1, source: 1, createdAt: -1 });
 inventoryLedgerSchema.index({ businessId: 1, createdBy: 1, createdAt: -1 });
 inventoryLedgerSchema.index({ businessId: 1, createdAt: -1 });
 inventoryLedgerSchema.index({ businessId: 1, invoiceId: 1 });
+inventoryLedgerSchema.index({ businessId: 1, referenceType: 1, referenceId: 1 });
 
 const InventoryLedger = mongoose.model("InventoryLedger", inventoryLedgerSchema);
 

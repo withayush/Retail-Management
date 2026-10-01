@@ -3,6 +3,8 @@ const { PurchaseOrder } = require("../models/purchaseOrder.model");
 const { PurchaseItem } = require("../models/purchaseItem.model");
 const { Supplier } = require("../models/supplier.model");
 const { Product } = require("../models/product.model");
+const { Inventory } = require("../models/inventory.model");
+const counterRepo = require("./counter.repository");
 
 /**
  * Phase 7 - Tasks T42 & T43: Purchase Order & Purchase Item Repository
@@ -10,31 +12,14 @@ const { Product } = require("../models/product.model");
  */
 class PurchaseOrderRepository {
   /**
-   * Generates the next sequential human-readable PO number for a business (e.g. PO-1001, PO-1002)
+   * Generates the next atomic, collision-free sequential PO number for a business (e.g. PO-1001, PO-1002)
    */
-  async generateNextPoNumber(businessId) {
-    const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
-    
-    // Find the latest created PO for this business
-    const latestPO = await PurchaseOrder.findOne({ businessId: bId })
-      .sort({ createdAt: -1 })
-      .select("poNumber")
-      .lean();
-
-    if (!latestPO || !latestPO.poNumber) {
-      return "PO-1001";
-    }
-
-    // Match numeric suffix: PO-1001 -> 1001
-    const match = latestPO.poNumber.match(/PO-(\d+)/i);
-    if (match && match[1]) {
-      const nextNum = parseInt(match[1], 10) + 1;
-      return `PO-${nextNum}`;
-    }
-
-    // Fallback timestamp code
-    const count = await PurchaseOrder.countDocuments({ businessId: bId });
-    return `PO-${1000 + count + 1}`;
+  async generateNextPoNumber(businessId, session = null) {
+    return await counterRepo.getNextSequence(businessId, "PURCHASE_ORDER", {
+      prefix: "PO",
+      defaultStart: 1000,
+      session,
+    });
   }
 
   /**
@@ -158,16 +143,40 @@ class PurchaseOrderRepository {
   }
 
   /**
+   * Helper to attach current physical inventory stock to PO line items
+   */
+  async _attachCurrentInventory(businessId, po) {
+    if (!po || !po.items || po.items.length === 0) return po;
+    const productIds = po.items
+      .map((it) => (it.productId?._id ? it.productId._id : it.productId))
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id));
+
+    if (productIds.length > 0) {
+      const invRecords = await Inventory.find({ businessId, productId: { $in: productIds } }).lean();
+      const invMap = new Map();
+      invRecords.forEach((inv) => invMap.set(inv.productId.toString(), inv.availableStock || 0));
+
+      po.items.forEach((item) => {
+        const prodId = item.productId?._id ? item.productId._id.toString() : item.productId ? item.productId.toString() : null;
+        item.currentStock = prodId && invMap.has(prodId) ? invMap.get(prodId) : 0;
+      });
+    }
+    return po;
+  }
+
+  /**
    * Find single Purchase Order by ID
    */
   async findById(businessId, poId) {
     const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
     const pId = typeof poId === "string" ? new mongoose.Types.ObjectId(poId) : poId;
 
-    return await PurchaseOrder.findOne({ _id: pId, businessId: bId })
+    const po = await PurchaseOrder.findOne({ _id: pId, businessId: bId })
       .populate("supplierId", "company contactName phone email address gstin currentBalance")
       .populate("items.productId", "name sku barcode category sellingPrice costPrice stock")
       .lean();
+
+    return await this._attachCurrentInventory(bId, po);
   }
 
   /**
@@ -175,9 +184,11 @@ class PurchaseOrderRepository {
    */
   async findByPoNumber(businessId, poNumber) {
     const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
-    return await PurchaseOrder.findOne({ businessId: bId, poNumber: poNumber.trim().toUpperCase() })
+    const po = await PurchaseOrder.findOne({ businessId: bId, poNumber: poNumber.trim().toUpperCase() })
       .populate("supplierId", "company contactName phone email address gstin currentBalance")
       .lean();
+
+    return await this._attachCurrentInventory(bId, po);
   }
 
   /**

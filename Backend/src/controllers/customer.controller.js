@@ -232,9 +232,12 @@ const recordCustomerPayment = async (req, res, next) => {
   try {
     const businessId = req.businessId;
     const { id } = req.params;
-    const validatedData = recordCustomerPaymentSchema.parse(req.body);
-    const user = { id: req.user?.id, fullName: req.user?.fullName };
+    const user = {
+      id: req.user?.id || req.user?.accountId || req.user?._id,
+      fullName: req.user?.fullName || req.user?.name || req.account?.fullName || "Cashier",
+    };
 
+    const validatedData = recordCustomerPaymentSchema.parse(req.body);
     const result = await customerService.recordCustomerPayment(businessId, id, validatedData, user);
 
     return res.status(200).json({
@@ -258,9 +261,12 @@ const appendLedgerEntry = async (req, res, next) => {
   try {
     const businessId = req.businessId;
     const { id } = req.params;
-    const validatedData = appendLedgerEntrySchema.parse(req.body);
-    const user = { id: req.user?.id, fullName: req.user?.fullName };
+    const user = {
+      id: req.user?.id || req.user?.accountId || req.user?._id,
+      fullName: req.user?.fullName || req.user?.name || req.account?.fullName || "Merchant",
+    };
 
+    const validatedData = appendLedgerEntrySchema.parse(req.body);
     const result = await customerService.appendLedgerEntry(businessId, id, validatedData, user);
 
     return res.status(201).json({

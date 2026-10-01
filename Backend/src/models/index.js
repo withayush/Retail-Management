@@ -18,6 +18,7 @@ const Session = require("./session.model");
 const { Supplier, SupplierLedger } = require("./supplier.model");
 const IdempotencyKey = require("./idempotency.model");
 const Vendor = require("./vendor.model");
+const Counter = require("./counter.model");
 
 module.exports = {
   Account,
@@ -44,6 +45,7 @@ module.exports = {
   SupplierLedger,
   Vendor,
   IdempotencyKey,
+  Counter,
 };
 
 

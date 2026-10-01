@@ -42,12 +42,11 @@ export default function VerifyOTP() {
 
       const data = response.data || {};
       const accessToken = data.accessToken;
-      const refreshToken = data.refreshToken;
       const account = data.account;
       const vendor = data.vendor;
 
       if (accessToken && account) {
-        await login(account, accessToken, refreshToken);
+        await login(account, accessToken);
         if (vendor) {
           localStorage.setItem("vendor", JSON.stringify(vendor));
         }

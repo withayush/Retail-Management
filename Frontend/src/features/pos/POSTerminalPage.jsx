@@ -312,7 +312,9 @@ export default function POSTerminalPage() {
       const errorMsg = err.response?.data?.message || err.message || "Failed to complete checkout.";
 
       if (code === "INSUFFICIENT_STOCK") {
-        toast.error(`⚠️ ${errorMsg}`, { duration: 4500 });
+        toast.error(`⚠️ ${errorMsg}`, { duration: 5000 });
+        // Real-time concurrency sync: Refresh live catalog so cashier sees current available stock
+        fetchPOSProducts();
       } else if (code === "CREDIT_LIMIT_EXCEEDED") {
         toast.error(`🛑 Credit Limit Exceeded: ${errorMsg}`, { duration: 5000 });
       } else if (code === "CUSTOMER_REQUIRED_FOR_CREDIT") {

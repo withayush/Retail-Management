@@ -11,6 +11,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { getSupplierLedger, appendSupplierLedgerEntry } from "../../../services/supplier.api";
+import { generateIdempotencyKey } from "../../../services/api";
 import toast from "react-hot-toast";
 
 export default function SupplierLedgerModal({
@@ -69,12 +70,17 @@ export default function SupplierLedgerModal({
     setSubmittingManual(true);
     try {
       const suppId = supplier.id || supplier._id;
-      await appendSupplierLedgerEntry(suppId, {
-        entryType,
-        invoiceValue: numInv,
-        paymentAmount: numPay,
-        notes: notes.trim() || undefined,
-      });
+      const idempotencyKey = generateIdempotencyKey();
+      await appendSupplierLedgerEntry(
+        suppId,
+        {
+          entryType,
+          invoiceValue: numInv,
+          paymentAmount: numPay,
+          notes: notes.trim() || undefined,
+        },
+        idempotencyKey
+      );
 
       toast.success("Manual ledger adjustment appended successfully.");
       setInvoiceVal("");

@@ -3,6 +3,25 @@ import axios from "axios";
 const rawBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const baseURL = rawBaseUrl.endsWith("/api") ? rawBaseUrl : `${rawBaseUrl}/api`;
 
+// ── In-Memory Token Store (Security: Zero Token Storage in LocalStorage/XSS Defense) ──
+let inMemoryAccessToken = null;
+
+export const setInMemoryToken = (token) => {
+  inMemoryAccessToken = token || null;
+};
+
+export const getInMemoryToken = () => inMemoryAccessToken;
+
+// Defense-in-depth: Immediately purge any legacy JWT tokens from localStorage to prevent XSS exfiltration
+try {
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+  }
+} catch {
+  // Ignore environments without localStorage access
+}
+
 const api = axios.create({
   baseURL,
   withCredentials: true,
@@ -11,14 +30,14 @@ const api = axios.create({
   },
 });
 
-// 1. Request Interceptor: Attach Access Token and x-business-id to all outgoing requests
+// 1. Request Interceptor: Attach in-memory token (if present) and x-business-id
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
     const businessId = localStorage.getItem("businessId");
 
-    if (token && token !== "undefined" && token !== "null") {
-      config.headers.Authorization = `Bearer ${token}`;
+    // If an in-memory token is held, attach as Bearer; otherwise browser sends HttpOnly cookie automatically
+    if (inMemoryAccessToken && inMemoryAccessToken !== "undefined" && inMemoryAccessToken !== "null") {
+      config.headers.Authorization = `Bearer ${inMemoryAccessToken}`;
     }
     if (businessId && businessId !== "undefined" && businessId !== "null") {
       config.headers["x-business-id"] = businessId;
@@ -38,7 +57,7 @@ const isPublicPage = () => {
   );
 };
 
-// 2. Response Interceptor: Safe Token Refresh & loop-immune 401 handling
+// 2. Response Interceptor: Safe HttpOnly Cookie Refresh & loop-immune 401 handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -60,38 +79,34 @@ api.interceptors.response.use(
     if (error.response.status === 401 && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true;
 
-      const refreshToken = localStorage.getItem("refreshToken");
+      try {
+        // Attempt silent token refresh via HttpOnly refresh cookie (transmitted via withCredentials)
+        const response = await axios.post(
+          `${baseURL}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
 
-      if (refreshToken && refreshToken !== "undefined" && refreshToken !== "null") {
-        try {
-          const response = await axios.post(
-            `${baseURL}/auth/refresh`,
-            { refreshToken },
-            { withCredentials: true }
-          );
+        const { accessToken } = response.data?.data || response.data || {};
 
-          const { accessToken, refreshToken: newRefreshToken } =
-            response.data?.data || response.data || {};
-
-          if (accessToken) {
-            localStorage.setItem("accessToken", accessToken);
-            if (newRefreshToken) {
-              localStorage.setItem("refreshToken", newRefreshToken);
-            }
-
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-            return api(originalRequest);
-          }
-        } catch (refreshError) {
-          console.warn("Silent token refresh failed:", refreshError?.message);
+        if (accessToken) {
+          inMemoryAccessToken = accessToken;
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         }
+
+        // Retry original request (browser will automatically attach refreshed HttpOnly cookie)
+        return api(originalRequest);
+      } catch (refreshError) {
+        console.warn("Silent token refresh failed:", refreshError?.message);
       }
 
-      // If refresh is impossible or failed, clean up auth tokens gracefully
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
+      // If refresh failed or session is invalid, clean up in-memory token and cached state
+      inMemoryAccessToken = null;
       localStorage.removeItem("user");
       localStorage.removeItem("businessId");
+      localStorage.removeItem("business");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
 
       // Notify window without destructive page reloads
       window.dispatchEvent(new Event("auth:unauthorized"));

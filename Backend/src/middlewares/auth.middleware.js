@@ -52,8 +52,13 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    const accountIdStr = account._id.toString();
     req.user = {
-      accountId: account._id.toString(),
+      id: accountIdStr,
+      _id: account._id,
+      accountId: accountIdStr,
+      fullName: account.fullName || "",
+      name: account.fullName || "",
       email: account.email,
       phone: account.phone,
       status: account.status,

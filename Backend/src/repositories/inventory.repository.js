@@ -13,18 +13,26 @@ const getOrCreateInventory = async (
   businessId,
   productId,
   defaultStock = 0,
-  defaultReorderLevel = 5
+  defaultReorderLevel = 5,
+  session = null
 ) => {
-  let inventory = await Inventory.findOne({ businessId, productId });
+  const sessionOpt = session ? { session } : {};
+  let inventory = await Inventory.findOne({ businessId, productId }).session(session);
 
   if (!inventory) {
-    inventory = await Inventory.create({
-      businessId,
-      productId,
-      availableStock: defaultStock,
-      reorderLevel: defaultReorderLevel,
-      lowStockAlert: defaultStock <= defaultReorderLevel,
-    });
+    const [created] = await Inventory.create(
+      [
+        {
+          businessId,
+          productId,
+          availableStock: defaultStock,
+          reorderLevel: defaultReorderLevel,
+          lowStockAlert: defaultStock <= defaultReorderLevel,
+        },
+      ],
+      sessionOpt
+    );
+    inventory = created;
   }
 
   return inventory;
@@ -189,12 +197,12 @@ const getInventorySummary = async (businessId) => {
 
 const { evaluateAndSyncProductLowStockAlert } = require("./inventoryAlert.repository");
 
-const updateReorderLevel = async (businessId, productId, reorderLevel) => {
-  const inventory = await getOrCreateInventory(businessId, productId);
+const updateReorderLevel = async (businessId, productId, reorderLevel, session = null) => {
+  const inventory = await getOrCreateInventory(businessId, productId, 0, 5, session);
 
   inventory.reorderLevel = reorderLevel;
   inventory.lowStockAlert = inventory.availableStock <= reorderLevel;
-  const saved = await inventory.save();
+  const saved = await inventory.save(session ? { session } : {});
 
   // Trigger deterministic alert rule sync (Phase 3 - Task T22)
   await evaluateAndSyncProductLowStockAlert({
@@ -223,6 +231,7 @@ const recordStockMovement = async ({
   referenceNumber = "",
   reason = "",
   invoiceId = null,
+  referenceType = "",
   referenceId = null,
   createdBy = null,
   createdByName = "",
@@ -266,7 +275,7 @@ const recordStockMovement = async ({
         $set: { updatedAt: new Date() },
       },
       {
-        new: true,
+        returnDocument: "after",
         ...sessionOpt,
       }
     );
@@ -298,7 +307,7 @@ const recordStockMovement = async ({
         },
       },
       {
-        new: true,
+        returnDocument: "after",
         upsert: true,
         ...sessionOpt,
       }
@@ -310,9 +319,14 @@ const recordStockMovement = async ({
 
   const newBalance = updatedInventory.availableStock;
 
-  // Re-evaluate low stock alert
-  updatedInventory.lowStockAlert = newBalance <= (updatedInventory.reorderLevel || 5);
-  await updatedInventory.save(sessionOpt);
+  // Re-evaluate low stock alert atomically without full document .save()
+  const isLowStock = newBalance <= (updatedInventory.reorderLevel || 5);
+  updatedInventory.lowStockAlert = isLowStock;
+  await Inventory.updateOne(
+    { _id: updatedInventory._id },
+    { $set: { lowStockAlert: isLowStock, updatedAt: new Date() } },
+    sessionOpt
+  );
 
   // 1. Create Immutable Ledger Log Entry (Who, When, Why, What)
   const [ledgerEntry] = await InventoryLedger.create(
@@ -329,6 +343,7 @@ const recordStockMovement = async ({
         referenceNumber: referenceNumber || "",
         reason: reason || (type === "IN" ? "Stock In / Purchase" : type === "OUT" ? "Sale / Stock Out" : "Stock Adjustment"),
         invoiceId,
+        referenceType: referenceType || (source === "GOODS_RECEIPT" ? "GRN" : ""),
         referenceId,
         createdBy,
         createdByName: createdByName || "",
@@ -370,6 +385,8 @@ const adjustStock = async (
   const reason = (typeof options === "object" && options.reason) ? options.reason : "Physical Stock Reconciliation";
   const source = (typeof options === "object" && options.source) ? options.source : "AUDIT_RECONCILIATION";
   const referenceNumber = (typeof options === "object" && options.referenceNumber) ? options.referenceNumber : "";
+  const createdBy = (typeof options === "object" && options.createdBy) ? options.createdBy : null;
+  const createdByName = (typeof options === "object" && options.createdByName) ? options.createdByName : "";
   const session = (typeof options === "object" && options.session) ? options.session : null;
 
   return await recordStockMovement({
@@ -488,6 +505,7 @@ const findLedgerEntries = async (businessId, filters = {}) => {
 /**
  * Phase 4 - Task T26: Auto Inventory Deductions
  * Service-level execution mapping Sale Line Items directly to atomic Stock OUT deductions and audited ledger logs.
+ * Enforces T46 Concurrency-Safe Atomic $gte condition + $inc update.
  */
 const autoDeductInventoryForSale = async (
   businessId,
@@ -520,7 +538,7 @@ const autoDeductInventoryForSale = async (
     inventoryMap.set(inv.productId.toString(), inv);
   }
 
-  // 2. Pre-flight verification (prevent partial deduction / overselling)
+  // 2. Pre-flight verification (fast check before executing atomic updates)
   for (const item of items) {
     const prodIdStr = (item.productId?._id || item.productId || "").toString();
     const existingInv = inventoryMap.get(prodIdStr);
@@ -541,32 +559,67 @@ const autoDeductInventoryForSale = async (
     }
   }
 
-  // 3. Execute atomic stock reductions and prepare ledger entries
+  // 3. Execute atomic concurrency-safe stock reductions and prepare ledger entries
   const deductions = [];
   const ledgerDocs = [];
 
   for (const item of items) {
-    const prodIdStr = (item.productId?._id || item.productId || "").toString();
-    const existingInv = inventoryMap.get(prodIdStr);
+    const prodId = item.productId?._id || item.productId;
     const requestedQty = Number(item.quantity || item.qty || 1);
-    const newStock = existingInv.availableStock - requestedQty;
 
-    existingInv.availableStock = newStock;
-    existingInv.lowStockAlert = newStock <= existingInv.reorderLevel;
-    await existingInv.save(sessionOpt);
+    // Concurrency-Safe Atomic Mongo Update: Condition + Decrement in single DB instruction
+    const updatedInv = await Inventory.findOneAndUpdate(
+      {
+        businessId,
+        productId: prodId,
+        availableStock: { $gte: requestedQty },
+      },
+      {
+        $inc: { availableStock: -Math.abs(requestedQty) },
+        $set: { updatedAt: new Date() },
+      },
+      {
+        returnDocument: "after",
+        ...sessionOpt,
+      }
+    );
+
+    if (!updatedInv) {
+      const existingInv = inventoryMap.get((prodId || "").toString());
+      const currentStock = existingInv ? existingInv.availableStock : 0;
+      const error = new Error(
+        `Insufficient stock for '${item.name || "Product"}'. Stock balance changed concurrently during checkout.`
+      );
+      error.statusCode = 400;
+      error.code = "INSUFFICIENT_STOCK";
+      error.productId = prodId;
+      error.productName = item.name;
+      error.availableStock = currentStock;
+      error.requestedQuantity = requestedQty;
+      throw error;
+    }
+
+    // Re-evaluate low-stock status atomically without full document .save()
+    const isLow = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
+    updatedInv.lowStockAlert = isLow;
+    await Inventory.updateOne(
+      { _id: updatedInv._id },
+      { $set: { lowStockAlert: isLow, updatedAt: new Date() } },
+      sessionOpt
+    );
 
     deductions.push({
-      productId: existingInv.productId,
-      previousStock: existingInv.availableStock + requestedQty,
-      newStock,
+      productId: updatedInv.productId,
+      previousStock: updatedInv.availableStock + requestedQty,
+      newStock: updatedInv.availableStock,
       deductedQuantity: requestedQty,
     });
 
     ledgerDocs.push({
       businessId,
-      productId: existingInv.productId,
+      productId: updatedInv.productId,
       qtyChange: -Math.abs(requestedQty),
-      balanceAfter: newStock,
+      balanceAfter: updatedInv.availableStock,
       type: "OUT",
       source: source || "POS_CHECKOUT",
       referenceNumber: invoiceNumber || "",

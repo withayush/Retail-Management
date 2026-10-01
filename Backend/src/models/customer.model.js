@@ -172,6 +172,12 @@ const customerLedgerEntrySchema = new mongoose.Schema(
       enum: ["SALE_CREDIT", "CREDIT_SALE", "PAYMENT_RECEIVED", "ADJUSTMENT", "REFUND"],
       default: "SALE_CREDIT",
     },
+    paymentMethod: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "CASH",
+    },
     creditAmount: {
       type: Number,
       required: true,

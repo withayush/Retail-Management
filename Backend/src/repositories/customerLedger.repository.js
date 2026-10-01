@@ -171,12 +171,15 @@ const recordPaymentSettlement = async (paymentData, session = null) => {
     businessId,
     customerId,
     amount,
-    method = "CASH",
+    paymentMethod,
+    method: rawMethod,
     referenceId = null,
     notes = "",
     createdBy = null,
     createdByName = "",
   } = paymentData;
+
+  const method = (paymentMethod || rawMethod || "CASH").toUpperCase();
 
   const sessionOpt = session ? { session } : {};
   const numAmount = Math.round(Number(amount) * 100) / 100;
@@ -224,6 +227,7 @@ const recordPaymentSettlement = async (paymentData, session = null) => {
     invoiceId: null,
     invoiceNumber: "",
     entryType: "PAYMENT_RECEIVED",
+    paymentMethod: (method || "CASH").toUpperCase(),
     creditAmount: 0,
     debitAmount: numAmount,
     balance: newBalance,

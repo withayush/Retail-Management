@@ -450,7 +450,7 @@ const initializeOpeningStock = async (businessId, payload) => {
     });
 
     if (reorderLevel !== undefined && !isNaN(Number(reorderLevel)) && Number(reorderLevel) >= 0) {
-      await inventoryRepo.updateReorderLevel(businessId, productId, Number(reorderLevel));
+      await inventoryRepo.updateReorderLevel(businessId, productId, Number(reorderLevel), session);
       result.inventory.reorderLevel = Number(reorderLevel);
       result.inventory.lowStockAlert = result.inventory.availableStock <= Number(reorderLevel);
     }
@@ -528,6 +528,15 @@ const autoDeductInventoryForSale = async (businessId, payload, session = null) =
   return await inventoryRepo.autoDeductInventoryForSale(businessId, payload, session);
 };
 
+/**
+ * Phase 7 - Task T45: Auto Inventory IN Deductions Capability
+ * Connects Goods Received Note (GRN) to active inventory and immutable ledger.
+ */
+const executeAutoInventoryInForGrn = async (businessId, options) => {
+  const grnService = require("./grn.service");
+  return await grnService.executeAutoInventoryIn(businessId, options);
+};
+
 module.exports = {
   getStoreState,
   getInventorySummary,
@@ -546,5 +555,6 @@ module.exports = {
   resolveAlert,
   syncAllInventoryAlerts,
   autoDeductInventoryForSale,
+  executeAutoInventoryInForGrn,
 };
 

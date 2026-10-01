@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, CheckCircle, Wallet, Building2, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
 import { recordSupplierPayment } from "../../../services/supplier.api";
+import { generateIdempotencyKey } from "../../../services/api";
 
 export default function SettleSupplierModal({
   isOpen,
@@ -29,12 +30,17 @@ export default function SettleSupplierModal({
     setSubmitting(true);
     try {
       const suppId = supplier.id || supplier._id;
-      const res = await recordSupplierPayment(suppId, {
-        amount: numAmount,
-        paymentMethod,
-        referenceId: referenceId.trim() || undefined,
-        notes: notes.trim() || undefined,
-      });
+      const idempotencyKey = generateIdempotencyKey();
+      const res = await recordSupplierPayment(
+        suppId,
+        {
+          amount: numAmount,
+          paymentMethod,
+          referenceId: referenceId.trim() || undefined,
+          notes: notes.trim() || undefined,
+        },
+        idempotencyKey
+      );
 
       toast.success(`Disbursed payment of ₹${numAmount.toFixed(2)} to ${supplier.company || "supplier"}`);
       if (onSuccess) onSuccess(res.data || res);

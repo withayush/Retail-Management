@@ -413,28 +413,46 @@ export default function PurchaseOrdersListModal({
                         </div>
 
                         {/* Status Action Buttons */}
-                        {po.status !== "RECEIVED" && po.status !== "CANCELLED" && (
-                          <div className="flex items-center gap-2 self-end sm:self-auto">
-                            {po.status === "DRAFT" && (
-                              <button
-                                onClick={() => handleStatusChange(po._id, "PENDING")}
-                                disabled={updatingId === po._id}
-                                className="px-3 py-1 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold border border-blue-500/30 cursor-pointer disabled:opacity-50"
-                              >
-                                Mark as Placed / PENDING
-                              </button>
-                            )}
+                        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                          {po.status === "DRAFT" && (
+                            <button
+                              onClick={() => handleStatusChange(po._id, "PENDING")}
+                              disabled={updatingId === po._id}
+                              className="px-3 py-1 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold border border-blue-500/30 cursor-pointer disabled:opacity-50"
+                            >
+                              Mark as Placed / PENDING
+                            </button>
+                          )}
 
+                          {/* Receive Stock (GRN) for PENDING and PARTIAL */}
+                          {po.status !== "RECEIVED" && po.status !== "CANCELLED" && (
                             <button
                               onClick={() => {
                                 setPoToReceive(po);
                                 setIsReceiveModalOpen(true);
                               }}
-                              className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-xs font-semibold border border-emerald-500/30 cursor-pointer"
+                              className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-xs font-semibold border border-emerald-500/30 flex items-center gap-1.5 cursor-pointer"
                             >
+                              <PackageCheck className="w-3.5 h-3.5" />
                               Receive Goods (GRN)
                             </button>
+                          )}
 
+                          {/* View Past GRN Receipts for PARTIAL and RECEIVED */}
+                          {(po.status === "PARTIAL" || po.status === "RECEIVED") && (
+                            <button
+                              onClick={() => {
+                                setPoToReceive(po);
+                                setIsReceiveModalOpen(true);
+                              }}
+                              className="px-3 py-1 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 text-xs font-semibold border border-[#27272a] flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <PackageCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              View GRN Receipts
+                            </button>
+                          )}
+
+                          {po.status !== "RECEIVED" && po.status !== "CANCELLED" && (
                             <button
                               onClick={() => handleStatusChange(po._id, "CANCELLED")}
                               disabled={updatingId === po._id}
@@ -442,8 +460,8 @@ export default function PurchaseOrdersListModal({
                             >
                               Cancel Order
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

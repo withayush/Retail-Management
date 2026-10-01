@@ -26,14 +26,16 @@ async function runPurchaseOrderSchemaTests() {
   try {
     // 1. Setup Test Businesses
     const bizA = await Business.create({
-      name: `PO Test Store A ${runId}`,
+      ownerId: new mongoose.Types.ObjectId(),
+      businessName: `PO Test Store A ${runId}`,
       email: `po.a.${runId}@test.com`,
       phone: `+919811${runId.slice(0, 6)}`,
       currency: "INR",
     });
 
     const bizB = await Business.create({
-      name: `PO Test Store B ${runId}`,
+      ownerId: new mongoose.Types.ObjectId(),
+      businessName: `PO Test Store B ${runId}`,
       email: `po.b.${runId}@test.com`,
       phone: `+919822${runId.slice(0, 6)}`,
       currency: "INR",

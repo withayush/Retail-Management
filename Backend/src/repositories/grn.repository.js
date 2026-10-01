@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const GoodsReceivedNote = require("../models/grn.model");
 const PurchaseOrder = require("../models/purchaseOrder.model");
 const Supplier = require("../models/supplier.model");
+const counterRepo = require("./counter.repository");
 
 /**
  * Phase 7 - Task T44: Goods Received Note (GRN) Repository
@@ -9,28 +10,14 @@ const Supplier = require("../models/supplier.model");
  */
 class GRNRepository {
   /**
-   * Generates the next sequential human-readable GRN number (e.g. GRN-1001, GRN-1002)
+   * Generates the next atomic, collision-free sequential GRN number (e.g. GRN-1001, GRN-1002)
    */
-  async generateNextGrnNumber(businessId) {
-    const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
-
-    const latestGRN = await GoodsReceivedNote.findOne({ businessId: bId })
-      .sort({ createdAt: -1 })
-      .select("grnNumber")
-      .lean();
-
-    if (!latestGRN || !latestGRN.grnNumber) {
-      return "GRN-1001";
-    }
-
-    const match = latestGRN.grnNumber.match(/GRN-(\d+)/i);
-    if (match && match[1]) {
-      const nextNum = parseInt(match[1], 10) + 1;
-      return `GRN-${nextNum}`;
-    }
-
-    const count = await GoodsReceivedNote.countDocuments({ businessId: bId });
-    return `GRN-${1000 + count + 1}`;
+  async generateNextGrnNumber(businessId, session = null) {
+    return await counterRepo.getNextSequence(businessId, "GRN", {
+      prefix: "GRN",
+      defaultStart: 1000,
+      session,
+    });
   }
 
   /**

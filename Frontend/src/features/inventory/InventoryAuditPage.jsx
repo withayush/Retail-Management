@@ -14,6 +14,7 @@ import {
   updateReorderLevel,
   adjustStock,
 } from "../../services/inventory.api";
+import { generateIdempotencyKey } from "../../services/api";
 
 // Sub-components
 import InventoryHeader from "./components/InventoryHeader";
@@ -323,15 +324,18 @@ export default function InventoryAuditPage() {
 
     setSubmitting(true);
     try {
-      await stockIn({
-        productId: targetProdId,
-        quantity: qty,
-        source: actionSource || "PURCHASE",
-        supplierName: actionSupplier.trim() || undefined,
-        unitCost: !isNaN(unitCostNum) && unitCostNum >= 0 ? unitCostNum : undefined,
-        referenceNumber: actionReferenceNumber.trim() || undefined,
-        notes: actionNotes.trim() || undefined,
-      });
+      await stockIn(
+        {
+          productId: targetProdId,
+          quantity: qty,
+          source: actionSource || "PURCHASE",
+          supplierName: actionSupplier.trim() || undefined,
+          unitCost: !isNaN(unitCostNum) && unitCostNum >= 0 ? unitCostNum : undefined,
+          referenceNumber: actionReferenceNumber.trim() || undefined,
+          notes: actionNotes.trim() || undefined,
+        },
+        generateIdempotencyKey()
+      );
 
       toast.success(`Recorded Stock In: +${qty} units into ledger (${actionSource}).`);
       setShowStockInModal(false);
@@ -369,14 +373,17 @@ export default function InventoryAuditPage() {
 
     setSubmitting(true);
     try {
-      await stockOut({
-        productId: targetProdId,
-        quantity: qty,
-        source: actionSource || "SALE",
-        reason: actionReason.trim() || undefined,
-        referenceNumber: actionReferenceNumber.trim() || undefined,
-        notes: actionNotes.trim() || undefined,
-      });
+      await stockOut(
+        {
+          productId: targetProdId,
+          quantity: qty,
+          source: actionSource || "SALE",
+          reason: actionReason.trim() || undefined,
+          referenceNumber: actionReferenceNumber.trim() || undefined,
+          notes: actionNotes.trim() || undefined,
+        },
+        generateIdempotencyKey()
+      );
 
       toast.success(`Recorded Stock Out: -${qty} units in ledger (${actionSource}).`);
       setShowStockOutModal(false);
@@ -412,14 +419,17 @@ export default function InventoryAuditPage() {
 
     setSubmitting(true);
     try {
-      await adjustStock({
-        productId: activeItem.productId,
-        physicalCount: stockNum,
-        source: actionSource || "AUDIT_RECONCILIATION",
-        referenceNumber: actionReferenceNumber.trim() || undefined,
-        reason: actionReason.trim() || undefined,
-        notes: actionNotes.trim() || undefined,
-      });
+      await adjustStock(
+        {
+          productId: activeItem.productId,
+          physicalCount: stockNum,
+          source: actionSource || "AUDIT_RECONCILIATION",
+          referenceNumber: actionReferenceNumber.trim() || undefined,
+          reason: actionReason.trim() || undefined,
+          notes: actionNotes.trim() || undefined,
+        },
+        generateIdempotencyKey()
+      );
 
       toast.success(
         `Reconciled ${activeItem.name}: ${stockNum} ${activeItem.unit} (${discrepancy >= 0 ? "+" : ""}${discrepancy} delta).`
@@ -430,6 +440,7 @@ export default function InventoryAuditPage() {
       if (activeTab === "LEDGER_TRAIL") fetchLedgerData();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to adjust stock.");
+      fetchStoreData();
     } finally {
       setSubmitting(false);
     }

@@ -3,10 +3,10 @@
 ====================================================================================================
 Project Name   : VendorOS (Retail & Kirana Store Management Operating System)
 Repository     : https://github.com/withayush/Retail-Management.git
-Current Status : Phase 0 to Phase 5 (Tasks T1 to T36) - 100% Implemented & Verified
+Current Status : Phase 0 to Phase 7 (Tasks T1 to T45) - 100% Implemented & Verified
 Architecture   : 6-Layer Clean Architecture + Multi-Tenant Isolation + Keyboard-First POS
 Author/Vendor  : Ayush Sharma
-Last Updated   : 2026-09-23
+Last Updated   : 2026-09-30
 
 ====================================================================================================
 TABLE OF CONTENTS
@@ -14,10 +14,10 @@ TABLE OF CONTENTS
 1. PROJECT OVERVIEW & CORE DESIGN PRINCIPLES
 2. COMPLETE TECHNOLOGY STACK
 3. 6-LAYER CLEAN ARCHITECTURE PATTERN (DATA FLOW)
-4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6, T31, T32, T33, T34, T35, T36)
+4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6, T31, T32, T33, T34, T35, T36, T37, T44)
 5. COMPLETE REPOSITORY DIRECTORY TREE & FILE ANATOMY
-6. DATABASE SCHEMAS (16 MONGOOSE MODELS) & RELATIONSHIPS
-7. COMPLETE API MATRIX (73+ ENDPOINTS ACROSS 9 MODULES)
+6. DATABASE SCHEMAS (20 MONGOOSE MODELS) & RELATIONSHIPS
+7. COMPLETE API MATRIX (80+ ENDPOINTS ACROSS 12 MODULES)
 8. DETAILED END-TO-END WORKFLOW PIPELINES (ASCII FLOWCHARTS)
    - 8.1 Authentication & Phone OTP Verification Flow
    - 8.2 Multi-Step Business Onboarding Wizard Flow
@@ -32,7 +32,12 @@ TABLE OF CONTENTS
    - 8.11 Customer CRUD APIs, Phone Normalization & Soft-Delete (T32)
    - 8.12 Customer Ledger Transaction Log & Sub-Ledger Audit Flow (T33)
    - 8.13 Real-Time Materialized Outstanding Balance Architecture (T34)
-9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T33, T34)
+   - 8.14 Customer Credit Payment History & Repayment Log Architecture (T35)
+   - 8.15 Customer 360° CRM & Debt Aging Aggregation Architecture (T36)
+   - 8.16 Supplier Master Schema & Procurement Architecture (T37)
+   - 8.17 Purchase Order Commitment vs Physical Stock IN Flow (T42-T43)
+   - 8.18 Goods Received Note (GRN) Stock IN & Immutable Ledger Integration (T44)
+9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T36, T38, T41, T44)
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
 11. SECURITY, REFRESH TOKEN ROTATION (RTR) & SESSION MANAGEMENT
 12. AUTOMATED TESTING SUITES & VERIFICATION COMMANDS
@@ -182,15 +187,19 @@ VenderOS/
 │   │   │   ├── business.controller.js # Store onboarding & profile controllers
 │   │   │   ├── category.controller.js # Category CRUD controllers
 │   │   │   ├── customer.controller.js # Customer CRM & Khata controllers
+│   │   │   ├── grn.controller.js      # Goods Received Note & stock receipt controllers (T44)
 │   │   │   ├── inventory.controller.js# Stock In/Out, adjusts, and alert controllers
 │   │   │   ├── payment.controller.js  # Payment recording & settlement controllers
-│   │   │   └── sale.controller.js     # POS checkout, sales history & PDF controllers
+│   │   │   ├── purchaseOrder.controller.js # PO procurement controllers (T42)
+│   │   │   ├── sale.controller.js     # POS checkout, sales history & PDF controllers
+│   │   │   └── supplier.controller.js # Supplier master & ledger controllers (T37-T41)
 │   │   ├── middlewares/               # Express middlewares
 │   │   │   ├── auth.middleware.js     # JWT & session verification
 │   │   │   ├── business.middleware.js # T6 Tenant context injector (`req.businessId`)
 │   │   │   ├── error.middleware.js    # Global error response handler
+│   │   │   ├── idempotency.middleware.js # Double-submission protection
 │   │   │   └── validate.middleware.js # Zod schema validator
-│   │   ├── models/                    # 16 Mongoose Schemas
+│   │   ├── models/                    # 20 Mongoose Schemas
 │   │   │   ├── account.model.js       # User credentials & account status
 │   │   │   ├── authAttempt.model.js   # Login audit trail
 │   │   │   ├── business.model.js      # Store profile, GST, address, currency
@@ -198,6 +207,7 @@ VenderOS/
 │   │   │   ├── category.model.js      # Scoped product categories
 │   │   │   ├── customer.model.js      # Customer CRM & credit balance master
 │   │   │   ├── customerLedger.model.js# Immutable Khata debit/credit ledger
+│   │   │   ├── grn.model.js           # Goods Received Note & physical receipt log (T44)
 │   │   │   ├── inventory.model.js     # Physical stock master & reorder levels
 │   │   │   ├── inventoryAlert.model.js# Deterministic low-stock notification queue
 │   │   │   ├── inventoryLedger.model.js# Immutable stock movement audit trail
@@ -205,8 +215,12 @@ VenderOS/
 │   │   │   ├── otpChallenge.model.js  # 6-digit phone verification codes
 │   │   │   ├── payment.model.js       # Multi-tranche payment records
 │   │   │   ├── product.model.js       # Master product catalog & pricing
-│   │   │   ├── saleItem.model.js      # Frozen transaction line item snapshots
+│   │   │   ├── purchaseItem.model.js  # Frozen PO line item snapshots & receivedQty (T43)
+│   │   │   ├── purchaseOrder.model.js # Official stock order commitment header (T42)
+│   │   │   ├── saleItem.model.js      # Frozen transaction line item snapshots (T24)
 │   │   │   ├── session.model.js       # Active sessions for RTR token rotation
+│   │   │   ├── supplier.model.js      # Master supplier / vendor procurement entity (T37)
+│   │   │   ├── supplierLedger.model.js# Immutable accounts payable audit ledger (T39)
 │   │   │   └── vendor.model.js        # Vendor owner & onboarding draft state
 │   │   ├── repositories/              # Tenant-isolated DB query modules
 │   │   ├── routes/                    # API route declarations
@@ -243,7 +257,9 @@ VenderOS/
         │   ├── customer.api.js        # Customer & Khata API calls
         │   ├── inventory.api.js       # Stock & Ledger API calls
         │   ├── product.api.js         # Product catalog API calls
-        │   └── sale.api.js            # Sales & POS API calls
+        │   ├── purchaseOrder.api.js   # PO & GRN API calls (T42-T44)
+        │   ├── sale.api.js            # Sales & POS API calls
+        │   └── supplier.api.js        # Supplier & Accounts Payable API calls (T37-T41)
         └── features/                  # Feature Modules
             ├── auth/                  # Login, Register, VerifyOTP
             ├── business/              # 3-Step Business Onboarding Wizard
@@ -252,10 +268,11 @@ VenderOS/
             ├── inventory/             # Store state, ledger table, alerts queue, stock modals
             ├── pos/                   # POS terminal, quick cart, payments modal, receipts
             ├── customers/             # Customer CRM, stats cards, ledger modal, settle modal
+            ├── suppliers/             # Supplier directory, 360 profile, PO manager, GRN receipt log
             └── sales/                 # Invoices history table, detail view, PDF download
 
 ====================================================================================================
-6. DATABASE SCHEMAS (16 MONGOOSE MODELS) & RELATIONSHIPS
+6. DATABASE SCHEMAS (20 MONGOOSE MODELS) & RELATIONSHIPS
 ====================================================================================================
 
 1. `Account`: User credentials (`email`, `phone`, `passwordHash`, `status: ACTIVE | PENDING`).
@@ -269,16 +286,20 @@ VenderOS/
 9. `Product`: Catalog items (`sellingPrice`, `costPrice`, `sku`, `barcode`, `unit`, `packSize`, `isActive`, `isArchived`).
    - Indexes: `{ businessId: 1, sku: 1 }`, `{ businessId: 1, barcode: 1 }`, text index on search fields.
 10. `Inventory`: Current physical stock (`availableStock`, `reorderLevel`, `reservedStock`, `lowStockAlert`).
-11. `InventoryLedger`: Immutable audit movements (`type: IN | OUT | ADJUST | OPENING | RETURN`, `qtyChange`, `balanceAfter`, `source`, `referenceNumber`).
+11. `InventoryLedger`: Immutable audit movements (`type: IN | OUT | ADJUST | OPENING | RETURN`, `qtyChange`, `balanceAfter`, `source: GOODS_RECEIPT | PURCHASE | SALE | ADJUST`, `referenceNumber`).
 12. `InventoryAlert`: Deterministic alert triggers (`severity: CRITICAL | WARNING`, `status: UNREAD | ACKNOWLEDGED | RESOLVED`).
 13. `Invoice`: Sales transaction header (`invoiceNumber: INV-1001`, `grandTotal`, `paidAmount`, `balanceDue`, `paymentStatus`, `paymentMethod`).
 14. `SaleItem`: Frozen checkout snapshots (`soldPrice`, `costPrice`, `quantity`, `totalPrice`, `grossProfit`).
 15. `Payment`: Multi-tranche payments against invoices (`amount`, `paymentMethod: CASH | UPI | CARD | CREDIT | SPLIT`, `referenceId`).
-16. `Customer`: Customer CRM profile (`name`, `phone`, `creditLimit`, `totalCredit`, `totalPaid`, `outstandingBalance`).
+16. `Customer`: Customer CRM profile (`name`, `phone`, `creditLimit`, `totalCredit`, `totalPaid`, `currentBalance`).
 17. `CustomerLedger`: Immutable Khata statement (`type: SALE_CREDIT | PAYMENT_RECEIVED`, `amount`, `balanceBefore`, `balanceAfter`, `invoiceNumber`).
+18. `Supplier`: Master vendor entity (`company`, `phone`, `currentBalance`, `totalPurchases`, `gstin`, `status`).
+19. `PurchaseOrder`: Stock order commitment (`poNumber`, `supplierId`, `status: DRAFT | PENDING | PARTIAL | RECEIVED | CANCELLED`, `costTotal`, `items`).
+20. `PurchaseItem`: Frozen PO line cost, ordered quantity, and fulfilled `receivedQty` snapshot.
+21. `GoodsReceivedNote`: Physical goods reception record (`grnNumber: GRN-1001`, `poNumber`, `items`, `totalItemsReceived`, `totalCostReceived`, `deliveryChallanNumber`, `invoiceNumber`).
 
 ====================================================================================================
-7. COMPLETE API MATRIX (38+ ENDPOINTS ACROSS 9 MODULES)
+7. COMPLETE API MATRIX (80+ ENDPOINTS ACROSS 12 MODULES)
 ====================================================================================================
 
 MODULE 1: SYSTEM & HEALTH
@@ -364,6 +385,49 @@ MODULE 9: CUSTOMER CRM & KHATA / UDHAAR (`/api/customers`)
   GET    /api/customers/:id/outstanding         -> Fast O(1) customer outstanding & credit status (T34)
   GET    /api/customers/outstanding/summary     -> Business-wide debtor list ordered by balance (T34)
   GET    /api/customers/outstanding/totals      -> Instant store-wide aggregate debt totals (T34)
+  GET    /api/customers/:id/payments            -> Customer repayment history & method breakdown (T35)
+  GET    /api/customers/:id/crm-summary         -> 360° CRM profile, lifetime spend & debt aging (T36)
+
+MODULE 10: SUPPLIER MANAGEMENT & LEDGER (`/api/suppliers`) (T37-T41)
+  POST   /api/suppliers                         -> Register new vendor with canonical phone (+91)
+  GET    /api/suppliers                         -> List suppliers with payable balances and search
+  GET    /api/suppliers/summary                 -> Supplier KPI metrics (Total Payables, Procurement Volume)
+  GET    /api/suppliers/search                  -> Rapid vendor autocomplete search
+  GET    /api/suppliers/phone/:phone            -> Lookup supplier by contact phone
+  GET    /api/suppliers/:id                     -> Get supplier profile
+  PUT    /api/suppliers/:id                     -> Update supplier demographics & GSTIN
+  DELETE /api/suppliers/:id                     -> Safe soft-delete / deactivate vendor
+  POST   /api/suppliers/:id/archive             -> Archive supplier
+  POST   /api/suppliers/:id/restore             -> Restore archived supplier
+  GET    /api/suppliers/:id/ledger              -> Chronological accounts payable ledger statement (T39)
+  POST   /api/suppliers/:id/ledger              -> Manual payable adjustment log entry (T39)
+  POST   /api/suppliers/:id/settle              -> Record cash/bank disbursement payment to supplier (T40)
+  POST   /api/suppliers/:id/purchases/credit    -> Record credit purchase bill increasing payable
+  GET    /api/suppliers/:id/outstanding         -> Fast O(1) supplier payable status & balance
+  GET    /api/suppliers/payables/summary        -> Ranked list of creditors with outstanding balances (T40)
+  GET    /api/suppliers/payables/totals         -> Store-wide aggregate payable liabilities total (T40)
+  GET    /api/suppliers/:id/summary-360         -> 360° Vendor profile, recent orders & payouts (T41)
+
+MODULE 11: PURCHASE ORDERS & PROCUREMENT (`/api/purchase-orders`) (T42-T43)
+  POST   /api/purchase-orders                   -> Create official PO commitment (Zero stock inflation)
+  GET    /api/purchase-orders                   -> List purchase orders with status filters & pagination
+  GET    /api/purchase-orders/summary           -> Store-wide PO KPI summary (Total POs, Cost Volume)
+  GET    /api/purchase-orders/:id               -> Get single PO details with line items
+  GET    /api/purchase-orders/number/:poNumber  -> Get PO by human-readable number (PO-1001)
+  PUT    /api/purchase-orders/:id               -> Update draft PO lines and details
+  PATCH  /api/purchase-orders/:id/status        -> Progress PO status (DRAFT -> PENDING -> CANCELLED)
+  POST   /api/purchase-orders/:id/cancel        -> Cancel pending PO commitment
+  GET    /api/purchase-orders/supplier/:suppId  -> List all POs placed to a specific supplier
+  GET    /api/purchase-orders/:id/items         -> Frozen PO line items with negotiated cost (T43)
+  GET    /api/purchase-orders/items/product/:pId-> Historical purchase price audit trail for SKU (T43)
+
+MODULE 12: GOODS RECEIVED NOTE (GRN) API (`/api/purchases`) (T44)
+  POST   /api/purchases/receive                 -> Confirm physical stock delivery (Creates GRN + Stock IN)
+  POST   /api/purchases/grn                     -> Alias endpoint for GRN stock reception
+  GET    /api/purchases/grn                     -> List all Goods Received Notes with pagination & filters
+  GET    /api/purchases/grn/:id                 -> Single GRN details with line-by-line received variances
+  GET    /api/purchases/grn/po/:poId            -> Get receiving history for a specific PO
+  GET    /api/purchases/grn/summary             -> GRN KPI totals (Completed GRNs, Stock In Units, Cost)
 
 ====================================================================================================
 8. DETAILED END-TO-END WORKFLOW PIPELINES (ASCII FLOWCHARTS)
@@ -595,8 +659,97 @@ Merchant / Inventory Admin           Supplier Service / Repository          Mong
         │ 5. 200 OK (Supplier Master Registered)    │                                      │
         │◄──────────────────────────────────────────┤                                      │
 
+----------------------------------------------------------------------------------------------------
+8.17 PURCHASE ORDER COMMITMENT VS PHYSICAL STOCK IN FLOW (T42-T43)
+----------------------------------------------------------------------------------------------------
+
+Merchant / Procurement Admin         PO Service / Repository                MongoDB (PO & Inventory)
+        │                                           │                                      │
+        │ 1. POST /api/purchase-orders              │                                      │
+        │    (Supplier, ExpectedDelivery, Items)    │                                      │
+        ├──────────────────────────────────────────►│ 2. Fetch Catalog Items & Unit Cost   │
+        │                                           │ 3. Server-Side Cost Computation:     │
+        │                                           │    costTotal = Σ (qty * unitCost)    │
+        │                                           │ 4. Generate Sequential `PO-1001`     │
+        │                                           │ 5. Persist PurchaseOrder (PENDING)   │
+        │                                           │ 6. Bulk Insert `PurchaseItem` lines  │
+        │                                           │    (Frozen negotiated costPrice)     │
+        │                                           ├─────────────────────────────────────►│
+        │                                           │                                      │
+        │                                           │ CRITICAL ARCHITECTURAL GUARANTEE:    │
+        │                                           │ * Physical Stock is NOT updated!     │
+        │                                           │ * Inventory availableStock = unchanged│
+        │                                           │ * Zero supplier payable liability    │
+        │                                           │                                      │
+        │ 7. 201 Created (Official PO Commitment)   │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
+----------------------------------------------------------------------------------------------------
+8.18 GOODS RECEIVED NOTE (GRN) ATOMIC STOCK-IN & LEDGER INTEGRATION (T44)
+----------------------------------------------------------------------------------------------------
+
+Receiving Clerk / Delivery Dock      GRN Service Layer                      Atomic DB Transaction
+        │                                           │                                      │
+        │ 1. Physical Truck Delivery Arrives        │                                      │
+        │ 2. POST /api/purchases/receive            │                                      │
+        │    { poId, items: [{pId, receivedQty}],   │                                      │
+        │      challanNo, invoiceNo, date }         │                                      │
+        ├──────────────────────────────────────────►│ 3. Fetch PO & verify businessId     │
+        │                                           │ 4. Pre-Flight PO Status Check        │
+        │                                           │    (Abort if CANCELLED or FULL)      │
+        │                                           │ 5. Line-by-Line Variance Check:      │
+        │                                           │    var = (prevRecv + recvQty) - order│
+        │                                           │    rem = max(0, order - totalRecv)   │
+        │                                           │ 6. Over-Delivery Tolerance Guard     │
+        │                                           │    (Check max 10% excess allowed)    │
+        │                                           │                                      │
+        │                                           │ 7. BEGIN ATOMIC TRANSACTION:         │
+        │                                           ├─────────────────────────────────────►│
+        │                                           │    a. Generate `GRN-1001`            │
+        │                                           │    b. Create `GoodsReceivedNote`     │
+        │                                           │    c. Sync PO item receivedQuantity  │
+        │                                           │    d. Sync PurchaseItem.receivedQty  │
+        │                                           │    e. Update PO Status:              │
+        │                                           │       (PENDING -> PARTIAL / RECEIVED)│
+        │                                           │    f. Execute Physical Stock IN:     │
+        │                                           │       Inventory.availableStock += qty│
+        │                                           │    g. Log `InventoryLedger` entries: │
+        │                                           │       type: 'IN',                    │
+        │                                           │       source: 'GOODS_RECEIPT',       │
+        │                                           │       referenceNumber: 'GRN-1001'    │
+        │                                           │ 8. COMMIT TRANSACTION                │
+        │                                           ├─────────────────────────────────────►│
+        │ 9. 201 Created (Stock Updated + GRN Doc)  │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
+----------------------------------------------------------------------------------------------------
+8.19 AUTO INVENTORY IN DEDUCTIONS / INFLOW ENGINE (T45)
+----------------------------------------------------------------------------------------------------
+
+GRN Completed Document                Inventory Service Layer                MongoDB Atlas Transaction
+        │                                           │                                      │
+        │ 1. GRN Created (savedGRN._id)             │                                      │
+        ├──────────────────────────────────────────►│ 2. Idempotency & Duplicate Guard:    │
+        │                                           │    Check existing `referenceId` in   │
+        │                                           │    `InventoryLedger`                 │
+        │                                           │    (Abort if already processed)      │
+        │                                           │ 3. For each received line:           │
+        │                                           │    Rule 1: ONLY newly received qty   │
+        │                                           │    availableStock += line.receivedQty│
+        │                                           │ 4. Append Immutable Ledger Entry:    │
+        │                                           │    { type: 'IN',                     │
+        │                                           │      source: 'GOODS_RECEIPT',        │
+        │                                           │      referenceType: 'GRN',           │
+        │                                           │      referenceNumber: grnNumber,     │
+        │                                           │      referenceId: grn._id }          │
+        │                                           │ 5. Auto Re-Evaluate Low-Stock Alerts │
+        │                                           │ 6. Commit or Rollback Atomically     │
+        │                                           ├─────────────────────────────────────►│
+        │ 7. Available Stock Active & Sellable      │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
 ====================================================================================================
-9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T33, T34, T35, T36)
+9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T36, T38, T41, T44, T45)
 ====================================================================================================
 
 1. Hardware Barcode Scanner Hook (`useBarcodeScanner.js`):
@@ -636,9 +789,23 @@ Merchant / Inventory Admin           Supplier Service / Repository          Mong
    real-time outstanding debt, 4-tier visual debt aging distribution (0-30d, 31-60d, 61-90d, 90+d), recent
    billing invoices, and recent repayments in an interactive dashboard.
 
-10. Supplier Management Page & Modals (`SuppliersPage.jsx`, `SupplierStatsCards.jsx`, `SuppliersTable.jsx`, `AddSupplierModal.jsx`, `EditSupplierModal.jsx`) (T38):
+10. Supplier Management Page & Modals (`SuppliersPage.jsx`, `SupplierStatsCards.jsx`, `SuppliersTable.jsx`) (T38):
    Provides complete management of procurement vendors and distributors, tracking active supplier counts,
    lifetime procurements, and real-time payable outstanding balances with fast search, filters, and edit modals.
+
+11. Supplier 360° Management Center (`Supplier360Modal.jsx`) (T41):
+   360° Vendor dashboard uniting demographics, debt metrics, recent purchase history, disbursement payout logs,
+   and active purchase orders with quick receipt action triggers.
+
+12. Purchase Order Modals (`CreatePurchaseOrderModal.jsx`, `PurchaseOrdersListModal.jsx`) (T42-T43):
+   Interactive PO creator supporting multi-item selection, quantity inputs, negotiated unit cost, live cost total
+   calculator, and PO listing modal with status filters, expansion cards, and order cancellation.
+
+13. Goods Received Note & Physical Receipt Modals (`ReceiveGoodsModal.jsx`, `GoodsReceivedNotesModal.jsx`) (T44):
+   - `ReceiveGoodsModal.jsx`: Partial/full delivery receipt interface against PO with Challan #, Invoice #,
+     individual line inputs, live unit/cost projectors, over-delivery tolerance toggle, and PO receiving history.
+   - `GoodsReceivedNotesModal.jsx`: Store-wide GRN master audit log displaying completed receipts, search,
+     filters, and expandable received line-item breakdown with variance tracking (Exact, Pending, Excess).
 
 ====================================================================================================
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
@@ -679,37 +846,49 @@ Merchant / Inventory Admin           Supplier Service / Repository          Mong
 
 All backend test suites are located in `Backend/tests/`:
 
-1. Supplier CRUD APIs & Lifecycle Test (T38):
+1. Auto Inventory IN Deductions & Invariant Test (T45):
+   `node tests/test-auto-inventory-in-deductions.js`
+2. Goods Received Note (GRN) API & Stock Receive Test (T44):
+   `node tests/test-goods-received-note-api.js`
+3. Purchase Item Schema Model & Snapshot Test (T43):
+   `node tests/test-purchase-item-schema-model.js`
+3. Purchase Order Schema Model & Multi-Tenant Test (T42):
+   `node tests/test-purchase-order-schema-model.js`
+4. Supplier 360° Management Center Test (T41):
+   `node tests/test-supplier-360-management-center.js`
+5. Supplier Outstanding Payables Indexer Test (T40):
+   `node tests/test-supplier-outstanding-payables-indexer.js`
+6. Supplier Ledger Transaction Log Test (T39):
+   `node tests/test-supplier-ledger-transaction-log.js`
+7. Supplier CRUD APIs & Lifecycle Test (T38):
    `node tests/test-supplier-crud-apis.js`
-2. Supplier Schema DB Model & Multi-Tenant Test (T37):
+8. Supplier Schema DB Model & Multi-Tenant Test (T37):
    `node tests/test-supplier-schema-model.js`
-3. Customer 360° CRM & Debt Aging Profiling Test (T36):
+9. Customer 360° CRM & Debt Aging Profiling Test (T36):
    `node tests/test-customer-crm-profiling.js`
-
-
-2. Customer Credit Payment History Test (T35):
+10. Customer Credit Payment History Test (T35):
    `node tests/test-customer-payment-history.js`
-3. Real-Time Customer Outstanding Calculations Test (T34):
+11. Real-Time Customer Outstanding Calculations Test (T34):
    `node tests/test-customer-realtime-outstanding.js`
-4. Customer Ledger Transaction Log Test (T33):
+12. Customer Ledger Transaction Log Test (T33):
    `node tests/test-customer-ledger-transaction-log.js`
-5. Customer CRUD APIs & Phone Normalization Test (T32):
+13. Customer CRUD APIs & Phone Normalization Test (T32):
    `node tests/test-customer-crud-apis.js`
-6. Customer Schema DB Model Test (T31):
+14. Customer Schema DB Model Test (T31):
    `node tests/test-customer-schema-model.js`
-7. Customer Credit & Khata Ledger Test (T29):
+15. Customer Credit & Khata Ledger Test (T29):
    `node tests/test-customer-credit-integration.js`
-8. Payment Recording & Multi-Tranche Settlement Test (T28):
+16. Payment Recording & Multi-Tranche Settlement Test (T28):
    `node tests/test-payment-recording-entity.js`
-9. POS Checkout Atomic Transaction & Rollback Test (T25):
+17. POS Checkout Atomic Transaction & Rollback Test (T25):
    `node tests/test-pos-checkout-transaction.js`
-10. Sale Line Items Price Snapshot Test (T24):
+18. Sale Line Items Price Snapshot Test (T24):
    `node tests/test-sale-items-snapshot.js`
-11. Invoice PDF Generation Test (T27):
+19. Invoice PDF Generation Test (T27):
    `node tests/test-invoice-pdf-generation.js`
-12. Low-Stock Alerts Queue Test (T22):
+20. Low-Stock Alerts Queue Test (T22):
    `node tests/test-low-stock-notifications.js`
-13. Inventory Ledger Statement Test (T21):
+21. Inventory Ledger Statement Test (T21):
    `node tests/test-inventory-ledger-ui.js`
 
 Frontend Build Verification:

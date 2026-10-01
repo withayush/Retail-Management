@@ -12,6 +12,11 @@
  */
 
 const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const path = require("path");
+
+dotenv.config({ path: path.join(__dirname, "../.env") });
+
 const { Customer } = require("../src/models/customer.model");
 const customerService = require("../src/services/customer.service");
 

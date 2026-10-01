@@ -12,8 +12,8 @@ class ReconciliationController {
       const result = await reconciliationService.reconcileInventory(
         req.businessId,
         autoFix,
-        req.user?.id,
-        req.user?.fullName
+        req.user?.id || req.user?.accountId || req.user?._id,
+        req.user?.fullName || req.user?.name || req.account?.fullName
       );
       return res.status(200).json(result);
     } catch (err) {
@@ -53,8 +53,8 @@ class ReconciliationController {
       const result = await reconciliationService.runFullReconciliation(
         req.businessId,
         autoFix,
-        req.user?.id,
-        req.user?.fullName
+        req.user?.id || req.user?.accountId || req.user?._id,
+        req.user?.fullName || req.user?.name || req.account?.fullName
       );
       return res.status(200).json(result);
     } catch (err) {

@@ -16,6 +16,7 @@ import {
   Barcode,
 } from "lucide-react";
 import { receiveStock, getGRNsByPoId } from "../../../services/purchaseOrder.api";
+import { generateIdempotencyKey } from "../../../services/api";
 import { toast } from "react-hot-toast";
 
 /**
@@ -55,13 +56,14 @@ export default function ReceiveGoodsModal({
       setInvoiceNumber("");
       setNotes("");
       setAllowOverdelivery(false);
-      setActiveTab("RECEIVE");
+      setActiveTab(purchaseOrder.status === "RECEIVED" ? "HISTORY" : "RECEIVE");
 
       const lines = (purchaseOrder.items || []).map((item) => {
         const ordered = Number(item.quantity || item.qty) || 0;
         const previouslyReceived = Number(item.receivedQuantity || item.receivedQty) || 0;
         const remaining = Math.max(0, ordered - previouslyReceived);
         const costPrice = Number(item.unitCost || item.costPrice) || 0;
+        const currentStock = Number(item.currentStock ?? item.productId?.stock) || 0;
 
         return {
           productId: item.productId?._id || item.productId || null,
@@ -73,6 +75,7 @@ export default function ReceiveGoodsModal({
           orderedQty: ordered,
           previouslyReceivedQty: previouslyReceived,
           remainingQty: remaining,
+          currentStock,
           // Prefill with remaining qty if pending, otherwise 0
           receivedQty: remaining > 0 ? remaining : 0,
           notes: "",
@@ -182,11 +185,12 @@ export default function ReceiveGoodsModal({
         })),
       };
 
-      const res = await receiveStock(payload);
+      const idempotencyKey = generateIdempotencyKey();
+      const res = await receiveStock(payload, idempotencyKey);
 
       toast.success(
-        `GRN (${res.data?.grn?.grnNumber || "Confirmed"}) created! Stock incremented (+${totalIncomingUnits} units).`,
-        { duration: 4500 }
+        `GRN ${res.data?.grn?.grnNumber || "Confirmed"} complete! Auto Inventory IN added +${totalIncomingUnits} units to sellable stock.`,
+        { duration: 5000 }
       );
 
       if (onReceivedSuccess) {
@@ -373,21 +377,21 @@ export default function ReceiveGoodsModal({
                     <thead className="bg-[#18181b] border-b border-[#27272a] text-[10px] uppercase font-semibold text-zinc-400">
                       <tr>
                         <th className="py-2.5 px-3">Product / Item</th>
-                        <th className="py-2.5 px-3 text-center">Ordered</th>
-                        <th className="py-2.5 px-3 text-center">Previously Recv</th>
-                        <th className="py-2.5 px-3 text-center">Remaining</th>
-                        <th className="py-2.5 px-3 text-center w-32">Receiving Now</th>
+                        <th className="py-2.5 px-2 text-center">Ordered</th>
+                        <th className="py-2.5 px-2 text-center">Remaining</th>
+                        <th className="py-2.5 px-2 text-center">Current Stock</th>
+                        <th className="py-2.5 px-3 text-center w-28">Receiving Now</th>
+                        <th className="py-2.5 px-2 text-center">Projected Stock</th>
                         <th className="py-2.5 px-3 text-right">Unit Cost</th>
                         <th className="py-2.5 px-3 text-right">Line Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#27272a]/60">
                       {receiptLines.map((line, idx) => {
-                        const lineTotal =
-                          (Number(line.receivedQty) || 0) * (Number(line.costPrice) || 0);
-                        const isOver =
-                          (line.previouslyReceivedQty || 0) + (Number(line.receivedQty) || 0) >
-                          line.orderedQty;
+                        const recQty = Number(line.receivedQty) || 0;
+                        const lineTotal = recQty * (Number(line.costPrice) || 0);
+                        const isOver = (line.previouslyReceivedQty || 0) + recQty > line.orderedQty;
+                        const projectedStock = line.currentStock + recQty;
 
                         return (
                           <tr
@@ -403,15 +407,11 @@ export default function ReceiveGoodsModal({
                               </div>
                             </td>
 
-                            <td className="py-2.5 px-3 text-center font-mono text-zinc-300">
+                            <td className="py-2.5 px-2 text-center font-mono text-zinc-300">
                               {line.orderedQty}
                             </td>
 
-                            <td className="py-2.5 px-3 text-center font-mono text-zinc-400">
-                              {line.previouslyReceivedQty}
-                            </td>
-
-                            <td className="py-2.5 px-3 text-center font-mono">
+                            <td className="py-2.5 px-2 text-center font-mono">
                               <span
                                 className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                   line.remainingQty > 0
@@ -420,6 +420,12 @@ export default function ReceiveGoodsModal({
                                 }`}
                               >
                                 {line.remainingQty}
+                              </span>
+                            </td>
+
+                            <td className="py-2.5 px-2 text-center font-mono text-zinc-300">
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-800/80 text-[11px] font-bold text-zinc-300 border border-zinc-700/50">
+                                {line.currentStock}
                               </span>
                             </td>
 
@@ -440,6 +446,19 @@ export default function ReceiveGoodsModal({
                               />
                             </td>
 
+                            <td className="py-2.5 px-2 text-center font-mono">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className={`text-[11px] font-bold ${recQty > 0 ? "text-emerald-400" : "text-zinc-400"}`}>
+                                  {projectedStock}
+                                </span>
+                                {recQty > 0 && (
+                                  <span className="text-[10px] text-emerald-400/80 font-bold bg-emerald-500/10 px-1 rounded">
+                                    +{recQty}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
                             <td className="py-2.5 px-3 text-right font-mono text-zinc-400">
                               ₹{Number(line.costPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
@@ -452,6 +471,21 @@ export default function ReceiveGoodsModal({
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                {/* T45 Auto Inventory IN Deductions Callout */}
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                  <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-400 mt-0.5 shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-emerald-400">
+                      ⚡ T45 Auto Inventory IN Integration Active:
+                    </span>
+                    <p className="text-zinc-300 text-[11px] mt-0.5 leading-relaxed">
+                      Confirmed received units will be automatically converted to active sellable inventory (<code className="text-emerald-300 font-mono">availableStock += receivedQty</code>) and recorded in the immutable audit ledger with <code className="text-zinc-300 font-mono">source: GOODS_RECEIPT</code>.
+                    </p>
+                  </div>
                 </div>
               </div>
 

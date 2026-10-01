@@ -6,6 +6,7 @@ const { Inventory, InventoryLedger } = require("../models/inventory.model");
 const Payment = require("../models/payment.model");
 const alertRepo = require("./inventoryAlert.repository");
 const customerLedgerRepo = require("./customerLedger.repository");
+const counterRepo = require("./counter.repository");
 
 /**
  * Phase 4 - Tasks T23, T24 & T25: Sale Transaction, Line Items & POS Checkout Repository
@@ -13,20 +14,14 @@ const customerLedgerRepo = require("./customerLedger.repository");
  */
 
 /**
- * Generates the next sequential invoice number for this business (e.g., INV-1001, INV-1002).
+ * Generates the next atomic, collision-free sequential invoice number for this business (e.g., INV-1001, INV-1002).
  */
 const getNextInvoiceNumber = async (businessId, session = null) => {
-  const count = await Invoice.countDocuments({ businessId }).session(session);
-  let seq = 1001 + count;
-  let candidate = `INV-${seq}`;
-
-  // Check if candidate exists (in case of prior deletions or manual numbers)
-  while (await Invoice.exists({ businessId, invoiceNumber: candidate }).session(session)) {
-    seq++;
-    candidate = `INV-${seq}`;
-  }
-
-  return candidate;
+  return await counterRepo.getNextSequence(businessId, "INVOICE", {
+    prefix: "INV",
+    defaultStart: 1000,
+    session,
+  });
 };
 
 /**
@@ -301,9 +296,14 @@ const createSale = async (businessId, saleData, session = null) => {
         throw error;
       }
 
-      // Re-evaluate low stock status
-      updatedInv.lowStockAlert = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
-      await updatedInv.save(sessionOpt);
+      // Re-evaluate low stock status atomically without full document .save()
+      const isLowStock = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
+      updatedInv.lowStockAlert = isLowStock;
+      await Inventory.updateOne(
+        { _id: updatedInv._id },
+        { $set: { lowStockAlert: isLowStock, updatedAt: new Date() } },
+        sessionOpt
+      );
 
       // Record immutable ledger entry with exact atomically verified balanceAfter
       ledgerDocs.push({

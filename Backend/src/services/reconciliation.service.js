@@ -152,17 +152,25 @@ class ReconciliationService {
 
       if (ledgerDoc && ledgerDoc.entries && ledgerDoc.entries.length > 0) {
         entriesCount = ledgerDoc.entries.length;
-        // Compute running balance: sum of debit amounts (sales/adjustments) minus credit payments
+        // Compute running balance: sum of credit additions (Udhaar sales/adjustments) minus debit payments
         let running = 0;
         for (const entry of ledgerDoc.entries) {
-          if (entry.entryType === "SALE_CREDIT" || (entry.debit && entry.debit > 0)) {
-            running += Number(entry.unpaidAmount || entry.debit || 0);
-          } else if (entry.entryType === "PAYMENT_RECEIVED" || (entry.credit && entry.credit > 0)) {
-            running -= Number(entry.paymentAmount || entry.credit || 0);
-          } else if (entry.entryType === "DEBT_INCREASE") {
-            running += Number(entry.debit || 0);
-          } else if (entry.entryType === "DEBT_DECREASE") {
-            running -= Number(entry.credit || 0);
+          const type = entry.entryType || entry.type;
+
+          if (type === "SALE_CREDIT" || type === "CREDIT_SALE" || type === "DEBT_INCREASE") {
+            const addVal = Number(entry.creditAmount ?? entry.unpaidAmount ?? entry.debit ?? 0);
+            running += addVal;
+          } else if (type === "PAYMENT_RECEIVED" || type === "PAYMENT_SETTLEMENT" || type === "DEBT_DECREASE") {
+            const subVal = Number(entry.debitAmount ?? entry.paymentAmount ?? entry.credit ?? 0);
+            running -= subVal;
+          } else if (type === "ADJUSTMENT" || type === "REFUND") {
+            const addVal = Number(entry.creditAmount ?? entry.debit ?? 0);
+            const subVal = Number(entry.debitAmount ?? entry.credit ?? 0);
+            running += (addVal - subVal);
+          } else {
+            const addVal = Number(entry.creditAmount ?? entry.unpaidAmount ?? 0);
+            const subVal = Number(entry.debitAmount ?? entry.paymentAmount ?? 0);
+            running += (addVal - subVal);
           }
         }
         authoritativeBalance = Math.max(0, Math.round(running * 100) / 100);

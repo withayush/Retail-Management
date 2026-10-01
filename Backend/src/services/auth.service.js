@@ -638,8 +638,11 @@ const getMe = async (accountId) => {
 
   return {
     account: {
+      id: account._id.toString(),
+      _id: account._id,
       accountId: account._id,
       fullName: account.fullName,
+      name: account.fullName,
       email: account.email,
       phone: account.phone,
       status: account.status,

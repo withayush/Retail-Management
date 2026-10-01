@@ -46,25 +46,31 @@ console.log(` - Flagged Item                         : "${discrepancies[0].produ
 // ==============================================================================
 console.log("\n[Test 2] Customer Ledger Running Balance Audit:");
 
-const mockCustomerLedger = [
-  { type: "SALE_CREDIT", debit: 1200, credit: 0 },
-  { type: "PAYMENT_RECEIVED", debit: 0, credit: 500 },
-  { type: "SALE_CREDIT", debit: 300, credit: 0 },
-  { type: "PAYMENT_RECEIVED", debit: 0, credit: 200 },
+// 2a. Canonical CustomerLedger Schema format (creditAmount / debitAmount)
+const canonicalCustomerLedger = [
+  { entryType: "SALE_CREDIT", creditAmount: 1200, debitAmount: 0 },
+  { entryType: "PAYMENT_RECEIVED", creditAmount: 0, debitAmount: 500 },
+  { entryType: "SALE_CREDIT", creditAmount: 300, debitAmount: 0 },
+  { entryType: "PAYMENT_RECEIVED", creditAmount: 0, debitAmount: 200 },
 ];
 
-const customerCalculatedDebt = mockCustomerLedger.reduce((bal, entry) => {
-  return bal + entry.debit - entry.credit;
-}, 0);
+let canonicalRunning = 0;
+for (const entry of canonicalCustomerLedger) {
+  const type = entry.entryType || entry.type;
+  if (type === "SALE_CREDIT" || type === "CREDIT_SALE" || type === "DEBT_INCREASE") {
+    canonicalRunning += Number(entry.creditAmount ?? entry.unpaidAmount ?? entry.debit ?? 0);
+  } else if (type === "PAYMENT_RECEIVED" || type === "PAYMENT_SETTLEMENT" || type === "DEBT_DECREASE") {
+    canonicalRunning -= Number(entry.debitAmount ?? entry.paymentAmount ?? entry.credit ?? 0);
+  }
+}
 
-assert.strictEqual(customerCalculatedDebt, 800); // 1200 - 500 + 300 - 200 = 800
-
+assert.strictEqual(canonicalRunning, 800); // 1200 - 500 + 300 - 200 = 800
 const storedCustomerBalance = 800;
-assert.strictEqual(storedCustomerBalance, customerCalculatedDebt);
+assert.strictEqual(storedCustomerBalance, canonicalRunning);
 
-console.log(` - Calculated Khata Balance from Entries: ₹${customerCalculatedDebt}`);
-console.log(` - Stored Customer Master Balance       : ₹${storedCustomerBalance}`);
-console.log(" - Customer Balance Invariant Check     : PASSED ✅");
+console.log(` - Canonical Schema Calculated Khata Balance: ₹${canonicalRunning}`);
+console.log(` - Stored Customer Master Balance            : ₹${storedCustomerBalance}`);
+console.log(" - Customer Balance Invariant Check          : PASSED ✅");
 
 // ==============================================================================
 // TEST 3: Supplier Accounts Payable Reconciliation

@@ -49,7 +49,7 @@ const idempotencyMiddleware = (options = {}) => {
     }
 
     const businessId = req.businessId || req.headers["x-business-id"] || req.user?.activeBusinessId;
-    const userId = req.user?.id || req.user?._id || null;
+    const userId = req.user?.id || req.user?.accountId || req.user?._id || null;
 
     if (!businessId) {
       // If business context is not set yet, proceed and let auth/business middleware handle tenancy

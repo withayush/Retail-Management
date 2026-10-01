@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { getSuppliers } from "../../../services/supplier.api";
 import { createPurchaseOrder } from "../../../services/purchaseOrder.api";
+import { generateIdempotencyKey } from "../../../services/api";
 import { getProducts } from "../../../services/product.api";
 import toast from "react-hot-toast";
 
@@ -199,7 +200,8 @@ export default function CreatePurchaseOrderModal({
         })),
       };
 
-      const res = await createPurchaseOrder(payload);
+      const idempotencyKey = generateIdempotencyKey();
+      const res = await createPurchaseOrder(payload, idempotencyKey);
       toast.success(res.message || `Purchase Order created successfully!`);
       if (onPOCreated) onPOCreated(res.data || res);
       onClose();

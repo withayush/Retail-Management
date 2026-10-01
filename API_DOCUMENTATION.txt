@@ -4,7 +4,7 @@
 Base URL: http://localhost:3001
 Content-Type: application/json
 
-Is file me Backend ki saari 38+ APIs, unka kaam (Purpose), Headers, Testing ke liye 
+Is file me Backend ki saari 80+ APIs (across 12 Modules, Phase 0 to Phase 7), unka kaam (Purpose), Headers, Testing ke liye 
 Ready-to-use Dummy Data (JSON / Params) aur Expected Response formats diye gaye hain.
 
 --------------------------------------------------------------------------------
@@ -1741,6 +1741,257 @@ Dummy Response (200 OK):
 --------------------------------------------------
 - POST /api/suppliers/:id/archive (Sets status to INACTIVE)
 - POST /api/suppliers/:id/restore (Sets status back to ACTIVE)
+
+
+================================================================================
+11. PURCHASE ORDERS & PROCUREMENT (PHASE 7 — T42 & T43)
+================================================================================
+
+11.1 CREATE PURCHASE ORDER (T42)
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/purchase-orders
+Auth:        Required (JWT + T6)
+Headers:     x-business-id, Idempotency-Key (optional)
+
+Dummy Request Body:
+{
+  "supplierId": "66f1f7a8b9c0d1e2f3a4b5c6",
+  "expectedDelivery": "2026-10-15T00:00:00.000Z",
+  "notes": "Urgent festive season order",
+  "items": [
+    {
+      "productId": "65f1b2c3d4e5f6a7b8c9d0e1",
+      "name": "Maggi Masala Noodles 70g",
+      "sku": "MAGGI-70G",
+      "quantity": 100,
+      "unitCost": 11.00,
+      "unit": "pcs"
+    },
+    {
+      "productId": "65f1b2c3d4e5f6a7b8c9d0e2",
+      "name": "Coca-Cola 500ml Can",
+      "sku": "COKE-500ML",
+      "quantity": 50,
+      "unitCost": 30.00,
+      "unit": "can"
+    }
+  ]
+}
+
+11.2 GET PURCHASE ORDERS LIST (T42)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/purchase-orders?status=PENDING&page=1&limit=20
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+12. GOODS RECEIVED NOTE (GRN) API (PHASE 7 — T44)
+================================================================================
+
+12.1 CONFIRM PHYSICAL GOODS RECEIPT (T44)
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/purchases/receive (or /api/purchases/grn)
+Description: Confirms physical stock delivery against an official Purchase Order.
+             Calculates ordered vs received variances, detects partial or over-delivery,
+             progresses PO lifecycle (PENDING -> PARTIAL -> RECEIVED), creates the
+             immutable GoodsReceivedNote document, and executes atomic Inventory Stock-IN
+             with an audited InventoryLedger movement entry.
+Auth:        Required (JWT + T6 businessMiddleware)
+Headers:     x-business-id, Idempotency-Key (optional)
+
+Dummy Request Body:
+{
+  "purchaseOrderId": "66f2a1b2c3d4e5f6a7b8c9d0",
+  "receivedDate": "2026-09-30T10:00:00.000Z",
+  "deliveryChallanNumber": "DC-8842",
+  "invoiceNumber": "INV-SUPP-9921",
+  "notes": "Delivered via truck MH-12-AB-1234. Condition intact.",
+  "allowOverdelivery": false,
+  "items": [
+    {
+      "productId": "65f1b2c3d4e5f6a7b8c9d0e1",
+      "name": "Maggi Masala Noodles 70g",
+      "receivedQty": 100,
+      "costPrice": 11.00,
+      "notes": "Full shipment accepted"
+    },
+    {
+      "productId": "65f1b2c3d4e5f6a7b8c9d0e2",
+      "name": "Coca-Cola 500ml Can",
+      "receivedQty": 40,
+      "costPrice": 30.00,
+      "notes": "Partial receipt: 10 cans short/pending"
+    }
+  ]
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Goods Received Note (GRN-1001) processed successfully. Stock updated.",
+  "data": {
+    "grn": {
+      "_id": "66f3b2c3d4e5f6a7b8c9d0e1",
+      "businessId": "65f1e2a3b4c5d6e7f8a9b0c1",
+      "grnNumber": "GRN-1001",
+      "purchaseOrderId": "66f2a1b2c3d4e5f6a7b8c9d0",
+      "poNumber": "PO-1001",
+      "supplierId": "66f1f7a8b9c0d1e2f3a4b5c6",
+      "supplierCompany": "ABC Wholesale & FMCG",
+      "receivedDate": "2026-09-30T10:00:00.000Z",
+      "status": "COMPLETED",
+      "deliveryChallanNumber": "DC-8842",
+      "invoiceNumber": "INV-SUPP-9921",
+      "totalItemsReceived": 140,
+      "totalCostReceived": 2300.00,
+      "items": [
+        {
+          "productId": "65f1b2c3d4e5f6a7b8c9d0e1",
+          "name": "Maggi Masala Noodles 70g",
+          "orderedQty": 100,
+          "previouslyReceivedQty": 0,
+          "receivedQty": 100,
+          "remainingQty": 0,
+          "variance": 0,
+          "costPrice": 11.00,
+          "totalCost": 1100.00
+        },
+        {
+          "productId": "65f1b2c3d4e5f6a7b8c9d0e2",
+          "name": "Coca-Cola 500ml Can",
+          "orderedQty": 50,
+          "previouslyReceivedQty": 0,
+          "receivedQty": 40,
+          "remainingQty": 10,
+          "variance": -10,
+          "costPrice": 30.00,
+          "totalCost": 1200.00
+        }
+      ]
+    },
+    "purchaseOrder": {
+      "_id": "66f2a1b2c3d4e5f6a7b8c9d0",
+      "poNumber": "PO-1001",
+      "previousStatus": "PENDING",
+      "newStatus": "PARTIAL",
+      "costTotal": 2600.00,
+      "itemsCount": 2,
+      "totalQuantity": 150
+    },
+    "inventoryUpdates": [
+      {
+        "productId": "65f1b2c3d4e5f6a7b8c9d0e1",
+        "productName": "Maggi Masala Noodles 70g",
+        "receivedQty": 100,
+        "newStock": 100
+      },
+      {
+        "productId": "65f1b2c3d4e5f6a7b8c9d0e2",
+        "productName": "Coca-Cola 500ml Can",
+        "receivedQty": 40,
+        "newStock": 40
+      }
+    ],
+    "summary": {
+      "grnNumber": "GRN-1001",
+      "totalItemsReceived": 140,
+      "totalCostReceived": 2300.00,
+      "poStatus": "PARTIAL"
+    }
+  }
+}
+
+12.2 GET GOODS RECEIVED NOTES LIST (T44)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/purchases/grn?page=1&limit=20&status=ALL&search=GRN-1001
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "66f3b2c3d4e5f6a7b8c9d0e1",
+      "grnNumber": "GRN-1001",
+      "poNumber": "PO-1001",
+      "supplierCompany": "ABC Wholesale & FMCG",
+      "receivedDate": "2026-09-30T10:00:00.000Z",
+      "status": "COMPLETED",
+      "totalItemsReceived": 140,
+      "totalCostReceived": 2300.00
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "page": 1,
+    "limit": 20,
+    "pages": 1
+  }
+}
+
+12.3 GET SINGLE GRN BY ID (T44)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/purchases/grn/:id
+Auth:        Required (JWT + T6)
+
+12.4 GET GRNs BY PURCHASE ORDER ID (T44)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/purchases/grn/po/:purchaseOrderId
+Auth:        Required (JWT + T6)
+
+12.5 GET GRN KPI SUMMARY (T44)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/purchases/grn/summary
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalGrns": 15,
+    "totalItemsReceived": 1250,
+    "totalCostReceived": 98500.00
+  }
+}
+
+
+================================================================================
+13. AUTO INVENTORY IN DEDUCTIONS / INFLOW ENGINE (PHASE 7 — T45)
+================================================================================
+
+13.1 OVERVIEW & ARCHITECTURAL CONTRACT
+--------------------------------------------------
+Task T45 automatically connects physical Goods Received Notes (GRN, T44) directly to active,
+sellable inventory (T15) and immutable audit ledgers (T16) within an ACID MongoDB session.
+
+Key Distinctions:
+- T18: Generic manual stock IN (/api/inventory/stock-in) for adjustments, corrections, and opening stock.
+- T45: Purchasing automated workflow service capability executing upon GRN completion.
+
+3 Non-Negotiable Core Rules:
+1. ONLY Newly Received Quantity Added:
+   - For partial deliveries, only newly received quantities increment availableStock (never entire PO qty).
+2. Idempotency & Duplicate Intake Prevention:
+   - Queries `InventoryLedger.findOne({ businessId, referenceType: 'GRN', referenceId: grn._id, source: 'GOODS_RECEIPT' })`.
+   - Rejects duplicate intake attempts with 409 DUPLICATE_GRN_STOCK_IN.
+3. Strict Single-Transaction Boundary:
+   - Executed via `withTransaction(async (session) => { ... })`:
+     Create GRN -> Increment Inventory -> Insert InventoryLedger -> Update PO Line Items & Status.
+   - Any failure triggers atomic rollback across all affected collections.
+
+Internal Service Capabilities:
+- `grnService.executeAutoInventoryIn(businessId, { grn, purchaseOrder, items, accountId, accountName, session })`
+- `inventoryService.executeAutoInventoryInForGrn(businessId, options)`
+
+Mathematical Ledger Invariant Maintained:
+`Inventory.availableStock === sum(InventoryLedger.qtyChange)`
 
 ================================================================================
 END OF API DOCUMENTATION & TESTING GUIDE

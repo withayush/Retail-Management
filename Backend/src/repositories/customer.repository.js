@@ -55,7 +55,7 @@ const findCustomers = async (businessId, filters = {}, pagination = { page: 1, l
   const query = { businessId };
 
   if (filters.search && filters.search.trim()) {
-    const term = filters.search.trim();
+    const term = filters.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     query.$or = [
       { name: { $regex: term, $options: "i" } },
       { phone: { $regex: term, $options: "i" } },
@@ -66,7 +66,8 @@ const findCustomers = async (businessId, filters = {}, pagination = { page: 1, l
   }
 
   if (filters.phone && filters.phone.trim()) {
-    query.phone = { $regex: filters.phone.trim(), $options: "i" };
+    const escapedPhone = filters.phone.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.phone = { $regex: escapedPhone, $options: "i" };
   }
 
   if (filters.status && filters.status !== "ALL") {
@@ -107,7 +108,7 @@ const searchCustomers = async (businessId, queryStr = "", limit = 10) => {
       .limit(limit);
   }
 
-  const term = queryStr.trim();
+  const term = queryStr.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return await Customer.find({
     businessId,
     status: "ACTIVE",

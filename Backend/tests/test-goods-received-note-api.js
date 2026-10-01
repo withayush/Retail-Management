@@ -29,14 +29,16 @@ async function runGRNTests() {
   try {
     // 1. Setup Test Multi-Tenant Stores
     const bizA = await Business.create({
-      name: `T44 Store Alpha ${runId}`,
+      ownerId: new mongoose.Types.ObjectId(),
+      businessName: `T44 Store Alpha ${runId}`,
       email: `t44.alpha.${runId}@test.com`,
       phone: `+919811${runId.slice(0, 6)}`,
       currency: "INR",
     });
 
     const bizB = await Business.create({
-      name: `T44 Store Beta ${runId}`,
+      ownerId: new mongoose.Types.ObjectId(),
+      businessName: `T44 Store Beta ${runId}`,
       email: `t44.beta.${runId}@test.com`,
       phone: `+919822${runId.slice(0, 6)}`,
       currency: "INR",
@@ -52,8 +54,11 @@ async function runGRNTests() {
       email: `abc.${runId}@fmcg.com`,
     });
 
+    const categoryId = new mongoose.Types.ObjectId();
+
     const prodMaggi = await Product.create({
       businessId: bizA._id,
+      categoryId,
       name: "Maggi Masala Noodles 70g",
       sku: `MAGGI-${runId}`,
       barcode: `8901058${runId}`,
@@ -66,6 +71,7 @@ async function runGRNTests() {
 
     const prodCoke = await Product.create({
       businessId: bizA._id,
+      categoryId,
       name: "Coca-Cola 500ml Can",
       sku: `COKE-${runId}`,
       barcode: `8901764${runId}`,
@@ -78,6 +84,7 @@ async function runGRNTests() {
 
     const prodBiscuit = await Product.create({
       businessId: bizA._id,
+      categoryId,
       name: "Parle-G Gold Biscuits 100g",
       sku: `PARLE-${runId}`,
       barcode: `8901234${runId}`,
@@ -210,6 +217,7 @@ async function runGRNTests() {
     let invalidItemBlocked = false;
     const prodRandom = await Product.create({
       businessId: bizA._id,
+      categoryId,
       name: "Random Product Not in PO",
       sku: `RAND-${runId}`,
       sellingPrice: 100,
@@ -218,6 +226,7 @@ async function runGRNTests() {
     try {
       await grnService.receiveStock(bizA._id, {
         purchaseOrderId: po._id,
+        allowOverdelivery: true,
         items: [{ productId: prodRandom._id.toString(), receivedQty: 5 }],
       });
     } catch (err) {

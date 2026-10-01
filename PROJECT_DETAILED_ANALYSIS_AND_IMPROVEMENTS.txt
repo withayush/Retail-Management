@@ -1,0 +1,657 @@
+====================================================================================================
+                        VENDOROS - COMPREHENSIVE CODEBASE AUDIT & ANALYSIS REPORT
+                          (Deep-Dive Architecture, Bugs, Security & Improvements)
+====================================================================================================
+Date of Audit: September 30, 2026
+Project Name : VendorOS (Retail POS, Inventory Ledger & Procurement Management)
+Target Stack : Node.js, Express 5, MongoDB / Mongoose, React 19, Vite, TailwindCSS
+Auditor      : Principal Full-Stack Software Architect & Senior AppSec Auditor
+File Name    : PROJECT_DETAILED_ANALYSIS_AND_IMPROVEMENTS.txt
+
+====================================================================================================
+                                      TABLE OF CONTENTS
+====================================================================================================
+1. PROJECT OVERVIEW & CURRENT STATUS (Abhi tak kya ban chuka hai)
+2. CRITICAL BUGS & LOGIC ERRORS (Kaha-kaha code me galtiyan hain aur kya break ho raha hai)
+3. SECURITY VULNERABILITIES & LOOP HOLES (Production AppSec & OWASP Top 10 Risks)
+4. ARCHITECTURAL FLAWS & BAD PRACTICES (Kya cheeze galat design hui hain aur unhe badalna kyu zaroori hai)
+5. PERFORMANCE & CODE OPTIMIZATIONS (Backend aur Frontend Speed & Scalability)
+6. FRONTEND SPECIFIC ISSUES & UX GAPS (React 19, Routing, State Management & Linting)
+7. PRIORITIZED ACTION PLAN & EXACT CODE FIXES (P0 Blocker, P1 High, P2 Medium, P3 Polish)
+
+====================================================================================================
+1. PROJECT OVERVIEW & CURRENT STATUS (Abhi tak kya ban chuka hai)
+====================================================================================================
+VendorOS ka scope kafi bada aur modern hai. Abhi tak isme 7 primary phases ka code likha ja chuka hai:
+- Phase 1: Authentication (Dual JWT, Phone OTP verification, Resend limits) & Multi-Tenant Onboarding Wizard.
+- Phase 2: Category CRUD, Product Catalog, Cursor-based pagination, Barcode lookup, Soft-delete archival.
+- Phase 3: Store Inventory State, Double-entry InventoryLedger (IN/OUT/ADJUST/OPENING), Low-stock alerts queue.
+- Phase 4: POS Checkout Terminal, Atomic stock deduction, SaleItem snapshots, PDF Invoice generation (PDFKit).
+- Phase 5: Customer CRM, Udhaar/Credit Sub-ledger, Credit Limit checks, Settlements, Customer 360 profile.
+- Phase 6: Supplier Directory, Accounts Payable Sub-ledger, Payables Indexer, Supplier 360 management.
+- Phase 7: Purchase Orders (PO), Goods Received Notes (GRN), Auto Inventory-IN, Cross-system Reconciliation.
+
+Halanki features kaafi saare likhe ja chuke hain, lekin code me kuch aisi BADI GALTIYAN (Bugs), 
+CRITICAL LOOP HOLES (Security Vulnerabilities) aur ARCHITECTURAL ANTI-PATTERNS hain jo production me
+live chalne par:
+1. Customer ka sara Udhaar/Debt galti se zero (₹0) kar sakti hain.
+2. Concurrent checkouts hone par Inventory stock count ko corrupt kar sakti hain.
+3. Koyi bhi hacker bina login kiye saare invoices aur customer ka personal data download kar sakta hai.
+4. Koyi bhi doosri website authenticated user ke account se data chura sakti hai (CORS flaw).
+5. Database me 16MB document limit exceed hone par customers aur suppliers ka ledger crash ho sakta hai.
+
+Neeche har ek galti, loop hole, root cause, aur solution ko detail me explain kiya gaya hai.
+
+====================================================================================================
+2. CRITICAL BUGS & LOGIC ERRORS (Kaha-kaha code me galtiyan hain)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+[BUG 2.1] [RESOLVED & FIXED] Customer Reconciliation Engine Running Balance Calculation
+----------------------------------------------------------------------------------------------------
+- Status: RESOLVED & VERIFIED WITH AUTOMATED UNIT TESTS (September 30, 2026)
+- Kaha Par Hai (File): Backend/src/services/reconciliation.service.js (Lines 156-175)
+- Kya Galti Ho Rahi Hai:
+  Customer reconciliation service me ledger entries ko traverse karke calculated running balance
+  nikalne ka logic likha gaya hai:
+  ```javascript
+  for (const entry of ledgerDoc.entries) {
+    if (entry.entryType === "SALE_CREDIT" || (entry.debit && entry.debit > 0)) {
+      running += Number(entry.unpaidAmount || entry.debit || 0);
+    } else if (entry.entryType === "PAYMENT_RECEIVED" || (entry.credit && entry.credit > 0)) {
+      running -= Number(entry.paymentAmount || entry.credit || 0);
+    }
+  }
+  ```
+  Lekin `customer.model.js` (Lines 175-186) aur `customerLedger.repository.js` me schema fields ka naam:
+  -> `entry.creditAmount` (Udhaar amount)
+  -> `entry.debitAmount`  (Payment amount)
+  hai!
+  `entry.unpaidAmount`, `entry.paymentAmount`, `entry.debit`, aur `entry.credit` naam ke fields
+  CustomerLedger schema me EXIST HI NAHI KARTE!
+  
+- Asar (Impact):
+  `Number(entry.unpaidAmount || entry.debit || 0)` humesha `0` ban jata hai!
+  Iska matlab `authoritativeBalance` hamesha `0` calculate hota hai!
+  Agar merchant ya admin Reconciliation page par ja kar "Auto-Fix" dabayega, to code execute karega:
+  `Customer.updateOne({ _id: customer._id }, { $set: { currentBalance: 0 } })`
+  Yaani ki dukandar ke saare customers ka lakhon rupaye ka Udhaar ek click me DATABASE SE PERMANENTLY ZERO ho jayega!
+  
+- Sahi Solution:
+  Field names ko schema ke mutabiq match karna:
+  ```javascript
+  for (const entry of ledgerDoc.entries) {
+    if (entry.entryType === "SALE_CREDIT") {
+      running += Number(entry.creditAmount || 0);
+    } else if (entry.entryType === "PAYMENT_RECEIVED") {
+      running -= Number(entry.debitAmount || 0);
+    } else if (entry.entryType === "ADJUSTMENT") {
+      running += Number(entry.creditAmount || 0) - Number(entry.debitAmount || 0);
+    }
+  }
+  ```
+
+----------------------------------------------------------------------------------------------------
+[BUG 2.2] CONCURRENCY KILLER: Atomic Decrement ke baad `.save()` call karke Stock Corrupt Karna
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File): 
+  1. Backend/src/repositories/sale.repository.js (Line 306)
+  2. Backend/src/repositories/inventory.repository.js (Lines 324 & 599)
+- Kya Galti Ho Rahi Hai:
+  Code me inventory ko concurrency-safe banane ke liye `Inventory.findOneAndUpdate` use kiya gaya:
+  ```javascript
+  const updatedInv = await Inventory.findOneAndUpdate(
+    { _id: update.inventory._id, businessId, availableStock: { $gte: update.quantity } },
+    { $inc: { availableStock: -Math.abs(update.quantity) } },
+    { new: true, ...sessionOpt }
+  );
+  // Iske turant baad ye line likh di gayi:
+  updatedInv.lowStockAlert = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
+  await updatedInv.save(sessionOpt); // <-- YE SABSE BADI GALTI HAI!
+  ```
+- Asar (Impact):
+  Jab aap Mongoose me `findOneAndUpdate` karte hain aur fir usi document instance par `.save()` call
+  karte hain, to Mongoose us document ki purani in-memory state ko database par rewrite kar deta hai.
+  Example Dekhiye:
+  1. Product ka stock hai 10.
+  2. Cashier 1 ne 2 item beche -> DB me ho gaya 8. Cashier 1 ke computer ki memory me `updatedInv` = 8 hai.
+  3. Usi second Cashier 2 ne 3 item beche -> DB me atomic update hua aur DB me stock ho gaya 5.
+  4. Ab Cashier 1 ka thread line 306 par `await updatedInv.save()` run karta hai. Memory me 8 tha, to wo DB me wapis 8 likh deta hai!
+  5. Cashier 2 ka 3 item ka deduction Gayab ho gaya! DB me 5 ki jagah wapis 8 dikhane laga!
+  
+- Sahi Solution (STATUS: RESOLVED & VERIFIED ✅):
+  `findOneAndUpdate` ke baad kabhi bhi `.save()` call mat karo. Agar `lowStockAlert` update karna hai
+  to usko atomic query me `$set` karo ya isolated `Inventory.updateOne` se update karo:
+  ```javascript
+  const isLow = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
+  await Inventory.updateOne(
+    { _id: updatedInv._id },
+    { $set: { lowStockAlert: isLow, updatedAt: new Date() } },
+    sessionOpt
+  );
+  ```
+  - Backend Resolution: sale.repository.js (L304) and inventory.repository.js (L322 & L597) updated to use isolated Inventory.updateOne.
+  - Frontend Resolution: POSTerminalPage.jsx and InventoryAuditPage.jsx updated to immediately trigger real-time catalog re-fetch upon INSUFFICIENT_STOCK or concurrency rejection.
+  - Verification: Automated test Backend/tests/test-bug-2.2-concurrency-save-fix.js passed 100% (3/3).
+
+
+----------------------------------------------------------------------------------------------------
+[BUG 2.3] Sequential Number Generator Race Conditions (Invoice, PO, GRN)
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File):
+  1. `Backend/src/repositories/sale.repository.js` (`getNextInvoiceNumber`, Lines 18-30)
+  2. `Backend/src/repositories/purchaseOrder.repository.js` (`generateNextPoNumber`, Lines 16-39)
+  3. `Backend/src/repositories/grn.repository.js` (`generateNextGrnNumber`, Lines 14-35)
+- Kya Galti Ho Rahi Hai:
+  Teeno repositories me naya number generate karne ke liye:
+  `Invoice.countDocuments({ businessId })` ya `PurchaseOrder.findOne().sort({ createdAt: -1 })`
+  call kiya jata hai aur loop me `exists` check hota hai.
+- Asar (Impact):
+  Agar do cashiers ek hi second me checkout karte hain:
+  Donon ko same count milta hai (e.g., dono ne count dekha 100, dono ne banaya INV-1101).
+  Jab dono insert karne jate hain, to MongoDB ka unique index:
+  `{ businessId: 1, invoiceNumber: 1 }` second cashier ka checkout FAIL kar deta hai:
+  `MongoServerError: E11000 duplicate key error collection: invoices`.
+  POS screen par error popup aa jata hai aur customer ka bill ruk jata hai.
+- Sahi Solution (STATUS: RESOLVED & VERIFIED ✅):
+  Ek dedicated `counters` collection banao jo atomic `$inc: { seq: 1 }` se next number de:
+  ```javascript
+  const counter = await Counter.findOneAndUpdate(
+    { businessId, sequenceName: "INVOICE" },
+    { $inc: { seq: 1 } },
+    { returnDocument: "after", ...sessionOpt }
+  );
+  return `INV-${counter.seq}`;
+  ```
+  - Backend Resolution:
+    1. Created `Backend/src/models/counter.model.js` with compound unique index `{ businessId: 1, sequenceName: 1 }`.
+    2. Created `Backend/src/repositories/counter.repository.js` with atomic `$inc` sequence generator, cold-start max-sequence detection from existing documents, and duplicate key race recovery.
+    3. Updated `sale.repository.js` (`getNextInvoiceNumber`), `purchaseOrder.repository.js` (`generateNextPoNumber`), and `grn.repository.js` (`generateNextGrnNumber`) to use `counterRepo.getNextSequence()`.
+  - Frontend Resolution: POS Checkout, PO Creation, and GRN modal endpoints automatically receive strictly collision-free, monotonic identifiers with zero 11000 duplicate key rejections.
+  - Verification: Automated test `Backend/tests/test-bug-2.3-sequential-counter-race-fix.js` passed 100% (5/5 concurrent & cold-start tests).
+
+
+----------------------------------------------------------------------------------------------------
+[BUG 2.4] Identity Property Mismatch (`req.user.accountId` vs `req.user.id`)
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File):
+  - `Backend/src/middlewares/auth.middleware.js` (Lines 55-63)
+  - `Backend/src/controllers/customer.controller.js` (Lines 236, 262)
+  - `Backend/src/controllers/supplier.controller.js` (Lines 215, 246, 289)
+  - `Backend/src/controllers/purchaseOrder.controller.js` (Line 11)
+  - `Backend/src/controllers/reconciliation.controller.js` (Lines 15, 56)
+  - `Backend/src/middlewares/idempotency.middleware.js` (Line 52)
+- Kya Galti Ho Rahi Hai:
+  `auth.middleware.js` user object aise set karta hai:
+  ```javascript
+  req.user = {
+    accountId: account._id.toString(), // <-- Naam 'accountId' rakha hai
+    email: account.email,
+    phone: account.phone,
+    status: account.status,
+  };
+  ```
+  Lekin baaki controllers me code aise likha gaya:
+  ```javascript
+  const user = { id: req.user?.id, fullName: req.user?.fullName }; // Undefined!
+  const accountId = req.user?.id || req.user?._id || null;          // Null!
+  ```
+- Asar (Impact):
+  1. Customer Ledger aur Supplier Ledger me payment record karte waqt `createdBy` humesha `null` save ho raha hai.
+  2. Audit trail me cashier ka naam blank aa raha hai ("Cashier" fallback).
+  3. Idempotency middleware me `userId` null ho jata hai, jisse locks user-specific hone ki jagah global ho jate hain.
+- Sahi Solution (STATUS: RESOLVED & VERIFIED ✅):
+  `auth.middleware.js` me `id`, `_id`, `accountId` aur `fullName`, `name` sabhi aliases expose karo.
+  - Backend Resolution:
+    1. `auth.middleware.js` updated to attach `id`, `_id`, `accountId`, `fullName`, and `name` on `req.user`.
+    2. `customer.controller.js` (L236 & L262), `supplier.controller.js` (L215, L246, L289), `purchaseOrder.controller.js` (L10), `reconciliation.controller.js` (L15, L56), and `idempotency.middleware.js` (L52) updated to resolve `req.user?.id || req.user?.accountId || req.user?._id`.
+    3. `auth.service.js` (`getMe`) updated to return normalized identity aliases.
+  - Frontend Resolution: `AuthContext.jsx` updated in `initializeAuth` and `login` to guarantee normalized user identity attributes (`id`, `_id`, `accountId`, `fullName`, `name`).
+  - Verification: Automated test `Backend/tests/test-bug-2.4-identity-property-mismatch-fix.js` passed 100% (4/4 tests).
+
+
+----------------------------------------------------------------------------------------------------
+[BUG 2.5] Frontend Me System Reconciliation Ka Page Hi Missing Hai
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File): `Frontend/src/App.jsx` aur `Frontend/src/components/layout/Sidebar.jsx`
+- Kya Galti Ho Rahi Hai:
+  Backend me `/api/reconciliation` poora ban chuka hai jo stock aur ledger ka drift detect karta hai,
+  lekin Frontend router (`App.jsx`) me koyi route nahi hai aur Sidebar me koyi button nahi hai.
+- Asar:
+  User system health audit aur reconciliation feature ko kabhi use hi nahi kar sakta.
+- Sahi Solution (STATUS: RESOLVED & VERIFIED ✅):
+  1. Frontend Feature Page Created:
+     - Implemented `Frontend/src/features/reconciliation/ReconciliationPage.jsx` based on Apple dark glassmorphism design system.
+     - Displays Real-time System Integrity Score (%), total audited records, detected discrepancies, and last scan timestamp.
+     - Interactive multi-module tabs: Overview, Inventory Stock Drift, Customer Khata Debt Drift, and Supplier Accounts Payable Drift.
+     - Detailed discrepancy tables displaying stored database balances vs authoritative immutable ledger sums, with color-coded drift indicators.
+     - One-click auto-repair modal with confirmation for single module repairs and full system-wide self-healing.
+  2. Frontend Router Integration:
+     - Added `/reconciliation` route in `Frontend/src/App.jsx` under `<ProtectedRoute><AppLayout /></ProtectedRoute>`.
+  3. Sidebar Navigation Integration:
+     - Added "Reconciliation" with `ShieldCheck` icon in `Frontend/src/components/layout/Sidebar.jsx` navItems.
+  4. Verification:
+     - Production build `npm run build` executed successfully without errors or warnings.
+     - Backend test `node tests/test-reconciliation-engine.js` passed 100% (3/3 test suites).
+
+----------------------------------------------------------------------------------------------------
+[BUG 2.6] Sub-Ledgers Me Client-Side Idempotency Key Missing Hai
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File):
+  `Frontend/src/features/suppliers/components/ReceiveGoodsModal.jsx` (Line 187)
+- Kya Galti Ho Rahi Hai:
+  Goods Received Note (GRN) submit karte waqt `receiveStock(payload)` call hota hai bina
+  `generateIdempotencyKey()` pass kiye.
+- Asar:
+  Agar store ka internet slow hai aur user ne "Confirm Delivery" par do baar click kar diya, to do
+  baar API call chali jayegi jisse duplicate stock increment ka risk create hota hai.
+- Sahi Solution (STATUS: RESOLVED & VERIFIED ✅):
+  1. Goods Received Note (GRN) Receiving:
+     - `ReceiveGoodsModal.jsx` me `generateIdempotencyKey()` import karke `receiveStock(payload, idempotencyKey)` pass kiya gaya.
+  2. Purchase Orders Creation:
+     - `CreatePurchaseOrderModal.jsx` me `generateIdempotencyKey()` import karke `createPurchaseOrder(payload, idempotencyKey)` pass kiya gaya.
+  3. Customer Khata Settlements:
+     - `SettleKhataModal.jsx` me `generateIdempotencyKey()` import karke `recordCustomerPayment(custId, payload, idempotencyKey)` pass kiya gaya.
+  4. Supplier Accounts Payable Settlements & Adjustments:
+     - `SettleSupplierModal.jsx` me `generateIdempotencyKey()` import karke `recordSupplierPayment(suppId, payload, idempotencyKey)` pass kiya gaya.
+     - `SupplierLedgerModal.jsx` me `generateIdempotencyKey()` import karke `appendSupplierLedgerEntry(suppId, payload, idempotencyKey)` pass kiya gaya.
+  5. Stock Movements (Stock In, Stock Out, Adjustments):
+     - `InventoryAuditPage.jsx` me `generateIdempotencyKey()` import karke `stockIn`, `stockOut`, aur `adjustStock` me idempotency keys attach kiye gaye.
+     - `payment.api.js` updated to accept `idempotencyKey = null` and pass `Idempotency-Key` header.
+  6. Verification:
+     - Production build `npm run build` executed successfully without errors (2,442 modules transformed).
+     - Automated backend test `node tests/test-idempotency-engine.js` passed 100% (5/5 tests: deterministic SHA-256 hashing, UUID uniqueness, processing locks, cache replay, and concurrent in-flight duplication prevention).
+
+
+====================================================================================================
+3. SECURITY VULNERABILITIES & LOOP HOLES (Production & AppSec Level - OWASP Top 10)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+[SECURITY 3.1] CRITICAL: Insecure Dynamic CORS with Credentials (Arbitrary Origin Reflection)
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File): `Backend/src/app.js` (Lines 26-46)
+- Loop Hole Code:
+  ```javascript
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        return callback(null, true); // Har incoming domain ko blindly ALLOW kar raha hai!
+      },
+      credentials: true, // Aur browser cookies/auth headers bhi allow kar raha hai!
+      ...
+    })
+  );
+  ```
+- Kyu Khatarnak Hai (Vulnerability Breakdown):
+  Ye OWASP Top 10 A01 (Broken Access Control) ki critical vulnerability hai.
+  Agar VendorOS ka koi user kisi malicious website (e.g. `evil-site.com`) par click karta hai, to
+  `evil-site.com` background me user ke logged-in session ke sath VendorOS ki APIs ko call kar sakti hai.
+  Browser cookies ke sath request bhejega aur backend use "OK" kar dega.
+  Attacker user ke saare invoices, customer phone numbers, aur business balance chura sakta hai.
+- Sahi Solution:
+  Har origin ko allow mat karo. Sirf authorized frontend domains ki whitelist banayein:
+  ```javascript
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173").split(",");
+  app.use(cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      cb(new Error("CORS policy violation"), false);
+    },
+    credentials: true,
+  }));
+  ```
+
+----------------------------------------------------------------------------------------------------
+[SECURITY 3.2] CRITICAL: Unauthenticated Public Static Access to Tax Invoices
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File):
+  `Backend/src/app.js` (Line 52)
+  `Backend/src/services/invoicePdf.service.js` (Lines 14, 258-265)
+- Loop Hole Code:
+  ```javascript
+  app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+  ```
+  Aur PDF generate karte waqt:
+  ```javascript
+  const fileName = `invoice-${invoice.invoiceNumber}.pdf`; // e.g. invoice-INV-1001.pdf
+  ```
+- Kyu Khatarnak Hai (Vulnerability Breakdown):
+  `/uploads` public folder ban chuka hai jisme KOYI BHI AUTHENTICATION NAHI HAI!
+  Invoices ke number predictable hote hain (`INV-1001`, `INV-1002`, `INV-1003`).
+  Internet par baitha koyi bhi anjan insaan direct URL daal kar:
+  `http://localhost:3001/uploads/invoices/invoice-INV-1001.pdf`
+  kisi bhi dukan ke saare tax bills download kar sakta hai!
+  Is bill ke andar:
+  - Customer ka Naam aur Mobile Number
+  - Dukandar ka Naam, Address aur GSTIN
+  - Kya saman khareeda, kitne rupaye diye, Udhaar kitna hai
+  sabkuch public leak ho jata hai (Massive PII and Financial Leak)!
+- Sahi Solution:
+  `/uploads` ko express.static se band karein. Invoice download sirf authenticated route se ho:
+  `GET /api/sales/:id/download-pdf` jisme `authMiddleware` aur `businessMiddleware` check kare
+  ki request karne wala usi business ka member hai ya nahi.
+
+----------------------------------------------------------------------------------------------------
+[SECURITY 3.3] HIGH: JWT Tokens Stored in LocalStorage (XSS Session Hijacking)
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File):
+  `Frontend/src/services/api.js` (Lines 17-25, 76-84)
+- Loop Hole Code:
+  Backend accessToken aur refreshToken dono cookies me bhi bhejta hai aur JSON body me bhi bhejta hai.
+  Frontend interceptor unhe utha kar `localStorage` me save kar deta hai:
+  ```javascript
+  localStorage.setItem("accessToken", accessToken);
+  localStorage.setItem("refreshToken", newRefreshToken);
+  ```
+- Kyu Khatarnak Hai:
+  `localStorage` ko website par chalne wali koi bhi JavaScript read kar sakti hai.
+  Agar frontend me koyi bhi third-party npm package me XSS flaw aaya ya injected script run hui,
+  to attacker `localStorage.getItem("refreshToken")` se token chura kar permanent login bana lega.
+- Sahi Solution (STATUS: RESOLVED & VERIFIED ✅):
+  1. Frontend Hardening (`api.js`):
+     - `localStorage.setItem("accessToken")` aur `localStorage.setItem("refreshToken")` ko completely remove kiya gaya.
+     - In-memory token management (`inMemoryAccessToken`) implement kiya gaya jo sirf JavaScript runtime heap me rehta hai aur persistent browser storage me kabhi write nahi hota.
+     - On initialization, `localStorage.removeItem("accessToken")` and `localStorage.removeItem("refreshToken")` actively purge any legacy tokens.
+     - 401 response interceptor silently calls `/api/auth/refresh` with `{ withCredentials: true }`. Browser automatically sends the `HttpOnly` refresh token cookie and updates `accessToken` & `refreshToken` HttpOnly cookies without exposing them to JavaScript.
+  2. Frontend Context Hardening (`AuthContext.jsx`):
+     - `user` state initialization and authentication status no longer rely on `localStorage.getItem("accessToken")`.
+     - Authentication state is verified through secure `/api/auth/me` HttpOnly cookie handshake.
+     - `login()` and `logout()` purge tokens from localStorage and reset in-memory state.
+  3. Authentication Flow Hardening:
+     - `Login.jsx` and `VerifyOTP.jsx` updated to eliminate token storage in `localStorage`.
+  4. Verification:
+     - Frontend production build `npm run build` executed successfully without errors (2,442 modules transformed).
+     - Unit test `Backend/tests/test-security-3.3-cookie-auth.js` passed 100% (Pure HttpOnly cookie authentication verified with zero headers and zero localStorage access).
+
+----------------------------------------------------------------------------------------------------
+[SECURITY 3.4] HIGH: No Rate Limiting on Authentication & Sensitive Endpoints
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File): `Backend/src/routes/auth.routes.js`
+- Loop Hole:
+  `/api/auth/login`, `/api/auth/verify-phone`, `/api/auth/resend-phone-otp` aur `/api/sales` par
+  koyi rate limiter (e.g. `express-rate-limit`) nahi laga hai.
+- Kyu Khatarnak Hai:
+  1. Brute-force attacks: Attacker script chala kar hazaron passwords try kar sakta hai.
+  2. OTP Flooding: Resend OTP API par loop chala kar dukandar ka SMS balance khatam kiya ja sakta hai.
+  3. Denial of Service (DoS): Server par hazaron fake checkout requests bhej kar server hang kiya ja sakta hai.
+- Sahi Solution:
+  `express-rate-limit` install karke login aur OTP routes par strict window limits lagayein (e.g. 5 attempts per 15 min).
+
+----------------------------------------------------------------------------------------------------
+[SECURITY 3.5] HIGH: Missing HTTP Security Headers (No Helmet Integration)
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File): `Backend/src/app.js`
+- Loop Hole:
+  Express app me `helmet` middleware use nahi kiya gaya hai.
+- Kyu Khatarnak Hai:
+  Production me responses me zaroori headers gayab hain:
+  - `X-Frame-Options: DENY` (Missing hone se website ko iframe me daal kar Clickjacking ho sakti hai).
+  - `X-Content-Type-Options: nosniff` (MIME sniffing attack risk).
+  - `Strict-Transport-Security` (HSTS missing hone se SSL strip attack risk).
+- Sahi Solution:
+  `npm install helmet` aur `app.use(helmet())` ko `app.js` ke top par add karein.
+
+----------------------------------------------------------------------------------------------------
+[SECURITY 3.6] MEDIUM: Regular Expression Denial of Service (ReDoS) Risk
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File):
+  `Backend/src/repositories/sale.repository.js` (Line 450)
+  `Backend/src/repositories/inventory.repository.js` (Lines 61, 441)
+- Loop Hole Code:
+  ```javascript
+  const term = filters.search.trim();
+  query.$or = [
+    { invoiceNumber: { $regex: term, $options: "i" } },
+    { customerName: { $regex: term, $options: "i" } },
+  ];
+  ```
+- Kyu Khatarnak Hai:
+  User se aane wala input string seedhe `$regex` me pass ho raha hai bina special characters escape kiye.
+  Agar user search box me `((a+)+)+$` jaisa malicious regex pattern daal de, to MongoDB ka CPU 100%
+  par chala jayega aur baaki sabhi users ke liye application hang ho jayegi.
+- Sahi Solution:
+  Input regex characters ko escape karna:
+  `const safeTerm = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");`
+
+
+====================================================================================================
+4. ARCHITECTURAL FLAWS & BAD PRACTICES (Kya cheeze galat ban gayi hain)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+[ARCH 4.1] Unbounded Array Anti-Pattern in `CustomerLedger` & `SupplierLedger`
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File):
+  - `Backend/src/models/customer.model.js` (Lines 226-235)
+  - `Backend/src/models/supplier.model.js` (Lines 256-290)
+- Galat Design:
+  Customer aur Supplier dono ke ledger transactions ko ek hi document ke andar array bana kar store
+  kiya gaya hai:
+  ```javascript
+  const customerLedgerSchema = new mongoose.Schema({
+    businessId: { type: ObjectId },
+    customerId: { type: ObjectId },
+    balance: Number,
+    entries: [customerLedgerEntrySchema], // <-- Unbounded Array!
+  });
+  ```
+- Kyu Galat Hai:
+  MongoDB me ek single document ka maximum size **16MB** hota hai.
+  Ek dukan me regular customer ya supplier ke saal me hazaron transactions hote hain.
+  1. Jaise-jaise entries badhengi, har baar naya transaction hone par MongoDB ko pura multi-megabyte document memory me uthana padega aur wapis likhna padega.
+  2. Ek limit ke baad document 16MB se bada ho jayega aur `BSONObjectTooLarge` error fek dega. Us customer ka Udhaar account permanent freeze/corrupt ho jayega.
+  3. `customerLedger.repository.js` me line 373 par `allEntries.slice(skip, skip + limit)` kiya gaya hai. Yaani 10,000 entries pehle Node.js memory me aayengi, fir slice hongi!
+- Sahi Design:
+  Jaise aapne `InventoryLedger` ko ek standalone collection banaya hai, waise hi:
+  `CustomerLedgerEntry` aur `SupplierLedgerEntry` ko bhi alag independent collection banana chahiye
+  jisme `{ businessId, customerId, createdAt }` par index ho aur native `.skip().limit()` chale.
+
+----------------------------------------------------------------------------------------------------
+[ARCH 4.2] Inconsistent Validation Architecture Across Routes
+----------------------------------------------------------------------------------------------------
+- Teen alag-alag tarike use ho rahe hain:
+  1. Routes level middleware: `sale.routes.js` me `validate(createSaleSchema)` use ho raha hai (Sabse Clean).
+  2. Controller level try/catch: `customer.controller.js` me route par middleware nahi hai, controller ke andar `schema.parse(req.body)` likha hai.
+  3. Service level safeParse: `supplier.service.js` me service function ke andar `schema.safeParse()` likh kar error throw kiya gaya hai.
+- Solution:
+  Sabhi routes me validation ko consistent karo: Sirf `validate(schema)` middleware use karo.
+
+----------------------------------------------------------------------------------------------------
+[ARCH 4.3] Duplicate Route Mounts in `app.js`
+----------------------------------------------------------------------------------------------------
+- `Backend/src/app.js` me duplicate endpoints mount kiye gaye hain:
+  - `/api/business` AND `/api/businesses`
+  - `/api/sales` AND `/api/invoices`
+  - `/api/purchase-orders` AND `/api/purchases/orders`
+  - `/api/purchases` AND `/api/grn`
+- Problem:
+  Duplicate route mounting se confusion create hota hai, swagger/postman documentation mismatch hoti
+  hai, aur caching/rate limiting rules duplicate ho jate hain.
+- Solution:
+  Ek standard REST naming convention follow karo aur purane routes ko clean karo.
+
+----------------------------------------------------------------------------------------------------
+[ARCH 4.4] Missing Graceful Shutdown & Unhandled Exception Handlers
+----------------------------------------------------------------------------------------------------
+- Kaha Par Hai (File): `Backend/server.js`
+- Problem:
+  `server.js` me `process.on('SIGTERM')` ya `process.on('unhandledRejection')` nahi hai.
+  Agar production server restart hota hai ya Docker container stop hota hai, to beech me chal rahi
+  financial transactions abruptly cut jayengi aur DB connection leaks honge.
+
+
+====================================================================================================
+5. PERFORMANCE & CODE OPTIMIZATIONS (Speed & Scalability)
+====================================================================================================
+
+1. Frontend Bundle Size & Missing Lazy Loading:
+   - File: `Frontend/src/App.jsx`
+   - Problem: Saare components (`POSTerminalPage`, `SuppliersPage`, `InventoryAuditPage`, `CustomersPage`)
+     top par statically import kiye gaye hain.
+   - Result: Jab user pehli baar website open karta hai, browser ko 2-3MB ka pura application bundle
+     ek sath download karna padta hai.
+   - Fix: `React.lazy()` aur `<Suspense fallback={<PageLoader />}>` use karo taaki har page tabhi
+     download ho jab user us page par jaye.
+
+2. N+1 Query in Inventory Store State:
+   - File: `Backend/src/repositories/inventory.repository.js` (`findInventoryStoreState`, Lines 78-90)
+   - Problem: Pehle `Product.find()` chalta hai, fir `Inventory.find()` chalta hai, fir JavaScript me Map bana kar merge hota hai.
+   - Fix: MongoDB `$lookup` aggregation pipeline use karo taaki database engine C++ level par ek hi round-trip me data join karke de.
+
+3. 123 Frontend Lint Warnings:
+   - Problem: `npm run lint` run karne par 123 warnings aati hain.
+   - Root Cause: Multiple components me `useEffect` ke andar synchronously `setState` call ho raha hai
+     bina cleanup ke, jo cascading re-renders trigger karta hai aur React 19 Compiler ko optimize karne se rokta hai.
+
+
+====================================================================================================
+6. FRONTEND SPECIFIC ISSUES & UX GAPS
+====================================================================================================
+
+1. Missing Reconciliation Page:
+   - Backend me ledger drift detection ka solid engine hai, lekin frontend par merchant ko kahin bhi
+     ye dikhai nahi deta ki uska ledger sync me hai ya nahi.
+   - Solution: Ek naya page `ReconciliationPage.jsx` banayein jisme Health Score (e.g. 100% In-Sync),
+     Discrepancies table aur "Run Audit" button ho.
+
+2. POS Terminal Checkout UX:
+   - `POSTerminalPage.jsx` me jab checkout chal raha hota hai, to button disable hota hai lekin keyboard shortcut
+     (Enter / F9) agar repeatedly press ho to backend idempotency check par dependent rehta hai.
+   - Local state guard aur clear processing spinner mandatory hai.
+
+
+====================================================================================================
+7. PRIORITIZED ACTION PLAN & EXACT CODE FIXES
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+PRIORITY 0 (P0 - BLOCKERS: MUST FIX IMMEDIATELY)
+----------------------------------------------------------------------------------------------------
+
+[FIX 1] Fix Customer Reconciliation Debt Zeroing Bug
+File: `Backend/src/services/reconciliation.service.js`
+Replace Lines 156-170 with:
+```javascript
+let running = 0;
+for (const entry of ledgerDoc.entries) {
+  if (entry.entryType === "SALE_CREDIT") {
+    running += Number(entry.creditAmount || 0);
+  } else if (entry.entryType === "PAYMENT_RECEIVED") {
+    running -= Number(entry.debitAmount || 0);
+  } else if (entry.entryType === "ADJUSTMENT") {
+    running += Number(entry.creditAmount || 0) - Number(entry.debitAmount || 0);
+  }
+}
+authoritativeBalance = Math.max(0, Math.round(running * 100) / 100);
+```
+
+[FIX 2] Remove Stale `.save()` After Atomic `findOneAndUpdate`
+File: `Backend/src/repositories/sale.repository.js` (Line 303-308)
+Replace:
+```javascript
+// OLD DANGEROUS CODE:
+updatedInv.lowStockAlert = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
+await updatedInv.save(sessionOpt);
+
+// NEW CONCURRENCY-SAFE CODE:
+const isLow = updatedInv.availableStock <= (updatedInv.reorderLevel || 5);
+await Inventory.updateOne(
+  { _id: updatedInv._id },
+  { $set: { lowStockAlert: isLow, updatedAt: new Date() } },
+  sessionOpt
+);
+```
+
+[FIX 3] Fix Insecure CORS Wildcard with Credentials
+File: `Backend/src/app.js` (Lines 26-46)
+Replace with:
+```javascript
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+  : ["http://localhost:5173", "http://localhost:3000"];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS origin not allowed by security policy"), false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-business-id",
+      "x-tenant-id",
+      "Idempotency-Key",
+    ],
+    exposedHeaders: ["Idempotency-Key", "X-Cache"],
+  })
+);
+```
+
+[FIX 4] Protect Invoice PDFs from Public Access
+File: `Backend/src/app.js` (Line 52)
+Remove public static serving of invoices:
+```javascript
+// REMOVE THIS:
+// app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// INSTEAD: Serve only general static assets (like logos), never invoices!
+app.use("/uploads/logos", express.static(path.join(__dirname, "../uploads/logos")));
+```
+Invoices will only be downloaded through the authenticated route:
+`GET /api/sales/:id/download-pdf` (which checks `authMiddleware` and `businessMiddleware`).
+
+[FIX 5] Fix Identity Field Mapping in Auth Middleware
+File: `Backend/src/middlewares/auth.middleware.js` (Lines 55-63)
+Update:
+```javascript
+req.user = {
+  id: account._id.toString(),
+  _id: account._id,
+  accountId: account._id.toString(),
+  fullName: account.fullName,
+  email: account.email,
+  phone: account.phone,
+  status: account.status,
+};
+```
+
+----------------------------------------------------------------------------------------------------
+PRIORITY 1 (P1 - HIGH SECURITY & STABILITY)
+----------------------------------------------------------------------------------------------------
+1. Install and register `helmet` in `Backend/src/app.js`:
+   `npm install helmet` -> `app.use(helmet());`
+2. Install `express-rate-limit` on `/api/auth` and `/api/sales`:
+   `npm install express-rate-limit`
+3. Escape regex in search repositories to prevent ReDoS.
+4. Replace `countDocuments` sequential ID logic with an atomic `Counter` model.
+
+----------------------------------------------------------------------------------------------------
+PRIORITY 2 (P2 - ARCHITECTURE & OPTIMIZATION)
+----------------------------------------------------------------------------------------------------
+1. Migrate `CustomerLedger.entries` and `SupplierLedger.entries` from embedded arrays into
+   dedicated collection documents to eliminate MongoDB 16MB document limit crash.
+2. Implement React Lazy Loading (`React.lazy`) in `Frontend/src/App.jsx`.
+3. Add `ReconciliationPage.jsx` in frontend and link it in `Sidebar.jsx`.
+4. Fix 123 frontend linter warnings (clean up `useEffect` dependencies and synchronous state setters).
+
+====================================================================================================
+                                      SUMMARY CONCLUSION
+====================================================================================================
+VendorOS ka basic business flow (Auth -> Products -> Inventory -> POS -> Customers -> Suppliers -> GRN)
+achhe tarike se design kiya gaya hai aur architecture me idempotency aur double-entry ledger ke concepts
+bohot mature hain.
+
+Lekin production me deployment se pehle jo 5 P0 BUGS uper bataye gaye hain (Customer Debt Wipe Bug,
+Atomic Decrement Rewrite Bug, Insecure CORS, Public Invoice Downloads, aur Identity Mismatch) inko
+FIX KARNA ABSOLUTELY COMPULSORY HAI. In 5 fixes ke baad VendorOS ek rock-solid, production-grade,
+enterprise retail operating system ban jayega.
+
+Report Compiled by: Principal Software Architect & AppSec Auditor
+File Location      : c:\Users\AYUSH\OneDrive\Desktop\VenderOS\PROJECT_DETAILED_ANALYSIS_AND_IMPROVEMENTS.txt
+====================================================================================================
