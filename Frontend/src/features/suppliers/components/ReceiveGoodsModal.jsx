@@ -188,9 +188,12 @@ export default function ReceiveGoodsModal({
       const idempotencyKey = generateIdempotencyKey();
       const res = await receiveStock(payload, idempotencyKey);
 
+      const receivedValue = res.data?.payableUpdate?.receivedValue || totalIncomingCost;
+      const supplierName = purchaseOrder.supplierCompany || "Supplier";
+
       toast.success(
-        `GRN ${res.data?.grn?.grnNumber || "Confirmed"} complete! Auto Inventory IN added +${totalIncomingUnits} units to sellable stock.`,
-        { duration: 5000 }
+        `GRN ${res.data?.grn?.grnNumber || "Confirmed"} complete! Auto Stock IN (+${totalIncomingUnits} units) and Supplier Payable (+₹${Number(receivedValue).toLocaleString()}) recorded for ${supplierName}.`,
+        { duration: 5500 }
       );
 
       if (onReceivedSuccess) {
@@ -473,18 +476,36 @@ export default function ReceiveGoodsModal({
                   </table>
                 </div>
 
-                {/* T45 Auto Inventory IN Deductions Callout */}
-                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
-                  <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-400 mt-0.5 shrink-0">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                {/* T45 & T46 Purchasing & Stock In Guarantees */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {/* T45 Auto Inventory IN Deductions Callout */}
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                    <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-400 mt-0.5 shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="font-semibold text-emerald-400">
+                        ⚡ T45 Auto Inventory IN Active:
+                      </span>
+                      <p className="text-zinc-300 text-[11px] mt-0.5 leading-relaxed">
+                        Confirmed items are added to live stock (<code className="text-emerald-300 font-mono">availableStock += receivedQty</code>) and logged into the Stock Movement Ledger.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-semibold text-emerald-400">
-                      ⚡ T45 Auto Inventory IN Integration Active:
-                    </span>
-                    <p className="text-zinc-300 text-[11px] mt-0.5 leading-relaxed">
-                      Confirmed received units will be automatically converted to active sellable inventory (<code className="text-emerald-300 font-mono">availableStock += receivedQty</code>) and recorded in the immutable audit ledger with <code className="text-zinc-300 font-mono">source: GOODS_RECEIPT</code>.
-                    </p>
+
+                  {/* T46 Supplier Payable Update Handler Callout */}
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-xs">
+                    <div className="p-1 rounded-lg bg-blue-500/10 text-blue-400 mt-0.5 shrink-0">
+                      <Layers className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="font-semibold text-blue-400">
+                        💼 T46 Supplier Payable Handler:
+                      </span>
+                      <p className="text-zinc-300 text-[11px] mt-0.5 leading-relaxed">
+                        Recognizes exactly <span className="text-blue-300 font-semibold">₹{totalIncomingCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span> as accounts payable in <span className="text-zinc-200 font-medium">{purchaseOrder.supplierCompany}</span>'s Ledger.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -537,10 +558,19 @@ export default function ReceiveGoodsModal({
                 <div className="h-6 w-px bg-zinc-800" />
                 <div>
                   <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">
-                    Batch Stock Cost
+                    Stock In Value (T45)
                   </span>
-                  <span className="text-sm font-mono font-bold text-white">
+                  <span className="text-sm font-mono font-bold text-emerald-400">
                     ₹{totalIncomingCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="h-6 w-px bg-zinc-800" />
+                <div>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">
+                    Payable Liability (T46)
+                  </span>
+                  <span className="text-sm font-mono font-bold text-blue-400">
+                    +₹{totalIncomingCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="h-6 w-px bg-zinc-800" />

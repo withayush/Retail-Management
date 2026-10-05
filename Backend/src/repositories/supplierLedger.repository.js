@@ -25,6 +25,9 @@ const recordPurchaseCredit = async (creditData, session = null) => {
     purchaseId = null,
     purchaseInvoiceNumber = "",
     invoiceValue,
+    referenceId = "",
+    grnId = null,
+    grnNumber = "",
     notes = "",
     idempotencyKey = null,
     createdBy = null,
@@ -74,16 +77,25 @@ const recordPurchaseCredit = async (creditData, session = null) => {
   }
 
   // 2. Idempotency Guard (Duplicate Protection)
-  const resolvedIdempotencyKey = idempotencyKey || (purchaseId ? `${purchaseId.toString()}_PURCHASE_CREDIT` : null);
+  const resolvedIdempotencyKey =
+    idempotencyKey ||
+    (grnId
+      ? `GRN_${grnId.toString()}`
+      : purchaseId
+      ? `${purchaseId.toString()}_PURCHASE_CREDIT`
+      : null);
 
   let ledgerDoc = await SupplierLedger.findOne({ businessId, supplierId: supplier._id }).session(session);
 
   if (ledgerDoc && resolvedIdempotencyKey) {
-    const existingEntry = ledgerDoc.entries.find(
-      (e) =>
-        e.idempotencyKey === resolvedIdempotencyKey ||
-        (e.purchaseId && purchaseId && e.purchaseId.toString() === purchaseId.toString() && e.entryType === "PURCHASE_CREDIT")
-    );
+    const existingEntry = ledgerDoc.entries.find((e) => {
+      if (idempotencyKey && e.idempotencyKey === idempotencyKey) return true;
+      if (grnId && e.grnId && e.grnId.toString() === grnId.toString()) return true;
+      if (!idempotencyKey && !grnId && e.idempotencyKey === resolvedIdempotencyKey) return true;
+      if (!idempotencyKey && !grnId && e.purchaseId && purchaseId && e.purchaseId.toString() === purchaseId.toString() && e.entryType === "PURCHASE_CREDIT") return true;
+      return false;
+    });
+
     if (existingEntry) {
       return {
         success: true,
@@ -117,7 +129,7 @@ const recordPurchaseCredit = async (creditData, session = null) => {
   const currentBal = Number(supplier.currentBalance || 0);
   const potentialBalance = Math.round((currentBal + numInvoiceVal) * 100) / 100;
 
-  // 5. Append Ledger Entry (Phase 6 - Task T39: Append-Only Immutable Transaction Log)
+  // 5. Append Ledger Entry (Phase 6 - Task T39 & Phase 7 - Task T46)
   const resolvedNotes =
     notes?.trim() ||
     `Inventory purchase delivery${purchaseInvoiceNumber ? ` (Bill #${purchaseInvoiceNumber})` : ""}`;
@@ -126,6 +138,9 @@ const recordPurchaseCredit = async (creditData, session = null) => {
     supplierId: supplier._id,
     purchaseId: purchaseId || null,
     purchaseInvoiceNumber: purchaseInvoiceNumber || "",
+    grnId: grnId || null,
+    grnNumber: grnNumber || "",
+    referenceId: referenceId || grnNumber || "",
     entryType: "PURCHASE_CREDIT",
     invoiceValue: numInvoiceVal,
     paymentAmount: 0,
@@ -143,7 +158,7 @@ const recordPurchaseCredit = async (creditData, session = null) => {
   ledgerDoc.supplierPhone = supplier.phone || "";
   await ledgerDoc.save(sessionOpt);
 
-  // 6. Update Supplier Master State
+  // 6. Update Supplier Master State (T40 Current Outstanding Payables & Procurement Stats)
   supplier.currentBalance = potentialBalance;
   supplier.lastPurchaseDate = new Date();
   supplier.totalOrders = (supplier.totalOrders || 0) + 1;

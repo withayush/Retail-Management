@@ -5,10 +5,11 @@ const { Supplier } = require("../models/supplier.model");
 const { Product } = require("../models/product.model");
 const { Inventory } = require("../models/inventory.model");
 const counterRepo = require("./counter.repository");
+const purchaseOrderHistoryRepo = require("./purchaseOrderHistory.repository");
 
 /**
- * Phase 7 - Tasks T42 & T43: Purchase Order & Purchase Item Repository
- * High-performance database query and aggregation layer for Purchase Orders and line items.
+ * Phase 7 - Tasks T42, T43 & T47: Purchase Order, Line Items & Workflow History Repository
+ * High-performance database query and aggregation layer for Purchase Orders, line items, and audit history.
  */
 class PurchaseOrderRepository {
   /**
@@ -139,6 +140,29 @@ class PurchaseOrderRepository {
       await PurchaseItem.insertMany(purchaseItemDocs);
     }
 
+    // Phase 7 - Task T47: Record PO_CREATED history audit event
+    await purchaseOrderHistoryRepo.recordEvent({
+      businessId: bId,
+      purchaseOrderId: savedPO._id,
+      poNumber: savedPO.poNumber,
+      eventType: "PO_CREATED",
+      title: "Purchase Order Created",
+      description: `Created purchase order with ${items.length} item line(s) totaling ₹${Number(savedPO.costTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })} for ${supplier.company}.`,
+      previousStatus: null,
+      newStatus: savedPO.status,
+      details: {
+        supplierCompany: supplier.company,
+        supplierPhone: supplier.phone || "",
+        itemsCount: items.length,
+        totalQuantity: savedPO.totalQuantity,
+        costTotal: savedPO.costTotal,
+        expectedDelivery: savedPO.expectedDelivery,
+        orderDate: savedPO.orderDate,
+      },
+      performedBy: accountId,
+      performedByName: accountName || "Merchant",
+    });
+
     return savedPO;
   }
 
@@ -252,7 +276,7 @@ class PurchaseOrderRepository {
   /**
    * Update Purchase Order fields and synchronize PurchaseItem records
    */
-  async updateById(businessId, poId, updateData) {
+  async updateById(businessId, poId, updateData, accountId = null, accountName = "") {
     const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
     const pId = typeof poId === "string" ? new mongoose.Types.ObjectId(poId) : poId;
 
@@ -268,6 +292,10 @@ class PurchaseOrderRepository {
       err.statusCode = 400;
       throw err;
     }
+
+    const previousCost = po.costTotal;
+    const previousExpectedDelivery = po.expectedDelivery;
+    const previousStatus = po.status;
 
     if (updateData.supplierId && updateData.supplierId.toString() !== po.supplierId.toString()) {
       const supplier = await Supplier.findOne({ _id: updateData.supplierId, businessId: bId }).lean();
@@ -328,13 +356,84 @@ class PurchaseOrderRepository {
       await PurchaseItem.insertMany(purchaseItemDocs);
     }
 
-    return await po.save();
+    const savedPO = await po.save();
+
+    // Phase 7 - Task T47: Log specific workflow history events based on mutations
+    const costChanged = previousCost !== savedPO.costTotal;
+    const deliveryChanged =
+      (previousExpectedDelivery && !savedPO.expectedDelivery) ||
+      (!previousExpectedDelivery && savedPO.expectedDelivery) ||
+      (previousExpectedDelivery && savedPO.expectedDelivery && previousExpectedDelivery.getTime() !== savedPO.expectedDelivery.getTime());
+
+    if (costChanged) {
+      const diff = Number((savedPO.costTotal - previousCost).toFixed(2));
+      await purchaseOrderHistoryRepo.recordEvent({
+        businessId: bId,
+        purchaseOrderId: savedPO._id,
+        poNumber: savedPO.poNumber,
+        eventType: "COST_CHANGED",
+        title: `Order Cost Changed: ₹${previousCost} → ₹${savedPO.costTotal}`,
+        description: `Purchase order cost changed by ${diff >= 0 ? "+" : ""}₹${diff} (Previous: ₹${previousCost}, New: ₹${savedPO.costTotal}).`,
+        previousStatus,
+        newStatus: savedPO.status,
+        details: {
+          costBefore: previousCost,
+          costAfter: savedPO.costTotal,
+          diffAmount: diff,
+          itemsCount: savedPO.itemsCount,
+          totalQuantity: savedPO.totalQuantity,
+        },
+        performedBy: accountId,
+        performedByName: accountName || "Merchant",
+      });
+    }
+
+    if (deliveryChanged) {
+      await purchaseOrderHistoryRepo.recordEvent({
+        businessId: bId,
+        purchaseOrderId: savedPO._id,
+        poNumber: savedPO.poNumber,
+        eventType: "EXPECTED_DELIVERY_CHANGED",
+        title: "Expected Delivery Date Updated",
+        description: `Expected delivery date changed from ${previousExpectedDelivery ? new Date(previousExpectedDelivery).toLocaleDateString() : "Not set"} to ${savedPO.expectedDelivery ? new Date(savedPO.expectedDelivery).toLocaleDateString() : "Not set"}.`,
+        previousStatus,
+        newStatus: savedPO.status,
+        details: {
+          expectedDeliveryBefore: previousExpectedDelivery,
+          expectedDeliveryAfter: savedPO.expectedDelivery,
+        },
+        performedBy: accountId,
+        performedByName: accountName || "Merchant",
+      });
+    }
+
+    if (!costChanged && !deliveryChanged) {
+      await purchaseOrderHistoryRepo.recordEvent({
+        businessId: bId,
+        purchaseOrderId: savedPO._id,
+        poNumber: savedPO.poNumber,
+        eventType: "PO_UPDATED",
+        title: "Purchase Order Details Updated",
+        description: "Purchase order terms, shipping address, or operational notes were updated.",
+        previousStatus,
+        newStatus: savedPO.status,
+        details: {
+          notes: savedPO.notes,
+          shippingAddress: savedPO.shippingAddress,
+          paymentTerms: savedPO.paymentTerms,
+        },
+        performedBy: accountId,
+        performedByName: accountName || "Merchant",
+      });
+    }
+
+    return savedPO;
   }
 
   /**
    * Update Purchase Order status
    */
-  async updateStatus(businessId, poId, status, notes = "") {
+  async updateStatus(businessId, poId, status, notes = "", accountId = null, accountName = "") {
     const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
     const pId = typeof poId === "string" ? new mongoose.Types.ObjectId(poId) : poId;
 
@@ -345,19 +444,53 @@ class PurchaseOrderRepository {
       throw err;
     }
 
+    const previousStatus = po.status;
     po.status = status;
     if (notes) {
       po.notes = po.notes ? `${po.notes}\n[Status Change to ${status}]: ${notes}` : `[Status Change to ${status}]: ${notes}`;
     }
 
-    return await po.save();
+    const savedPO = await po.save();
+
+    // Phase 7 - Task T47: Record status transition or cancellation
+    if (status === "CANCELLED") {
+      await purchaseOrderHistoryRepo.recordEvent({
+        businessId: bId,
+        purchaseOrderId: savedPO._id,
+        poNumber: savedPO.poNumber,
+        eventType: "PO_CANCELLED",
+        title: "Purchase Order Cancelled",
+        description: notes || "Order was cancelled by merchant.",
+        previousStatus,
+        newStatus: "CANCELLED",
+        details: { reason: notes },
+        performedBy: accountId,
+        performedByName: accountName || "Merchant",
+      });
+    } else if (status !== previousStatus) {
+      await purchaseOrderHistoryRepo.recordEvent({
+        businessId: bId,
+        purchaseOrderId: savedPO._id,
+        poNumber: savedPO.poNumber,
+        eventType: "STATUS_CHANGED",
+        title: `Status Changed: ${previousStatus} → ${status}`,
+        description: notes || `Purchase Order status progressed from ${previousStatus} to ${status}.`,
+        previousStatus,
+        newStatus: status,
+        details: { notes },
+        performedBy: accountId,
+        performedByName: accountName || "Merchant",
+      });
+    }
+
+    return savedPO;
   }
 
   /**
    * Cancel a Purchase Order
    */
-  async cancel(businessId, poId, reason = "") {
-    return await this.updateStatus(businessId, poId, "CANCELLED", reason || "Order cancelled by merchant");
+  async cancel(businessId, poId, reason = "", accountId = null, accountName = "") {
+    return await this.updateStatus(businessId, poId, "CANCELLED", reason || "Order cancelled by merchant", accountId, accountName);
   }
 
   /**

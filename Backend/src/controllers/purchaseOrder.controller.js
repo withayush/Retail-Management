@@ -107,9 +107,11 @@ const getPurchaseOrderByNumber = async (req, res, next) => {
 const updatePurchaseOrder = async (req, res, next) => {
   try {
     const businessId = req.businessId;
+    const accountId = req.user ? req.user._id : null;
+    const accountName = req.user ? req.user.fullName || req.user.phone || req.user.email : "";
     const { id } = req.params;
 
-    const updatedOrder = await purchaseOrderService.updatePurchaseOrder(businessId, id, req.body);
+    const updatedOrder = await purchaseOrderService.updatePurchaseOrder(businessId, id, req.body, accountId, accountName);
 
     return res.status(200).json({
       success: true,
@@ -125,9 +127,11 @@ const updatePurchaseOrder = async (req, res, next) => {
 const updatePOStatus = async (req, res, next) => {
   try {
     const businessId = req.businessId;
+    const accountId = req.user ? req.user._id : null;
+    const accountName = req.user ? req.user.fullName || req.user.phone || req.user.email : "";
     const { id } = req.params;
 
-    const updatedOrder = await purchaseOrderService.updatePOStatus(businessId, id, req.body);
+    const updatedOrder = await purchaseOrderService.updatePOStatus(businessId, id, req.body, accountId, accountName);
 
     return res.status(200).json({
       success: true,
@@ -143,10 +147,12 @@ const updatePOStatus = async (req, res, next) => {
 const cancelPurchaseOrder = async (req, res, next) => {
   try {
     const businessId = req.businessId;
+    const accountId = req.user ? req.user._id : null;
+    const accountName = req.user ? req.user.fullName || req.user.phone || req.user.email : "";
     const { id } = req.params;
     const { reason } = req.body || {};
 
-    const cancelledOrder = await purchaseOrderService.cancelPurchaseOrder(businessId, id, reason);
+    const cancelledOrder = await purchaseOrderService.cancelPurchaseOrder(businessId, id, reason, accountId, accountName);
 
     return res.status(200).json({
       success: true,

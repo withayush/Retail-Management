@@ -14,6 +14,9 @@ const Product = require("./product.model");
 const PurchaseOrder = require("./purchaseOrder.model");
 const PurchaseItem = require("./purchaseItem.model");
 const GoodsReceivedNote = require("./grn.model");
+const { PurchaseOrderHistory } = require("./purchaseOrderHistory.model");
+const ExpenseCategory = require("./expenseCategory.model");
+const Expense = require("./expense.model");
 const Session = require("./session.model");
 const { Supplier, SupplierLedger } = require("./supplier.model");
 const IdempotencyKey = require("./idempotency.model");
@@ -40,6 +43,9 @@ module.exports = {
   PurchaseItem,
   GoodsReceivedNote,
   GRN: GoodsReceivedNote,
+  PurchaseOrderHistory,
+  ExpenseCategory,
+  Expense,
   Session,
   Supplier,
   SupplierLedger,

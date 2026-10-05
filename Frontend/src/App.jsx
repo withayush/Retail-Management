@@ -17,6 +17,7 @@ import SuppliersPage from "./features/suppliers/SuppliersPage";
 import POSTerminalPage from "./features/pos/POSTerminalPage";
 import SalesHistoryPage from "./features/pos/SalesHistoryPage";
 import ReconciliationPage from "./features/reconciliation/ReconciliationPage";
+import ExpensesPage from "./features/expenses/ExpensesPage";
 
 export default function App() {
 
@@ -77,6 +78,8 @@ export default function App() {
 
             <Route path="/sales" element={<SalesHistoryPage />} />
             <Route path="/invoices" element={<SalesHistoryPage />} />
+            <Route path="/expenses" element={<ExpensesPage />} />
+            <Route path="/expense-categories" element={<ExpensesPage />} />
             <Route path="/reconciliation" element={<ReconciliationPage />} />
           </Route>
 

@@ -156,6 +156,27 @@ class CounterRepository {
         }
         return max;
       }
+
+      if (sequenceName === "EXPENSE") {
+        const Expense = require("../models/expense.model");
+        const expenses = await Expense.find({ businessId })
+          .select("expenseNumber")
+          .sort({ createdAt: -1 })
+          .limit(100)
+          .session(session)
+          .lean();
+
+        let max = defaultStart;
+        for (const exp of expenses) {
+          if (!exp.expenseNumber) continue;
+          const match = exp.expenseNumber.match(/EXP-(\d+)/i);
+          if (match && match[1]) {
+            const num = parseInt(match[1], 10);
+            if (num > max) max = num;
+          }
+        }
+        return max;
+      }
     } catch (err) {
       console.warn(`[CounterRepository] Could not inspect existing max sequence for ${sequenceName}:`, err.message);
     }
@@ -180,10 +201,25 @@ class CounterRepository {
         const GoodsReceivedNote = require("../models/grn.model");
         return !!(await GoodsReceivedNote.exists({ businessId, grnNumber: candidateNumber }).session(session));
       }
+      if (sequenceName === "EXPENSE") {
+        const Expense = require("../models/expense.model");
+        return !!(await Expense.exists({ businessId, expenseNumber: candidateNumber }).session(session));
+      }
     } catch (err) {
       console.warn(`[CounterRepository] Error checking existence for ${candidateNumber}:`, err.message);
     }
     return false;
+  }
+
+  /**
+   * Generates the next sequential Expense Number (e.g. EXP-1001)
+   */
+  async generateNextExpenseNumber(businessId, session = null) {
+    return await this.getNextSequence(businessId, "EXPENSE", {
+      prefix: "EXP",
+      defaultStart: 1000,
+      session,
+    });
   }
 }
 

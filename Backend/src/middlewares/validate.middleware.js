@@ -3,9 +3,14 @@ const validate = (schema) => {
     const result = schema.safeParse(req.body);
 
     if (!result.success) {
+      const firstIssue = result.error.issues[0];
+      const errorMessage = firstIssue
+        ? `${firstIssue.message}`
+        : "Validation failed.";
+
       return res.status(400).json({
         success: false,
-        message: "Validation failed.",
+        message: errorMessage,
         errors: result.error.issues.map((issue) => ({
           field: issue.path.join("."),
           message: issue.message,

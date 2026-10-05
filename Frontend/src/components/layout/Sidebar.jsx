@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Sparkles,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 
 export default function Sidebar({
@@ -44,6 +45,7 @@ export default function Sidebar({
     { label: "Customers", path: "/customers", icon: Users },
     { label: "Suppliers", path: "/suppliers", icon: Truck },
     { label: "Sales & Invoices", path: "/sales", icon: Receipt },
+    { label: "Expenses", path: "/expenses", icon: Wallet },
     { label: "Reconciliation", path: "/reconciliation", icon: ShieldCheck },
   ];
 

@@ -226,6 +226,16 @@ const supplierLedgerEntrySchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    grnId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GoodsReceivedNote",
+      default: null,
+    },
+    grnNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     idempotencyKey: {
       type: String,
       trim: true,

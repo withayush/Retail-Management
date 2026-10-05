@@ -171,6 +171,46 @@ export const getGRNSummary = async () => {
   return res.data;
 };
 
+/**
+ * Phase 7 - Task T47: Purchase Order Workflow History & Timeline API Methods
+ */
+
+/**
+ * Get raw chronological audit history events for a Purchase Order
+ */
+export const getPurchaseOrderHistory = async (poId, params = {}) => {
+  const query = new URLSearchParams();
+  if (params.sortOrder) query.append("sortOrder", params.sortOrder);
+  if (params.eventType && params.eventType !== "ALL") query.append("eventType", params.eventType);
+
+  const res = await api.get(`/purchase-orders/${poId}/history?${query.toString()}`, getBusinessHeader());
+  return res.data;
+};
+
+/**
+ * Get aggregated visual audit timeline and lead-time analytics for a Purchase Order
+ */
+export const getPurchaseOrderTimeline = async (poId) => {
+  const res = await api.get(`/purchase-orders/${poId}/timeline`, getBusinessHeader());
+  return res.data;
+};
+
+/**
+ * Append manual operational note to Purchase Order timeline
+ */
+export const addPurchaseOrderHistoryLog = async (poId, logData) => {
+  const res = await api.post(`/purchase-orders/${poId}/history/log`, logData, getBusinessHeader());
+  return res.data;
+};
+
+/**
+ * Get supplier procurement delivery performance & lead time stats
+ */
+export const getSupplierProcurementPerformance = async (supplierId) => {
+  const res = await api.get(`/purchase-orders/suppliers/${supplierId}/performance`, getBusinessHeader());
+  return res.data;
+};
+
 export default {
   getPurchaseOrders,
   getPOSummary,
@@ -188,4 +228,8 @@ export default {
   getGRNById,
   getGRNsByPoId,
   getGRNSummary,
+  getPurchaseOrderHistory,
+  getPurchaseOrderTimeline,
+  addPurchaseOrderHistoryLog,
+  getSupplierProcurementPerformance,
 };

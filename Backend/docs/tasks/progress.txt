@@ -468,9 +468,151 @@ API Base URL : http://localhost:3001/api
       * `ReceiveGoodsModal.jsx`: Real-time calculation showing `Current Stock`, `Receiving Now`, `Projected Stock` (`currentStock + receivingNow` with `+N` badge), and T45 automation banner.
       * `GoodsReceivedNotesModal.jsx`: Displays `Auto Stock IN` confirmation badge on each completed GRN.
 
+[✓] C39. T46: Supplier Payable Update Handler & Accounts Payable Liability Integration
+    - Purpose & Core Rule: "T46 creates the financial accounts payable liability in the Supplier Ledger (T39) and updates real-time vendor outstanding debt (T40) upon physical goods acceptance via GRN (T44). While T44 confirms goods arrival and T45 increases inventory stock, T46 establishes exactly what the business owes the supplier."
+    - Core Invariants & Architectural Rules:
+      * 1. Payable follows accepted/received goods, NOT PO ordered total:
+        - Example: PO ordered = ₹7,000 (100 Maggi @ ₹50, 50 Coke @ ₹40). Initial GRN accepts 100 Maggi + 30 Coke = ₹6,200. T46 creates a payable for exactly ₹6,200 (NOT ₹7,000). Remaining ₹800 is recognized only when delivered.
+      * 2. Idempotency guard & duplicate payable prevention:
+        - Ledger entries are keyed on `idempotencyKey: 'GRN_' + grn._id` and linked to `grnId` and `grnNumber`.
+        - Duplicate GRN submissions or retries are blocked from posting duplicate financial liabilities.
+      * 3. Single-Transaction Atomic Consistency:
+        - GRN creation + Inventory Stock IN (T45) + Supplier Payable recognition (T46) + PO status progression are committed or rolled back together in one unified Mongoose session (`withTransaction`).
+      * 4. Clear Separation from Payment Settlement:
+        - T46 records the liability debt (`PURCHASE_CREDIT`). Settling supplier dues (`POST /api/suppliers/:id/settle`) is an independent cash disbursement workflow.
+    - Service & Repository Integration:
+      * `grnService.executeSupplierPayableUpdate`: Automatically invoked inside `receiveStock` to compute exact received value ($\sum \text{receivedQty} \times \text{costPrice}$) and record purchase credit.
+      * `supplierLedgerRepository.recordPurchaseCredit`: Extended with `grnId`, `grnNumber`, and enhanced idempotency matching to record immutable `PURCHASE_CREDIT` entries into `SupplierLedger` and increment `Supplier.currentBalance`, `totalPurchases`, and `lastPurchaseDate`.
+    - Automated Test Suite:
+      * `Backend/tests/test-supplier-payable-update-handler.js` (100% tests passing, covering 10 test scenarios: PO debt isolation, partial delivery 1 payable, partial delivery 2 payable, idempotency deduplication, payment disbursement settlement, and multi-tenant security isolation).
+    - Frontend Implementation:
+      * `ReceiveGoodsModal.jsx`: Real-time T46 Supplier Payable callout banner, live footer summary showing `Payable Liability (+₹{totalIncomingCost})` with color-coded badges, and instant toast feedback detailing both stock intake and ledger updates.
+
+
+[✓] C40. T47: Purchase Order Workflow History, Audit Trail & Supplier Lead-Time Engine (`src/models/purchaseOrderHistory.model.js`)
+    - Purpose & Core Rule: "T47 preserves the complete, immutable, append-only lifecycle memory and operational audit trail of each Purchase Order from initial drafting to final goods receipt. It answers 'Is Purchase Order ke saath beginning se ab tak exactly kya-kya hua?', recording PO status progressions, item cost negotiations/variances, expected delivery date shifts, partial/full GRN physical deliveries, delayed lead-time calculations, and supplier procurement performance metrics."
+    - Core Principles & Architectural Invariants:
+      * 1. Separate Immutable Collection: History events are stored in a dedicated `PurchaseOrderHistory` collection (rather than a bloated array on `PurchaseOrder`), preserving O(1) single-document PO reads while guaranteeing append-only non-rewritable operational integrity.
+      * 2. Comprehensive Event Hierarchy: Tracks structured lifecycle events:
+        - `PO_CREATED`: Initial order creation snapshot with items and calculated totals.
+        - `PO_SUBMITTED`: Transition from draft to active vendor order.
+        - `PO_UPDATED`: Header details or line item adjustments.
+        - `COST_CHANGED`: Tracks cost price variations (e.g., supplier negotiations) with `costBefore`, `costAfter`, and delta savings/increases.
+        - `EXPECTED_DELIVERY_CHANGED`: Delivery milestone reschedules with `dateBefore` and `dateAfter`.
+        - `STATUS_CHANGED`: PO status progressions (`DRAFT` -> `PENDING` -> `PARTIAL` -> `RECEIVED` -> `CANCELLED`).
+        - `PARTIAL_RECEIPT` / `FULL_RECEIPT`: Physical stock arrivals linked to GRN number, received items, quantities, and auto-computed delivery delay metrics.
+        - `PAYABLE_CREATED`: Financial debt postings into Supplier Ledger (T46 integration).
+        - `PO_CANCELLED`: Cancellation events with audit reasons.
+        - `MANUAL_LOG`: User-appended operational annotations and vendor communications.
+      * 3. Delayed Lead-Time & Supplier Performance Engine:
+        - Compares `actualReceiptDate` against `expectedDeliveryDate` to calculate `delayDays = Math.max(0, ceil((receipt - expected) / 1 day))`.
+        - Evaluates delivery timeliness (`ON_TIME`, `EARLY`, `DELAYED`).
+        - Aggregates store-wide and supplier-specific procurement KPIs: total POs placed, completion rate, delayed delivery counts, on-time delivery rate %, and average lead-time delay days.
+      * 4. Multi-Tenant Security Isolation:
+        - Every history entry and query is strictly anchored to `businessId` (`{ businessId: 1, purchaseOrderId: 1, createdAt: 1 }`).
+    - Endpoints Implemented:
+      * `GET /api/purchase-orders/:id/history`: Chronological audit log of all events for a specific PO with category filters.
+      * `GET /api/purchase-orders/:id/timeline`: Aggregated executive timeline summary with lead-time KPIs, timeliness badge, delay days, and cost change metrics.
+      * `POST /api/purchase-orders/:id/history/log`: Append manual operational notes or vendor communication logs.
+      * `GET /api/purchase-orders/suppliers/:supplierId/performance`: Supplier delivery reliability analytics and historical procurement metrics.
+    - Automated Test Suite:
+      * `Backend/tests/test-purchase-order-workflow-history.js` (100% tests passing, covering 12 test groups: Multi-tenant store setup, PO creation auto-event, expected delivery date shifts, cost variance preservation, partial GRN receipt, full GRN receipt with delay calculation, manual log notes, timeline KPI summary aggregation, supplier procurement performance analytics, and multi-tenant security boundary isolation).
+    - Frontend Implementation:
+      * `PurchaseOrderHistoryModal.jsx`: Interactive dark-mode timeline modal with 4x executive KPI cards (Timeliness badge, Lead-time & Delays, Cost Variance, GRN Milestones), category event filtering (All, Status, Receiving/GRN, Cost/Schedule, Notes), illuminated milestone nodes, cost variance diff blocks, and operational note dispatch form.
+      * Integrated 1-click "Journey Timeline" action buttons inside `PurchaseOrdersListModal.jsx` and `Supplier360Modal.jsx`.
+      * `purchaseOrder.api.js`: Added client methods `getPurchaseOrderHistory`, `getPurchaseOrderTimeline`, `addPurchaseOrderHistoryLog`, and `getSupplierProcurementPerformance`.
+
+
+--- [ PHASE 8 : EXPENSE MANAGEMENT ] ---
+[✓] C41. T48: Expense Category Configurations & Multi-Tenant Master Entity (`src/models/expenseCategory.model.js`)
+    - Purpose & Core Rule: "T48 establishes the Expense Category Master configuration entity for VendorOS, structuring store overheads and operating costs into normalized categories (Rent, Salary, Utilities, Logistics, Maintenance, Marketing, Packaging, Software, General). It forms the standardized foundation for granular expense tracking (T49-T51) and automated Profit & Loss financial reporting without hardcoded strings or misspelling discrepancies."
+    - Core Principles & Architectural Invariants:
+      * 1. Multi-Tenant Scoping & Uniqueness:
+        - Compound unique index `{ businessId: 1, categoryName: 1 }` guarantees category name uniqueness within the same store tenant while allowing identical names across different businesses.
+      * 2. System Defaults vs. Custom Merchant Categories:
+        - Auto-seeds standard retail default categories (`Rent`, `Salary & Wages`, `Electricity & Utilities`, `Internet & Phone`, `Transport & Logistics`, `Repairs & Maintenance`, `Marketing & Ads`, `Packaging & Supplies`, `General & Miscellaneous`).
+        - Supports custom merchant categories with customizable icons, hex color palettes, sort orders, and monthly budget limits.
+      * 3. Soft-Delete Archival & ID-Based Integrity:
+        - Preserves historical expense records referencing `categoryId` upon deletion via soft-delete (`isActive: false, isArchived: true`), preventing orphaned financial records.
+      * 4. Monthly Budget Threshold Tracking:
+        - Stores optional monthly budget limit parameters per category for real-time variance monitoring.
+    - Endpoints Implemented:
+      * `POST /api/expense-categories`: Create custom expense category with multi-tenant duplicate validation.
+      * `GET /api/expense-categories`: List expense categories with search, active/inactive status, and default filters.
+      * `GET /api/expense-categories/summary`: Executive KPI metrics (total, active, inactive, custom, default counts).
+      * `GET /api/expense-categories/:id`: Single category details.
+      * `PUT /api/expense-categories/:id`: Update category name, description, icon, color, and budget limits.
+      * `PATCH /api/expense-categories/:id/status`: Toggle active / inactive status.
+      * `POST /api/expense-categories/:id/archive` / `DELETE /:id`: Soft-delete archive category.
+      * `POST /api/expense-categories/:id/restore`: Restore archived category to active catalog.
+      * `POST /api/expense-categories/seed-defaults`: 1-click seed standard retail defaults.
+    - Automated Test Suite:
+      * `Backend/tests/test-expense-category-configurations.js` (100% tests passing, covering 12 test groups: multi-tenant setup, auto-seeding defaults, custom category creation, duplicate rejection in same store, cross-tenant isolation, search/filtering, category updating, status toggling, soft-delete archival, restoration, summary KPI metrics, and cross-tenant security isolation).
+    - Frontend Implementation:
+      * `ExpensesPage.jsx`: Executive Phase 8 Expense Management hub with 4x KPI summary cards, live category grid, status toggles, budget cap badges, and quick actions.
+      * `CreateExpenseCategoryModal.jsx`: Modal for creating/editing categories with icon selector, 12-color curated palette, budget limits, and live badge preview.
+      * `ExpenseCategoriesModal.jsx`: Full-screen category manager with search, filter tabs, bulk seeding, and status switches.
+      * `Sidebar.jsx`: Integrated "Expenses" navigation link (`/expenses`).
+      * `expenseCategory.api.js`: Client API service for all expense category operations.
+
+[✓] C42. T49: Create Expense API Endpoint & Operational Overhead Ledger (`src/models/expense.model.js`)
+    - Purpose & Core Rule: "T49 provides the primary transactional engine for recording store operational expenses (Rent, Electricity, Staff Salaries, Freight, Repairs, SaaS, etc.) anchored to verified, active Expense Categories (T48). It validates strict positive amounts (> 0), separates accounting transaction dates (expenseDate) from database creation timestamps (createdAt), generates atomic sequential expense numbers (EXP-1001), captures payment methods (CASH, UPI, BANK_TRANSFER, CARD, CHEQUE), supports invoice/receipt attachment metadata & previews for auditing, and tracks user audit attributions (createdBy)."
+    - Core Principles & Architectural Invariants:
+      * 1. Category Ownership & Active Validation:
+        - Strictly verifies that `categoryId` belongs to the requesting business tenant (`req.businessId`) and is active (`isActive: true`).
+        - Rejects non-existent categories with HTTP 404 and deactivated categories with HTTP 400.
+        - Prevents cross-tenant category hijacking across stores.
+      * 2. Category Snapshotting:
+        - Snapshots category metadata (`categoryName`, `categoryIcon`, `categoryColor`) in the expense document for zero-latency indexing and historic reporting resilience.
+      * 3. Atomic Sequential Numbering:
+        - Concurrency-safe sequential identifiers (`EXP-1001`, `EXP-1002`, etc.) per business tenant via MongoDB atomic counter generator.
+      * 4. Audit Proof Attachments:
+        - Accepts invoice/bill receipt attachments with metadata (`fileName`, `url`, `fileType`, `fileSize`) enabling verifiable tax and expense audits without bloating raw database storage.
+      * 5. Inventory & Supplier Separation:
+        - Clear architectural boundary: operational expenses record store overheads and do NOT pollute inventory stock ledger or supplier purchase orders.
+    - Endpoints Implemented:
+      * `POST /api/expenses`: Create business expense transaction with category validation and attachment proof.
+      * `GET /api/expenses`: Paginated listing of expenses with category, date range, payment method, amount, and search filters.
+      * `GET /api/expenses/summary`: Aggregated executive KPI metrics (total spent, tax amount, today total, this month total, category-wise breakdown, payment method breakdown).
+      * `GET /api/expenses/number/:expenseNumber`: Fast lookup by sequential expense number (e.g. `EXP-1001`).
+      * `GET /api/expenses/:id`: Single expense lookup.
+      * `PUT /api/expenses/:id`: Update expense details with category ownership re-validation.
+      * `POST /api/expenses/:id/archive` / `DELETE /:id`: Safe soft-delete archival.
+    - Automated Test Suite:
+      * `Backend/tests/test-create-expense-api-endpoint.js` (100% tests passing, covering 12 test groups: multi-tenant store setup, category seeding, valid expense creation with attachment, sequential expense numbering EXP-1001 -> EXP-1002, category snapshotting, non-existent category 404 rejection, inactive category 400 rejection, cross-tenant category hijacking rejection, negative amount rejection, filtered query by category, executive summary KPI aggregations, and multi-tenant security boundary isolation).
+    - Frontend Implementation:
+      * `RecordExpenseModal.jsx`: Modern expense entry modal with category picker, quick amount increment pills (+₹500, +₹1k, +₹5k, +₹10k), date selector, payment method selector, bill/UTR ref, payee, tax breakdown, and receipt attachment upload with live preview.
+      * `ExpensesTable.jsx`: Filterable expense transaction table with category badges, payee/notes, payment method chips, formatted currency, attachment modal previewer, and edit/archive actions.
+      * `ExpensesPage.jsx`: Unified Phase 8 Expense Management hub with live KPI cards, view switching between Expense Records (T49) and Category Master (T48), date pickers, and category filters.
+      * `expense.api.js`: Client API service for all expense CRUD and summary operations.
+
+[✓] C43. T50: Expense Historical Ledger UI, Robust Month/Category Filtering & Expenditure Leakage Engine
+    - Purpose & Core Rule: "T50 delivers the visual historical expense ledger and statement reporting engine for VendorOS. It enables merchants to review past operational costs, filter statements by month (e.g. 'October 2026') and category (Rent, Electricity, Salary, Transport, etc.), inspect audit invoice attachments, export CSV statements, and immediately detect expenditure leakages where actual spending exceeds category budget caps."
+    - Core Principles & Architectural Invariants:
+      * 1. Multi-Dimensional Statement Filtering:
+        - Robust Month Filter: Supports direct `month` queries (e.g. `YYYY-MM`) calculating start-of-month to end-of-month boundaries.
+        - Robust Category Filter: Queries records by `categoryId` with active category tags and icons.
+        - Payment Method & Date Range: Filters by CASH, UPI, BANK_TRANSFER, CARD, CHEQUE, and custom date ranges.
+      * 2. Visual Expenditure Leakage & Budget Variance Analytics:
+        - Aggregates category spending breakdown against monthly budget limits configured in T48.
+        - Automatically computes `isOverBudget: true` and `budgetVariance = totalSpent - budgetLimit` with visual alert banners identifying unbudgeted/excessive store overheads.
+      * 3. Server-Side Statement Pagination:
+        - Paginated query responses (`page`, `limit`, `totalRecords`, `totalPages`, `hasNextPage`, `hasPrevPage`) preventing high-volume payload bloat.
+      * 4. Multi-Tenant Security Isolation:
+        - Scoped strictly to `req.businessId` ensuring store expense records and statements are strictly isolated across tenants.
+    - Endpoints Implemented:
+      * `GET /api/expenses`: Multi-filtered historical ledger query with month (`?month=YYYY-MM`), category (`?categoryId=`), search, payment method, and pagination params.
+      * `GET /api/expenses/summary`: Aggregated category breakdown with budget caps, leakage flags, and spending percentages.
+    - Automated Test Suite:
+      * `Backend/tests/test-expense-historical-ledger-ui.js` (100% tests passing, covering 9 test groups: multi-tenant store setup, category budget limits configuration, historical monthly expense records, robust month filtering ?month=2026-10, robust category filtering, combined month + category filtering, server-side pagination page 1 & 2, visual expenditure leakage & budget variance detection, and multi-tenant security boundary isolation).
+    - Frontend Implementation:
+      * `ExpenseLeakageSummary.jsx`: Visual expenditure breakdown widget with progress bars, spending percentages, and over-budget leakage alerts.
+      * `ExpenseLedgerFilters.jsx`: Month selector (last 12 months presets), category dropdown, payment method filter, custom date ranges, and 1-click CSV statement export.
+      * `ExpensesTable.jsx`: Historical ledger table with formatted currency, receipt proof attachment viewer with modal preview, page totals, and pagination controls.
+      * `ExpensesPage.jsx`: Unified Phase 8 Expense Management hub.
 
 ================================================================================
-3. CURRENT ACTIVE ENDPOINT SUMMARY (108+ APIs)
+3. CURRENT ACTIVE ENDPOINT SUMMARY (126+ APIs)
 ================================================================================
 
 1.  Health Check              : GET    /
@@ -587,6 +729,17 @@ API Base URL : http://localhost:3001/api
 ===============================================================================
 - Frontend Build Status: Passed (`npm run build` -> Exit code 0, 0 errors).
 - Backend Automated Test Suites:
+  * `test-goods-received-note-api.js` (T44) -> 100% Passed (12/12 tests).
+  * `test-purchase-item-schema-model.js` (T43) -> 100% Passed (9/9 tests).
+  * `test-purchase-order-schema-model.js` (T42) -> 100% Passed (8/8 tests).
+  * `test-supplier-360-management-center.js` (T41) -> 100% Passed (5/5 tests).
+  * `test-supplier-outstanding-payables-indexer.js` (T40) -> 100% Passed (8/8 tests).
+  * `test-expense-historical-ledger-ui.js` (T50) -> 100% Passed (9/9 tests).
+  * `test-create-expense-api-endpoint.js` (T49) -> 100% Passed (12/12 tests).
+  * `test-expense-category-configurations.js` (T48) -> 100% Passed (12/12 tests).
+  * `test-purchase-order-workflow-history.js` (T47) -> 100% Passed (12/12 tests).
+  * `test-supplier-payable-update-handler.js` (T46) -> 100% Passed (10/10 tests).
+  * `test-auto-inventory-in-deductions.js` (T45) -> 100% Passed (8/8 tests).
   * `test-goods-received-note-api.js` (T44) -> 100% Passed (12/12 tests).
   * `test-purchase-item-schema-model.js` (T43) -> 100% Passed (9/9 tests).
   * `test-purchase-order-schema-model.js` (T42) -> 100% Passed (8/8 tests).

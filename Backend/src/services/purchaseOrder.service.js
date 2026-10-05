@@ -54,24 +54,24 @@ class PurchaseOrderService {
   /**
    * Update Purchase Order
    */
-  async updatePurchaseOrder(businessId, poId, updateData) {
+  async updatePurchaseOrder(businessId, poId, updateData, accountId = null, accountName = "") {
     const validatedData = updatePurchaseOrderSchema.parse(updateData);
-    return await purchaseOrderRepository.updateById(businessId, poId, validatedData);
+    return await purchaseOrderRepository.updateById(businessId, poId, validatedData, accountId, accountName);
   }
 
   /**
    * Update Purchase Order status
    */
-  async updatePOStatus(businessId, poId, statusPayload) {
+  async updatePOStatus(businessId, poId, statusPayload, accountId = null, accountName = "") {
     const { status, notes } = updatePurchaseOrderStatusSchema.parse(statusPayload);
-    return await purchaseOrderRepository.updateStatus(businessId, poId, status, notes);
+    return await purchaseOrderRepository.updateStatus(businessId, poId, status, notes, accountId, accountName);
   }
 
   /**
    * Cancel Purchase Order
    */
-  async cancelPurchaseOrder(businessId, poId, reason = "") {
-    return await purchaseOrderRepository.cancel(businessId, poId, reason);
+  async cancelPurchaseOrder(businessId, poId, reason = "", accountId = null, accountName = "") {
+    return await purchaseOrderRepository.cancel(businessId, poId, reason, accountId, accountName);
   }
 
   /**

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const purchaseOrderController = require("../controllers/purchaseOrder.controller");
+const purchaseOrderHistoryController = require("../controllers/purchaseOrderHistory.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const { businessMiddleware } = require("../middlewares/business.middleware");
 
@@ -19,6 +20,10 @@ router.get("/summary", purchaseOrderController.getPOSummary);
 router.get("/number/:poNumber", purchaseOrderController.getPurchaseOrderByNumber);
 router.get("/supplier/:supplierId", purchaseOrderController.getSupplierPurchaseOrders);
 
+// Phase 7 - Task T47: Supplier Procurement Performance Analytics
+router.get("/suppliers/:supplierId/performance", purchaseOrderHistoryController.getSupplierPerformance);
+router.get("/supplier/:supplierId/performance", purchaseOrderHistoryController.getSupplierPerformance);
+
 // Phase 7 - Task T43: Product Purchase History Endpoint
 router.get("/items/product/:productId", purchaseOrderController.getProductPurchaseHistory);
 router.get("/product/:productId", purchaseOrderController.getProductPurchaseHistory);
@@ -32,6 +37,11 @@ router.get("/:id/grns", (req, res, next) => {
   req.params.purchaseOrderId = req.params.id;
   return grnController.getGrnsByPoId(req, res, next);
 });
+
+// Phase 7 - Task T47: Purchase Order Workflow History & Timeline Endpoints
+router.get("/:id/history", purchaseOrderHistoryController.getHistoryByPoId);
+router.get("/:id/timeline", purchaseOrderHistoryController.getTimelineSummary);
+router.post("/:id/history/log", purchaseOrderHistoryController.addManualLog);
 
 // Individual PO Lifecycle Endpoints
 router.get("/:id", purchaseOrderController.getPurchaseOrderById);

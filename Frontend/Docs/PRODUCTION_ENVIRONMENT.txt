@@ -183,11 +183,55 @@ B. BACKEND WEB SERVICE (Render Dashboard):
     - Compares ordered vs previously received vs newly received quantities with automated line variance calculations.
     - Multi-stage PO lifecycle progression (`PENDING` -> `PARTIAL` -> `RECEIVED`).
     - Configurable over-delivery tolerance guards to prevent unexpected supplier over-deliveries.
-    - Atomic Inventory Stock IN (T18) incrementing `Inventory.availableStock` and logging immutable `InventoryLedger` entries with `source: 'GOODS_RECEIPT'`.
     - Interactive Receiving Modal (`ReceiveGoodsModal.jsx`) with live quantity counters, 1-click "Receive All Remaining" shortcuts, and past receipt history inspection.
     - Seamlessly integrated into `PurchaseOrdersListModal.jsx` and `Supplier360Modal.jsx`.
 
+[✓] 16. AUTO INVENTORY IN DEDUCTIONS & IMMUTABLE LEDGER INTEGRATION (T45)
+    - Automatically converts confirmed physical goods from GRN (T44) into active sellable stock (`Inventory.availableStock += receivedQty`).
+    - Writes immutable `InventoryLedger` entries (`type: 'IN'`, `source: 'GOODS_RECEIPT'`) without manual stock intake.
+    - Idempotency guard prevents duplicate inventory increments for identical GRN receipt events.
+    - Strict single-transaction boundary (`withTransaction`) guaranteeing atomic stock + ledger + PO progression consistency.
 
+[✓] 17. SUPPLIER PAYABLE UPDATE HANDLER & ACCOUNTS PAYABLE INTEGRATION (T46)
+    - Automatically recognizes financial liability (Accounts Payable) upon physical goods acceptance via GRN.
+    - Payable follows accepted/received goods value (Σ receivedQty × costPrice), NOT merely ordered PO total.
+    - Idempotency protection keyed on `GRN_{id}` preventing duplicate debt postings.
+    - Appends `PURCHASE_CREDIT` entries into `SupplierLedger` and synchronizes `Supplier.currentBalance` in real time.
+    - Live UI badges in `ReceiveGoodsModal.jsx` showing incoming batch stock value and real-time accounts payable debt addition.
+
+[✓] 18. PURCHASE ORDER WORKFLOW HISTORY & AUDIT TIMELINE (T47)
+    - Full lifecycle operational memory and immutable event trail for Purchase Orders (`PurchaseOrderHistory`).
+    - Tracks `PO_CREATED`, `PO_SUBMITTED`, `PO_UPDATED`, `STATUS_CHANGED`, `PARTIAL_RECEIPT`, `FULL_RECEIPT`, `COST_CHANGED`, `EXPECTED_DELIVERY_CHANGED`, `PO_CANCELLED`, `PAYABLE_CREATED`, and `MANUAL_LOG`.
+    - Captures historical cost price variances (before vs after negotiation diffs) without rewriting past lines.
+    - Delayed lead-time tracking: Compares expected vs actual receipt dates to compute delay days and delivery timeliness (`ON_TIME`, `EARLY`, `DELAYED`).
+    - Raw supplier procurement reliability performance metrics (completion rates, on-time percentage, avg delay days).
+    - Executive Dark-Mode UI Modal (`PurchaseOrderHistoryModal.jsx`) featuring 4x KPI cards, category filters, illuminated timeline milestone nodes, variance diff cards, and manual note logging.
+    - Seamlessly integrated with 1-click "Journey Timeline" buttons across `PurchaseOrdersListModal.jsx` and `Supplier360Modal.jsx`.
+
+[✓] 19. EXPENSE CATEGORY CONFIGURATIONS & OVERHEAD MASTER (T48)
+    - Normalized category master entity (`ExpenseCategory` model) anchoring Phase 8 Expense Management.
+    - Standardized overhead accounts (Rent, Salaries, Electricity, Internet, Transport, Maintenance, Marketing, Packaging, Software, General).
+    - Multi-tenant unique scoping (`{ businessId: 1, categoryName: 1 }`) preventing collisions within same business while permitting identical names across stores.
+    - Soft-delete archival (`isActive: false, isArchived: true`) preserving historical expense records and preventing orphaned records.
+    - Monthly budget limits and custom icon & color palette selection.
+    - Full-screen Expense Management Hub (`ExpensesPage.jsx`), `CreateExpenseCategoryModal.jsx`, and `ExpenseCategoriesModal.jsx` integrated into persistent navigation.
+
+[✓] 20. CREATE EXPENSE API ENDPOINT & OPERATIONAL OVERHEAD LEDGER (T49)
+    - Primary transactional engine recording store operating expenditures (`POST /api/expenses`).
+    - Enforces category ownership and active validation against `ExpenseCategory` (T48).
+    - Snapshots category metadata (`categoryName`, `categoryIcon`, `categoryColor`) in expense documents for fast queries.
+    - Concurrency-guaranteed sequential expense numbering (`EXP-1001`, `EXP-1002`, etc.) per business tenant.
+    - Supports invoice/bill receipt attachments with metadata and modal previewer.
+    - Multi-method payment classification (`CASH`, `UPI`, `BANK_TRANSFER`, `CARD`, `CHEQUE`, `OTHER`), payee, GST/tax, and reference numbers.
+    - Interactive expense recording modal (`RecordExpenseModal.jsx`), quick amount increment pills, and filterable table (`ExpensesTable.jsx`).
+
+[✓] 21. EXPENSE HISTORICAL LEDGER UI & EXPENDITURE LEAKAGE ENGINE (T50)
+    - Categorized expense statement ledger list with robust month/category filtering (`?month=YYYY-MM`, `?categoryId=`).
+    - Visual expenditure leakage & budget variance detection engine (`ExpenseLeakageSummary.jsx`) highlighting unbudgeted/excessive store overheads.
+    - Server-side statement pagination controls (`page`, `limit`), page sum totals, and records counter.
+    - Multi-method filtering (Cash, UPI, Bank Transfer, Card, Cheque), search bar, and custom date range filters.
+    - 1-Click CSV statement export engine for accounting and tax compliance.
+    - High-performance modal previewer for invoice and receipt attachments.
 
 ================================================================================
 5. PRODUCTION DEPLOYMENT & SYNC CHECKLIST

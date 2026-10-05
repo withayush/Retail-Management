@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const grnRepo = require("../repositories/grn.repository");
 const inventoryRepo = require("../repositories/inventory.repository");
+const supplierLedgerRepo = require("../repositories/supplierLedger.repository");
+const purchaseOrderHistoryRepo = require("../repositories/purchaseOrderHistory.repository");
 const { PurchaseOrder } = require("../models/purchaseOrder.model");
 const { PurchaseItem } = require("../models/purchaseItem.model");
 const { Product } = require("../models/product.model");
@@ -9,9 +11,10 @@ const { InventoryLedger } = require("../models/inventory.model");
 const { withTransaction } = require("../utils/transaction");
 
 /**
- * Phase 7 - Task T44: Goods Received Note (GRN) Service Layer
+ * Phase 7 - Tasks T44, T45, T46 & T47: Goods Received Note (GRN), Stock IN, Supplier Payable & PO History Service Layer
  * Multi-tenant business logic for physical stock reception, variance checking,
- * PO lifecycle progression, and atomic inventory stock-in ledger integration.
+ * PO lifecycle progression, atomic inventory stock-in ledger integration,
+ * automatic accounts payable liability recognition, and workflow history timeline logging.
  */
 class GRNService {
   /**
@@ -238,6 +241,99 @@ class GRNService {
       session,
     });
 
+    // 10. Execute Phase 7 - Task T46: Supplier Payable Update Handler
+    const payableUpdate = await this.executeSupplierPayableUpdate(bId, {
+      grn: savedGRN,
+      purchaseOrder: po,
+      items: grnItems,
+      accountId,
+      accountName,
+      session,
+    });
+
+    // 11. Execute Phase 7 - Task T47: Record Goods Receipt & Payable Milestones in PO History
+    const expectedDate = po.expectedDelivery ? new Date(po.expectedDelivery) : null;
+    const actualDate = savedGRN.receivedDate ? new Date(savedGRN.receivedDate) : new Date();
+    let delayDays = 0;
+    let isOnTime = true;
+
+    if (expectedDate) {
+      const diffMs = actualDate.getTime() - expectedDate.getTime();
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        delayDays = diffDays;
+        isOnTime = false;
+      }
+    }
+
+    const receiptEventType = po.status === "RECEIVED" ? "FULL_RECEIPT" : "PARTIAL_RECEIPT";
+    const receiptTitle = po.status === "RECEIVED" 
+      ? `Goods Fully Received (${savedGRN.grnNumber})`
+      : `Partial Stock Received (${savedGRN.grnNumber})`;
+
+    await purchaseOrderHistoryRepo.recordEvent(
+      {
+        businessId: bId,
+        purchaseOrderId: po._id,
+        poNumber: po.poNumber,
+        eventType: receiptEventType,
+        title: receiptTitle,
+        description: `Received ${totalItemsReceived} unit(s) totaling ₹${Number(totalCostReceived).toLocaleString(undefined, { minimumFractionDigits: 2 })} on ${savedGRN.receivedDate ? new Date(savedGRN.receivedDate).toLocaleDateString() : new Date().toLocaleDateString()}.${delayDays > 0 ? ` [Delayed by ${delayDays} day(s) from expected ${expectedDate.toLocaleDateString()}]` : expectedDate ? " [Delivered On-Time]" : ""}`,
+        previousStatus,
+        newStatus: po.status,
+        details: {
+          grnId: savedGRN._id,
+          grnNumber: savedGRN.grnNumber,
+          totalItemsReceived,
+          totalCostReceived: Number(totalCostReceived.toFixed(2)),
+          deliveryChallanNumber: savedGRN.deliveryChallanNumber || "",
+          invoiceNumber: savedGRN.invoiceNumber || "",
+          expectedDeliveryDate: expectedDate,
+          actualDeliveryDate: actualDate,
+          delayDays,
+          isOnTime,
+          itemsCount: grnItems.length,
+          items: grnItems.map((i) => ({
+            name: i.name,
+            sku: i.sku,
+            receivedQty: i.receivedQty,
+            costPrice: i.costPrice,
+            totalCost: i.totalCost,
+          })),
+        },
+        performedBy: accountId,
+        performedByName: accountName || "Warehouse Staff",
+      },
+      session
+    );
+
+    // If payable was created, record PAYABLE_CREATED in PO history
+    if (payableUpdate && payableUpdate.receivedValue > 0) {
+      await purchaseOrderHistoryRepo.recordEvent(
+        {
+          businessId: bId,
+          purchaseOrderId: po._id,
+          poNumber: po.poNumber,
+          eventType: "PAYABLE_CREATED",
+          title: `Supplier Payable Recognized (+₹${Number(payableUpdate.receivedValue).toLocaleString(undefined, { minimumFractionDigits: 2 })})`,
+          description: `Accounts payable liability of ₹${Number(payableUpdate.receivedValue).toLocaleString(undefined, { minimumFractionDigits: 2 })} recorded in ${payableUpdate.supplierCompany || po.supplierCompany}'s Ledger for GRN #${savedGRN.grnNumber}.`,
+          previousStatus: po.status,
+          newStatus: po.status,
+          details: {
+            grnId: savedGRN._id,
+            grnNumber: savedGRN.grnNumber,
+            payableAmount: payableUpdate.receivedValue,
+            supplierId: payableUpdate.supplierId,
+            supplierCompany: payableUpdate.supplierCompany || po.supplierCompany,
+            newPayableBalance: payableUpdate.newBalance,
+          },
+          performedBy: accountId,
+          performedByName: accountName || "System / Payable Handler",
+        },
+        session
+      );
+    }
+
     return {
       grn: savedGRN,
       purchaseOrder: {
@@ -250,11 +346,14 @@ class GRNService {
         totalQuantity: po.totalQuantity,
       },
       inventoryUpdates,
+      payableUpdate,
       summary: {
         grnNumber: savedGRN.grnNumber,
         totalItemsReceived,
         totalCostReceived: Number(totalCostReceived.toFixed(2)),
         poStatus: po.status,
+        supplierPayableAdded: payableUpdate?.receivedValue || 0,
+        supplierNewBalance: payableUpdate?.newBalance || 0,
       },
     };
     });
@@ -400,6 +499,68 @@ class GRNService {
     }
 
     return inventoryUpdates;
+  }
+
+  /**
+   * Phase 7 - Task T46: Supplier Payable Update Handler
+   * 
+   * Directly posts the accepted physical goods liability into the Supplier Ledger (T39)
+   * and updates real-time Accounts Payable outstanding debt (T40).
+   * 
+   * Core Architectural Rules & Invariants:
+   * 1. Payable follows accepted/received goods (Σ receivedQty × costPrice), NOT ordered PO amount.
+   * 2. Idempotency Guard: Same GRN event must NEVER create duplicate payable entries.
+   * 3. Single-Transaction Atomic Consistency: Committed or rolled back with GRN + Inventory IN.
+   * 4. Multi-Tenant Isolated: Bounded strictly by businessId.
+   */
+  async executeSupplierPayableUpdate(businessId, { grn, purchaseOrder, items, accountId = null, accountName = "", session = null }) {
+    const bId = typeof businessId === "string" ? new mongoose.Types.ObjectId(businessId) : businessId;
+
+    // 1. Calculate authoritative accepted receipt value (Σ receivedQty × costPrice)
+    const receivedValue = Number(grn.totalCostReceived || 0);
+
+    if (receivedValue <= 0) {
+      return {
+        skipped: true,
+        reason: "Zero received goods value; no accounts payable liability created.",
+        receivedValue: 0,
+      };
+    }
+
+    // 2. Generate unique idempotent key for this GRN receiving event
+    const idempotencyKey = `GRN_${grn._id.toString()}`;
+    const purchaseInvoiceNumber = grn.invoiceNumber || grn.grnNumber || purchaseOrder.poNumber || "";
+
+    // 3. Atomically record purchase credit in Supplier Ledger & update outstanding balance
+    const creditResult = await supplierLedgerRepo.recordPurchaseCredit(
+      {
+        businessId: bId,
+        supplierId: purchaseOrder.supplierId || grn.supplierId || null,
+        supplierCompany: purchaseOrder.supplierCompany || grn.supplierCompany || "",
+        purchaseId: purchaseOrder._id,
+        purchaseInvoiceNumber,
+        invoiceValue: receivedValue,
+        referenceId: grn.grnNumber,
+        grnId: grn._id,
+        grnNumber: grn.grnNumber,
+        idempotencyKey,
+        notes: `Goods Receipt #${grn.grnNumber} for PO #${purchaseOrder.poNumber}${grn.invoiceNumber ? ` (Inv #${grn.invoiceNumber})` : ""}`,
+        createdBy: accountId ? new mongoose.Types.ObjectId(accountId) : null,
+        createdByName: accountName || "",
+      },
+      session
+    );
+
+    return {
+      supplierId: creditResult.supplier?.id || purchaseOrder.supplierId,
+      supplierCompany: creditResult.supplier?.company || purchaseOrder.supplierCompany,
+      receivedValue,
+      newBalance: creditResult.newBalance ?? creditResult.supplier?.currentBalance ?? 0,
+      ledgerEntryId: creditResult.ledgerEntry?._id || null,
+      alreadyProcessed: Boolean(creditResult.alreadyProcessed),
+      idempotencyKey,
+      grnNumber: grn.grnNumber,
+    };
   }
 }
 

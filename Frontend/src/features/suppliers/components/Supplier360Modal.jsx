@@ -26,6 +26,7 @@ import {
 import { getSupplier360Summary } from "../../../services/supplier.api";
 import { getSupplierPurchaseOrders } from "../../../services/purchaseOrder.api";
 import ReceiveGoodsModal from "./ReceiveGoodsModal";
+import PurchaseOrderHistoryModal from "./PurchaseOrderHistoryModal";
 import toast from "react-hot-toast";
 
 export default function Supplier360Modal({
@@ -43,6 +44,8 @@ export default function Supplier360Modal({
   const [activeTab, setActiveTab] = useState("purchases"); // "purchases" | "payments" | "pos" | "details"
   const [poToReceive, setPoToReceive] = useState(null);
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [selectedPoForTimeline, setSelectedPoForTimeline] = useState(null);
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
 
   const supplierId = supplier?._id || supplier?.id;
 
@@ -462,21 +465,33 @@ export default function Supplier360Modal({
                                 ₹{Number(po.costTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                               </td>
                               <td className="py-2.5 px-3 text-right">
-                                {po.status !== "RECEIVED" && po.status !== "CANCELLED" ? (
+                                <div className="flex items-center justify-end gap-1.5">
                                   <button
                                     onClick={() => {
-                                      setPoToReceive(po);
-                                      setIsReceiveModalOpen(true);
+                                      setSelectedPoForTimeline(po);
+                                      setIsTimelineModalOpen(true);
                                     }}
-                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold flex items-center gap-1 ml-auto cursor-pointer"
-                                    title="Receive physical stock against PO (GRN)"
+                                    className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-purple-400 border border-zinc-700 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                                    title="View PO Journey Timeline"
                                   >
-                                    <PackageCheck className="w-3 h-3" />
-                                    Receive
+                                    <Clock className="w-3 h-3" />
+                                    Timeline
                                   </button>
-                                ) : (
-                                  <span className="text-[11px] text-zinc-600">—</span>
-                                )}
+
+                                  {po.status !== "RECEIVED" && po.status !== "CANCELLED" && (
+                                    <button
+                                      onClick={() => {
+                                        setPoToReceive(po);
+                                        setIsReceiveModalOpen(true);
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                                      title="Receive physical stock against PO (GRN)"
+                                    >
+                                      <PackageCheck className="w-3 h-3" />
+                                      Receive
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -674,6 +689,20 @@ export default function Supplier360Modal({
                 .then((res) => setPurchaseOrders(res.data || res.orders || res || []))
                 .catch(console.error);
             }
+          }}
+        />
+
+        {/* ── Phase 7 - Task T47: Purchase Order Workflow History Modal ───── */}
+        <PurchaseOrderHistoryModal
+          isOpen={isTimelineModalOpen}
+          onClose={() => {
+            setIsTimelineModalOpen(false);
+            setSelectedPoForTimeline(null);
+          }}
+          purchaseOrder={selectedPoForTimeline}
+          onOpenReceiveGoods={(po) => {
+            setPoToReceive(po);
+            setIsReceiveModalOpen(true);
           }}
         />
       </div>

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { getPurchaseOrders, updatePOStatus, cancelPurchaseOrder } from "../../../services/purchaseOrder.api";
 import ReceiveGoodsModal from "./ReceiveGoodsModal";
+import PurchaseOrderHistoryModal from "./PurchaseOrderHistoryModal";
 import toast from "react-hot-toast";
 
 export default function PurchaseOrdersListModal({
@@ -37,6 +38,8 @@ export default function PurchaseOrdersListModal({
   const [updatingId, setUpdatingId] = useState(null);
   const [poToReceive, setPoToReceive] = useState(null);
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [selectedPoForTimeline, setSelectedPoForTimeline] = useState(null);
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
 
   const supplierId = supplier?._id || supplier?.id;
 
@@ -452,6 +455,19 @@ export default function PurchaseOrdersListModal({
                             </button>
                           )}
 
+                          {/* Phase 7 - Task T47: View PO Journey & Audit Timeline */}
+                          <button
+                            onClick={() => {
+                              setSelectedPoForTimeline(po);
+                              setIsTimelineModalOpen(true);
+                            }}
+                            className="px-3 py-1 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-xs font-semibold border border-purple-500/20 flex items-center gap-1.5 cursor-pointer"
+                            title="View chronological PO audit history & lead-time analytics"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            Journey Timeline
+                          </button>
+
                           {po.status !== "RECEIVED" && po.status !== "CANCELLED" && (
                             <button
                               onClick={() => handleStatusChange(po._id, "CANCELLED")}
@@ -494,6 +510,20 @@ export default function PurchaseOrdersListModal({
           purchaseOrder={poToReceive}
           onReceivedSuccess={() => {
             fetchOrders();
+          }}
+        />
+
+        {/* ── Phase 7 - Task T47: Purchase Order Workflow History Modal ───── */}
+        <PurchaseOrderHistoryModal
+          isOpen={isTimelineModalOpen}
+          onClose={() => {
+            setIsTimelineModalOpen(false);
+            setSelectedPoForTimeline(null);
+          }}
+          purchaseOrder={selectedPoForTimeline}
+          onOpenReceiveGoods={(po) => {
+            setPoToReceive(po);
+            setIsReceiveModalOpen(true);
           }}
         />
       </div>
