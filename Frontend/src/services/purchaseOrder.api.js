@@ -4,8 +4,10 @@ import api from "./api";
  * Helper to ensure x-business-id is passed if present in localStorage
  */
 const getBusinessHeader = () => {
-  const businessId = localStorage.getItem("businessId");
-  return businessId ? { headers: { "x-business-id": businessId } } : {};
+  const businessId = typeof localStorage !== "undefined" ? localStorage.getItem("businessId") : null;
+  return businessId && businessId !== "null" && businessId !== "undefined" && businessId.trim() !== ""
+    ? { headers: { "x-business-id": businessId.trim() } }
+    : {};
 };
 
 /**

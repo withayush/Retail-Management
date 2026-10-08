@@ -68,11 +68,9 @@ const createGoogleAccount = async ({
   return await Account.create({
     fullName,
     email,
-    phone: null,
-    passwordHash: null,
     authProvider: "GOOGLE",
     googleId,
-    avatar,
+    avatar: avatar || null,
     status: "ACTIVE",
     lastLoginAt: new Date(),
   });

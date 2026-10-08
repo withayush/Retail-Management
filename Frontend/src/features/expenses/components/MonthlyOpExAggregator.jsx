@@ -92,12 +92,12 @@ export default function MonthlyOpExAggregator({ onJumpToLedgerMonth }) {
               <h2 className="text-base font-bold text-white tracking-tight">
                 Monthly OpEx Aggregator Engine
               </h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#30D158]/20 text-[#30D158] border border-[#30D158]/30">
-                T51 • Materialized Cache
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                Consolidated Analytics
               </span>
             </div>
-            <p className="text-xs text-[#8E8E93]">
-              Calendar-month consolidated operating expenditures & financial statement cache
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Calendar-month consolidated operating expenditures and financial statement summaries
             </p>
           </div>
         </div>

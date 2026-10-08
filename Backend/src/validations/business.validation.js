@@ -100,7 +100,18 @@ const createBusinessSchema = z.object({
     .regex(/^\d{6}$/, "Pincode must be a valid 6-digit Indian postal code.")
     .optional()
     .or(z.literal("")),
-  website: z.string().trim().url("Please provide a valid website URL.").max(255).optional().or(z.literal("")),
+  website: z
+    .string()
+    .trim()
+    .transform((val) => {
+      if (!val) return "";
+      return /^https?:\/\//i.test(val) ? val : `https://${val}`;
+    })
+    .refine((val) => !val || /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(val), {
+      message: "Please provide a valid website URL.",
+    })
+    .optional()
+    .or(z.literal("")),
   logoUrl: z.string().trim().url("Please provide a valid logo URL.").optional().or(z.literal("")),
 
   currency: z.string().trim().default("INR").optional(),
@@ -209,13 +220,24 @@ const onboardingStep3Schema = z.object({
     })
     .optional(),
   description: z.string().trim().max(500).optional(),
-  website: z.string().trim().url("Please provide a valid website URL.").max(255).optional().or(z.literal("")),
+  website: z
+    .string()
+    .trim()
+    .transform((val) => {
+      if (!val) return "";
+      return /^https?:\/\//i.test(val) ? val : `https://${val}`;
+    })
+    .refine((val) => !val || /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(val), {
+      message: "Please provide a valid website URL.",
+    })
+    .optional()
+    .or(z.literal("")),
   logoUrl: z.string().trim().url("Please provide a valid logo URL.").optional().or(z.literal("")),
 });
 
 const saveOnboardingStepSchema = z.object({
   step: z.number().int().min(1).max(4),
-  data: z.record(z.any()),
+  data: z.record(z.any()).optional().default({}),
   isFinalStep: z.boolean().optional(),
 });
 

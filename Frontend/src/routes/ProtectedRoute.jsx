@@ -1,13 +1,25 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export function ProtectedRoute({ children }) {
+  const location = useLocation();
   const { isAuthenticated, hasBusiness, loading } = useAuth();
+  const storedBusinessId = typeof localStorage !== "undefined" ? localStorage.getItem("businessId") : null;
+  const hasValidStoredBusiness = Boolean(
+    storedBusinessId &&
+    storedBusinessId !== "null" &&
+    storedBusinessId !== "undefined" &&
+    storedBusinessId.trim() !== ""
+  );
 
-  // Debug logs
-  console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
-  console.log("ProtectedRoute - hasBusiness:", hasBusiness);
-  console.log("ProtectedRoute - loading:", loading);
+  // Eliminate React 18 async state batching race condition:
+  // 1. Context state (hasBusiness)
+  // 2. Synchronous storage (localStorage.businessId)
+  // 3. Navigation transition state (location.state?.onboardingCompleted)
+  const effectiveHasBusiness =
+    hasBusiness ||
+    hasValidStoredBusiness ||
+    Boolean(location.state?.onboardingCompleted);
 
   if (loading) {
     return (
@@ -24,8 +36,7 @@ export function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!hasBusiness) {
-    console.log("ProtectedRoute - Redirecting to onboarding because hasBusiness is false");
+  if (!effectiveHasBusiness) {
     return <Navigate to="/business-onboarding" replace />;
   }
 
@@ -33,12 +44,16 @@ export function ProtectedRoute({ children }) {
 }
 
 export function OnboardingRoute({ children }) {
+  const location = useLocation();
   const { isAuthenticated, hasBusiness, loading } = useAuth();
-
-  // Debug logs
-  console.log("OnboardingRoute - isAuthenticated:", isAuthenticated);
-  console.log("OnboardingRoute - hasBusiness:", hasBusiness);
-  console.log("OnboardingRoute - loading:", loading);
+  const storedBusinessId = typeof localStorage !== "undefined" ? localStorage.getItem("businessId") : null;
+  const hasValidStoredBusiness = Boolean(
+    storedBusinessId &&
+    storedBusinessId !== "null" &&
+    storedBusinessId !== "undefined" &&
+    storedBusinessId.trim() !== ""
+  );
+  const effectiveHasBusiness = hasBusiness || hasValidStoredBusiness;
 
   if (loading) {
     return (
@@ -55,8 +70,7 @@ export function OnboardingRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (hasBusiness) {
-    console.log("OnboardingRoute - Redirecting to dashboard because hasBusiness is true");
+  if (effectiveHasBusiness) {
     return <Navigate to="/dashboard" replace />;
   }
 

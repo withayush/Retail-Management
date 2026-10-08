@@ -85,6 +85,7 @@ const saveOnboardingStep = async (req, res, next) => {
       accountId: req.user.accountId,
       step: req.body.step,
       data: req.body.data,
+      isFinalStep: req.body.isFinalStep,
     });
 
     return res.status(200).json({

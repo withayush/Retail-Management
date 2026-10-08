@@ -199,16 +199,17 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-6 animate-fade-in text-[#D2D2D7]">
       {/* 1. Top Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-2xl font-bold text-white tracking-tight">Expense Management</h1>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#30D158]/20 text-[#30D158] border border-[#30D158]/30">
-              Phase 8 • T51 OpEx Engine
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live OpEx Engine
             </span>
           </div>
-          <p className="text-xs text-[#8E8E93] mt-1">
-            Categorized historical expense ledger, calendar-month OpEx aggregator engine, and expenditure leakage tracking
+          <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+            Monitor shop overheads, operational expenditures, supplier disbursements, and category budget limits in real time.
           </p>
         </div>
 
@@ -217,10 +218,10 @@ export default function ExpensesPage() {
           <button
             onClick={handleSeedDefaults}
             disabled={isSeeding}
-            className="px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-medium text-white flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-            title="Populate standard retail categories"
+            className="h-9 px-3.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] active:bg-white/[0.05] border border-white/10 text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+            title="Populate standard retail overhead categories"
           >
-            <Sparkles className="w-4 h-4 text-[#FFD60A]" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>{isSeeding ? "Seeding..." : "Seed Defaults"}</span>
           </button>
 
@@ -230,21 +231,21 @@ export default function ExpensesPage() {
               setCategoryToEdit(null);
               setIsCreateCategoryModalOpen(true);
             }}
-            className="px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-medium text-white flex items-center gap-2 transition-all cursor-pointer"
+            className="h-9 px-3.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] active:bg-white/[0.05] border border-white/10 text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm"
           >
-            <Layers className="w-4 h-4 text-[#64D2FF]" />
+            <Layers className="w-3.5 h-3.5 text-sky-400" />
             <span>New Category</span>
           </button>
 
-          {/* Primary Action: Record Expense (T49) */}
+          {/* Primary Action: Record Expense */}
           <button
             onClick={() => {
               setExpenseToEdit(null);
               setIsRecordExpenseModalOpen(true);
             }}
-            className="px-4 py-2 rounded-xl bg-[#30D158] hover:bg-[#34C759] text-xs font-bold text-black flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+            className="h-9 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-xs font-semibold text-zinc-950 flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
           >
-            <Plus className="w-4 h-4 text-black font-bold" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Record Expense</span>
           </button>
         </div>
@@ -253,80 +254,86 @@ export default function ExpensesPage() {
       {/* 2. Executive KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Overheads Recorded */}
-        <div className="p-5 rounded-2xl bg-[#161617]/80 backdrop-blur-xl border border-white/10 relative overflow-hidden group hover:border-white/20 transition-all">
+        <div className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all relative overflow-hidden group shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8E8E93] uppercase tracking-wider">
-              {filters.month !== "ALL" ? `Spent in ${filters.month}` : "Total Expenses"}
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+              {filters.month !== "ALL" ? `Spent in ${filters.month}` : "Total Overheads"}
             </span>
-            <div className="w-8 h-8 rounded-xl bg-[#0066CC]/15 flex items-center justify-center text-[#0066CC]">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-white tracking-tight">
-              ₹{Number(expenseSummary?.totalExpenseAmount || 0).toLocaleString("en-IN")}
-            </span>
-            <p className="text-[11px] text-[#8E8E93] mt-1">
-              {expenseSummary?.totalExpensesCount || 0} recorded statements
-            </p>
+            <div className="text-2xl font-bold text-white tracking-tight">
+              ₹{Number(expenseSummary?.totalExpenseAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              <span>{expenseSummary?.totalExpensesCount || 0} recorded statements</span>
+            </div>
           </div>
         </div>
 
         {/* This Month's Expenses */}
-        <div className="p-5 rounded-2xl bg-[#161617]/80 backdrop-blur-xl border border-white/10 relative overflow-hidden group hover:border-white/20 transition-all">
+        <div className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all relative overflow-hidden group shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8E8E93] uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
               This Month
             </span>
-            <div className="w-8 h-8 rounded-xl bg-[#FF9F0A]/15 flex items-center justify-center text-[#FF9F0A]">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
               <Calendar className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#FF9F0A] tracking-tight">
-              ₹{Number(expenseSummary?.monthExpenseAmount || 0).toLocaleString("en-IN")}
-            </span>
-            <p className="text-[11px] text-[#8E8E93] mt-1">
-              {expenseSummary?.monthExpenseCount || 0} entries this month
-            </p>
+            <div className="text-2xl font-bold text-amber-400 tracking-tight">
+              ₹{Number(expenseSummary?.monthExpenseAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <span>{expenseSummary?.monthExpenseCount || 0} entries this month</span>
+            </div>
           </div>
         </div>
 
         {/* Average Expense per Transaction */}
-        <div className="p-5 rounded-2xl bg-[#161617]/80 backdrop-blur-xl border border-white/10 relative overflow-hidden group hover:border-white/20 transition-all">
+        <div className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all relative overflow-hidden group shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8E8E93] uppercase tracking-wider">
-              Average Expense
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+              Avg per Expense
             </span>
-            <div className="w-8 h-8 rounded-xl bg-[#30D158]/15 flex items-center justify-center text-[#30D158]">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
               <TrendingDown className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#30D158] tracking-tight">
-              ₹{Number(expenseSummary?.averageExpenseAmount || 0).toLocaleString("en-IN")}
-            </span>
-            <p className="text-[11px] text-[#8E8E93] mt-1">Per transaction average</p>
+            <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+              ₹{Number(expenseSummary?.averageExpenseAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>Per transaction average</span>
+            </div>
           </div>
         </div>
 
         {/* Active Categories Count */}
-        <div className="p-5 rounded-2xl bg-[#161617]/80 backdrop-blur-xl border border-white/10 relative overflow-hidden group hover:border-white/20 transition-all">
+        <div className="p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all relative overflow-hidden group shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-[#8E8E93] uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
               Active Headings
             </span>
-            <div className="w-8 h-8 rounded-xl bg-[#64D2FF]/15 flex items-center justify-center text-[#64D2FF]">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform">
               <Layers className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#64D2FF] tracking-tight">
+            <div className="text-2xl font-bold text-sky-400 tracking-tight">
               {categorySummary?.activeCategories || categories.length || 0}
-            </span>
-            <p className="text-[11px] text-[#8E8E93] mt-1">
-              {categorySummary?.customCategories || 0} custom, {categorySummary?.defaultCategories || 0} standard
-            </p>
+            </div>
+            <div className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+              <span>{categorySummary?.customCategories || 0} custom, {categorySummary?.defaultCategories || 0} standard</span>
+            </div>
           </div>
         </div>
       </div>
@@ -341,58 +348,67 @@ export default function ExpensesPage() {
         />
       )}
 
-      {/* 4. Main Content Container with Tabs */}
-      <div className="bg-[#161617]/80 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+      {/* 4. Main Content Container with Modern Segmented Tabs */}
+      <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden shadow-xl">
         {/* Navigation Tabs Bar */}
-        <div className="px-5 pt-3 border-b border-white/10 flex items-center justify-between gap-4 bg-white/[0.01]">
-          <div className="flex items-center gap-2">
+        <div className="p-3 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950/40">
+          <div className="flex items-center gap-1.5 p-1 bg-zinc-950/70 border border-white/[0.06] rounded-xl flex-wrap">
             <button
               onClick={() => setActiveTab("EXPENSES")}
-              className={`px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === "EXPENSES"
-                  ? "border-[#30D158] text-white bg-white/[0.03]"
-                  : "border-transparent text-[#8E8E93] hover:text-white"
+                  ? "bg-zinc-800 text-white shadow-sm border border-white/10"
+                  : "text-zinc-400 hover:text-white hover:bg-white/[0.03]"
               }`}
             >
-              <Receipt className="w-4 h-4 text-[#30D158]" />
-              <span>Historical Expense Ledger ({pagination?.totalRecords || expenses.length})</span>
+              <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Historical Expense Ledger</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-white/10 text-[10px] font-mono text-zinc-300">
+                {pagination?.totalRecords || expenses.length}
+              </span>
             </button>
 
             <button
               onClick={() => setActiveTab("MONTHLY_OPEX")}
-              className={`px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === "MONTHLY_OPEX"
-                  ? "border-[#FF9F0A] text-white bg-white/[0.03]"
-                  : "border-transparent text-[#8E8E93] hover:text-white"
+                  ? "bg-zinc-800 text-white shadow-sm border border-white/10"
+                  : "text-zinc-400 hover:text-white hover:bg-white/[0.03]"
               }`}
             >
-              <BarChart3 className="w-4 h-4 text-[#FF9F0A]" />
+              <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
               <span>Monthly OpEx Aggregator</span>
             </button>
 
             <button
               onClick={() => setActiveTab("CATEGORIES")}
-              className={`px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === "CATEGORIES"
-                  ? "border-[#0066CC] text-white bg-white/[0.03]"
-                  : "border-transparent text-[#8E8E93] hover:text-white"
+                  ? "bg-zinc-800 text-white shadow-sm border border-white/10"
+                  : "text-zinc-400 hover:text-white hover:bg-white/[0.03]"
               }`}
             >
-              <Layers className="w-4 h-4 text-[#0066CC]" />
-              <span>Category Master ({categories.length})</span>
+              <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <span>Category Master</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-white/10 text-[10px] font-mono text-zinc-300">
+                {categories.length}
+              </span>
             </button>
           </div>
 
-          <button
-            onClick={() => {
-              loadExpensesData();
-              loadCategoriesData();
-            }}
-            className="p-1.5 text-[#8E8E93] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-            title="Refresh All"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              onClick={() => {
+                loadExpensesData();
+                loadCategoriesData();
+              }}
+              className="h-8 px-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 border border-white/[0.06] flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Refresh ledger and categories"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${expensesLoading || categoriesLoading ? "animate-spin text-emerald-400" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* TAB 1: HISTORICAL EXPENSE LEDGER (T50) */}
@@ -412,7 +428,13 @@ export default function ExpensesPage() {
               expenses={expenses}
               pagination={pagination}
               loading={expensesLoading}
+              filters={filters}
               onPageChange={handlePageChange}
+              onRecordNewExpense={() => {
+                setExpenseToEdit(null);
+                setIsRecordExpenseModalOpen(true);
+              }}
+              onResetFilters={handleResetFilters}
               onEditExpense={(exp) => {
                 setExpenseToEdit(exp);
                 setIsRecordExpenseModalOpen(true);
@@ -432,10 +454,10 @@ export default function ExpensesPage() {
         {/* TAB 3: CATEGORY MASTER (T48) */}
         {activeTab === "CATEGORIES" && (
           <div className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div>
-                <h3 className="text-sm font-semibold text-white">Expense Categories Configuration</h3>
-                <p className="text-xs text-[#8E8E93]">
+                <h3 className="text-sm font-semibold text-white tracking-tight">Expense Categories Configuration</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
                   Anchor headings for store overheads and monthly budget allocations
                 </p>
               </div>
@@ -444,17 +466,17 @@ export default function ExpensesPage() {
                   setCategoryToEdit(null);
                   setIsCreateCategoryModalOpen(true);
                 }}
-                className="px-3.5 py-1.5 rounded-xl bg-[#0066CC] hover:bg-[#0077ED] text-xs font-semibold text-white flex items-center gap-1.5 shadow-sm cursor-pointer"
+                className="h-8.5 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white flex items-center gap-1.5 shadow-sm shadow-blue-500/20 cursor-pointer self-start sm:self-auto transition-all"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>Add Category</span>
               </button>
             </div>
 
             {categoriesLoading ? (
               <div className="py-16 text-center">
-                <RefreshCw className="w-6 h-6 text-[#0066CC] animate-spin mx-auto mb-2" />
-                <p className="text-xs text-[#8E8E93]">Loading categories...</p>
+                <RefreshCw className="w-6 h-6 text-blue-500 animate-spin mx-auto mb-2" />
+                <p className="text-xs text-zinc-400">Loading categories...</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -465,15 +487,15 @@ export default function ExpensesPage() {
                   return (
                     <div
                       key={cat._id}
-                      className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between group"
+                      className="p-4 rounded-2xl bg-zinc-950/40 border border-white/[0.06] hover:border-white/15 transition-all flex flex-col justify-between group shadow-sm"
                     >
                       <div>
                         <div className="flex items-start justify-between gap-3 mb-2.5">
                           <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm group-hover:scale-105 transition-all"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-xs group-hover:scale-105 transition-transform"
                             style={{
-                              backgroundColor: `${color}20`,
-                              borderColor: `${color}45`,
+                              backgroundColor: `${color}18`,
+                              borderColor: `${color}35`,
                             }}
                           >
                             <IconComp className="w-5 h-5" style={{ color }} />
@@ -481,27 +503,27 @@ export default function ExpensesPage() {
 
                           <div className="flex items-center gap-1.5">
                             {cat.isDefault ? (
-                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/10 text-[#8E8E93] border border-white/10">
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">
                                 Default
                               </span>
                             ) : (
-                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#64D2FF]/10 text-[#64D2FF] border border-[#64D2FF]/20">
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
                                 Custom
                               </span>
                             )}
                           </div>
                         </div>
 
-                        <h4 className="text-sm font-bold text-white">{cat.categoryName}</h4>
-                        <p className="text-xs text-[#8E8E93] mt-1 line-clamp-2 min-h-[32px]">
+                        <h4 className="text-sm font-semibold text-white tracking-tight">{cat.categoryName}</h4>
+                        <p className="text-xs text-zinc-400 mt-1 line-clamp-2 min-h-[32px] leading-relaxed">
                           {cat.description || "General store operational overhead heading."}
                         </p>
 
                         {cat.budgetLimit > 0 && (
                           <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-                            <span className="text-[#8E8E93] text-[11px]">Monthly Cap:</span>
-                            <span className="font-semibold text-[#30D158]">
-                              ₹{cat.budgetLimit.toLocaleString("en-IN")}/mo
+                            <span className="text-zinc-500 text-[11px]">Monthly Cap:</span>
+                            <span className="font-semibold text-emerald-400">
+                              ₹{Number(cat.budgetLimit).toLocaleString("en-IN")}/mo
                             </span>
                           </div>
                         )}

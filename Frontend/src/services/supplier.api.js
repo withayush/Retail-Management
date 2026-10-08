@@ -1,8 +1,11 @@
 import api from "./api";
 
-const getBusinessHeader = () => ({
-  headers: { "x-business-id": localStorage.getItem("businessId") },
-});
+const getBusinessHeader = () => {
+  const businessId = localStorage.getItem("businessId");
+  return businessId && businessId !== "null" && businessId !== "undefined" && businessId.trim() !== ""
+    ? { headers: { "x-business-id": businessId } }
+    : {};
+};
 
 // Phase 6 - Task T38: Supplier API Service
 

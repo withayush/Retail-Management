@@ -1,8 +1,11 @@
 import api from "./api";
 
-const getBusinessHeader = () => ({
-  headers: { "x-business-id": localStorage.getItem("businessId") },
-});
+const getBusinessHeader = () => {
+  const businessId = localStorage.getItem("businessId");
+  return businessId && businessId !== "null" && businessId !== "undefined" && businessId.trim() !== ""
+    ? { headers: { "x-business-id": businessId } }
+    : {};
+};
 
 // T31 / T32: Fetch all customers (with optional search, phone, status, hasDebt filters)
 export const getCustomers = async (search = "", filters = {}) => {

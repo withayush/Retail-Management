@@ -46,11 +46,15 @@ export default function VerifyOTP() {
       const vendor = data.vendor;
 
       if (accessToken && account) {
-        await login(account, accessToken);
+        const hasBiz = await login(account, accessToken);
         if (vendor) {
           localStorage.setItem("vendor", JSON.stringify(vendor));
         }
-        navigate("/dashboard");
+        if (hasBiz) {
+          navigate("/dashboard");
+        } else {
+          navigate("/business-onboarding");
+        }
       } else {
         navigate("/login");
       }

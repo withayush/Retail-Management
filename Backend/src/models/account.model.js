@@ -12,7 +12,6 @@ const accountSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      // unique: true,
       lowercase: true,
       trim: true,
       maxlength: 255,
@@ -23,13 +22,14 @@ const accountSchema = new mongoose.Schema(
       required: false,
       trim: true,
       maxlength: 20,
-      default: null,
+      default: undefined,
     },
 
     passwordHash: {
       type: String,
       required: false,
       select: false,
+      default: undefined,
     },
 
     authProvider: {
@@ -40,7 +40,7 @@ const accountSchema = new mongoose.Schema(
 
     googleId: {
       type: String,
-      default: null,
+      default: undefined,
     },
 
     avatar: {
@@ -82,12 +82,18 @@ accountSchema.index(
 
 accountSchema.index(
   { phone: 1 },
-  { unique: true, sparse: true }
+  {
+    unique: true,
+    partialFilterExpression: { phone: { $type: "string", $gt: "" } },
+  }
 );
 
 accountSchema.index(
   { googleId: 1 },
-  { unique: true, sparse: true }
+  {
+    unique: true,
+    partialFilterExpression: { googleId: { $type: "string", $gt: "" } },
+  }
 );
 
 const Account = mongoose.model("Account", accountSchema);

@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { createBusiness } from "../../services/business.api";
+import { createBusiness, getOnboardingStatus, saveOnboardingStep } from "../../services/business.api";
 import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
@@ -44,7 +45,7 @@ const TAX_MODES = [
 
 export default function BusinessOnboarding() {
   const navigate = useNavigate();
-  const { refreshBusinessStatus } = useAuth();
+  const { refreshBusinessStatus, setBusinessContext } = useAuth();
   const [step, setStep] = useState(1);
 
   const [formData, setFormData] = useState({
@@ -75,6 +76,52 @@ export default function BusinessOnboarding() {
   const [touched, setTouched] = useState({});
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [savingStep, setSavingStep] = useState(false);
+  const [restoringDraft, setRestoringDraft] = useState(true);
+
+  // Restore onboarding draft from backend on mount so F5 refresh doesn't lose data
+  useEffect(() => {
+    let isMounted = true;
+    const loadDraft = async () => {
+      try {
+        const res = await getOnboardingStatus();
+        const data = res?.data || res;
+        if (!isMounted) return;
+
+        if (data?.isCompleted || data?.onboardingCompleted) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
+        if (data?.draftData && Object.keys(data.draftData).length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            ...data.draftData,
+            operatingHours: {
+              ...prev.operatingHours,
+              ...(data.draftData.operatingHours || {}),
+            },
+          }));
+
+          if (data.currentStep && data.currentStep >= 1 && data.currentStep <= 4) {
+            setStep(data.currentStep);
+          }
+          toast.success("Restored your saved onboarding progress!");
+        }
+      } catch (err) {
+        console.warn("Could not retrieve onboarding draft:", err?.message);
+      } finally {
+        if (isMounted) {
+          setRestoringDraft(false);
+        }
+      }
+    };
+
+    loadDraft();
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   // Step-aware & field-level validation rules
   const validateField = (name, value) => {
@@ -194,9 +241,50 @@ export default function BusinessOnboarding() {
     }));
   };
 
-  const nextStep = () => {
-    if (validateStep(step)) {
+  const nextStep = async () => {
+    if (!validateStep(step)) return;
+
+    setSavingStep(true);
+    try {
+      let stepPayload = {};
+      if (step === 1) {
+        stepPayload = {
+          businessName: formData.businessName.trim(),
+          retailSegment: formData.retailSegment,
+          businessType: formData.businessType.trim() || "Retail",
+          category: formData.category.trim() || undefined,
+          description: formData.description.trim() || undefined,
+        };
+      } else if (step === 2) {
+        stepPayload = {
+          addressLine: formData.addressLine.trim() || undefined,
+          city: formData.city.trim() || undefined,
+          state: formData.state.trim() || undefined,
+          pincode: formData.pincode.trim() || undefined,
+          businessPhone: formData.businessPhone.trim() || undefined,
+          whatsappNumber: formData.whatsappNumber.trim() || undefined,
+          businessEmail: formData.businessEmail.trim() || undefined,
+          website: formData.website.trim() || undefined,
+        };
+      } else if (step === 3) {
+        stepPayload = {
+          currency: formData.currency || "INR",
+          taxMode: formData.taxMode || "GST",
+          inventoryTracking: Boolean(formData.inventoryTracking),
+          operatingHours: formData.operatingHours,
+          description: formData.description.trim() || undefined,
+          website: formData.website.trim() || undefined,
+        };
+      }
+
+      // Persist draft to backend DB so F5 refresh preserves everything
+      await saveOnboardingStep({ step, data: stepPayload, isFinalStep: false });
       setStep((prev) => Math.min(prev + 1, 4));
+    } catch (err) {
+      console.warn("Draft auto-save notice:", err);
+      setStep((prev) => Math.min(prev + 1, 4));
+    } finally {
+      setSavingStep(false);
     }
   };
 
@@ -244,9 +332,17 @@ export default function BusinessOnboarding() {
         operatingHours: formData.operatingHours,
       };
 
-      await createBusiness(payload);
-      await refreshBusinessStatus();
-      navigate("/dashboard", { replace: true });
+      const response = await createBusiness(payload);
+      const createdBiz = response?.data || response;
+
+      if (createdBiz && (createdBiz._id || createdBiz.id)) {
+        setBusinessContext(createdBiz);
+      } else {
+        await refreshBusinessStatus();
+      }
+
+      toast.success("Business registered successfully! Welcome to VendorOS.");
+      navigate("/dashboard", { replace: true, state: { onboardingCompleted: true } });
     } catch (err) {
       console.error("Onboarding Error:", err);
       const resData = err.response?.data;
@@ -292,6 +388,17 @@ export default function BusinessOnboarding() {
     { icon: Receipt, title: "Tax & Settings", subtitle: "GST mode, currency & timings" },
     { icon: CheckCircle, title: "Review & Confirm", subtitle: "Confirm details and launch" },
   ];
+
+  if (restoringDraft) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 gradient-bg">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent mb-3"></div>
+          <p className="text-xs text-muted-foreground font-medium">Checking onboarding progress...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 gradient-bg">
@@ -793,10 +900,23 @@ export default function BusinessOnboarding() {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl gradient-primary text-white text-xs font-semibold hover:shadow-lg hover:shadow-primary/25 cursor-pointer shadow-md shadow-primary/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                  disabled={savingStep}
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl gradient-primary text-white text-xs font-semibold hover:shadow-lg hover:shadow-primary/25 cursor-pointer shadow-md shadow-primary/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
                 >
-                  <span>Next Step</span>
-                  <ChevronRight className="w-4 h-4" />
+                  {savingStep ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Saving Draft...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Next Step</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               ) : (
                 <button

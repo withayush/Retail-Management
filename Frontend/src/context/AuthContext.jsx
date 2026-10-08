@@ -121,23 +121,53 @@ export const AuthProvider = ({ children }) => {
       if (isMounted) {
         setInMemoryToken(null);
         setUser(null);
+        setBusiness(null);
         setHasBusiness(false);
         setLoading(false);
       }
     };
 
+    // Listen to stale business context auto-heal event from api.js interceptor
+    const handleStaleBusiness = async () => {
+      if (isMounted) {
+        localStorage.removeItem("businessId");
+        localStorage.removeItem("business");
+        setBusiness(null);
+        setHasBusiness(false);
+        await checkUserBusiness();
+      }
+    };
+
+    // Listen to onboarding required event from api.js interceptor
+    const handleOnboardingRequired = () => {
+      if (isMounted) {
+        localStorage.removeItem("businessId");
+        localStorage.removeItem("business");
+        setBusiness(null);
+        setHasBusiness(false);
+      }
+    };
+
     window.addEventListener("auth:unauthorized", handleUnauthorized);
+    window.addEventListener("business:stale_context", handleStaleBusiness);
+    window.addEventListener("business:onboarding_required", handleOnboardingRequired);
 
     return () => {
       isMounted = false;
       window.removeEventListener("auth:unauthorized", handleUnauthorized);
+      window.removeEventListener("business:stale_context", handleStaleBusiness);
+      window.removeEventListener("business:onboarding_required", handleOnboardingRequired);
     };
   }, [checkUserBusiness]);
 
   const login = async (userData, accessToken) => {
-    // Security: zero storage of JWT credentials in localStorage
+    // 1. Clean up any previous session/business context completely to prevent cross-account leakage
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
+    localStorage.removeItem("businessId");
+    localStorage.removeItem("business");
+    setBusiness(null);
+    setHasBusiness(false);
 
     if (accessToken) {
       setInMemoryToken(accessToken);
@@ -158,6 +188,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     setUser(normalizedUser);
+
+    // 2. Fetch and bind the newly logged-in user's own business context
     const hasBiz = await checkUserBusiness();
     return hasBiz;
   };
@@ -180,6 +212,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const setBusinessContext = useCallback((businessData) => {
+    if (!businessData) return false;
+    const businessId = (businessData._id || businessData.id)?.toString();
+    if (!businessId) return false;
+
+    // Synchronously write to localStorage to eliminate race conditions before router transitions
+    localStorage.setItem("businessId", businessId);
+    localStorage.setItem("business", JSON.stringify(businessData));
+
+    // Update React state
+    setBusiness(businessData);
+    setHasBusiness(true);
+    return true;
+  }, []);
+
   const refreshBusinessStatus = async () => {
     const status = await checkUserBusiness();
     return status;
@@ -197,6 +244,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         refetchBusiness: checkUserBusiness,
         refreshBusinessStatus,
+        setBusinessContext,
       }}
     >
       {children}

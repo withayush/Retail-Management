@@ -23,30 +23,97 @@ export default function ExpensesTable({
   expenses = [],
   pagination = null,
   loading = false,
+  filters = {},
   onPageChange,
   onLimitChange,
+  onRecordNewExpense,
+  onResetFilters,
   onEditExpense,
   onArchiveExpense,
 }) {
   const [previewAttachment, setPreviewAttachment] = useState(null);
 
+  const hasActiveFilters = Boolean(
+    filters.search?.trim() ||
+    (filters.month && filters.month !== "ALL") ||
+    (filters.categoryId && filters.categoryId !== "ALL") ||
+    (filters.paymentMethod && filters.paymentMethod !== "ALL") ||
+    filters.startDate ||
+    filters.endDate
+  );
+
   if (loading) {
     return (
-      <div className="py-20 text-center">
-        <div className="w-8 h-8 border-2 border-[#30D158] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-xs text-[#8E8E93]">Loading expense records & statements...</p>
+      <div className="py-24 text-center space-y-3">
+        <div className="w-9 h-9 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs text-zinc-400 font-medium">Fetching expense ledger and statements...</p>
       </div>
     );
   }
 
   if (expenses.length === 0) {
+    if (hasActiveFilters) {
+      return (
+        <div className="py-20 px-6 text-center border border-dashed border-white/[0.08] rounded-2xl bg-zinc-950/30 m-4 space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto shadow-sm">
+            <Receipt className="w-6 h-6" />
+          </div>
+          <div className="max-w-md mx-auto">
+            <h4 className="text-sm font-semibold text-white">No Matching Expenses Found</h4>
+            <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+              No transactions match your current search query, category, or selected date range.
+            </p>
+          </div>
+          {onResetFilters && (
+            <button
+              type="button"
+              onClick={onResetFilters}
+              className="h-9 px-4 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/[0.03] border border-white/10 text-xs font-medium text-zinc-200 hover:text-white transition-all cursor-pointer inline-flex items-center gap-2 shadow-sm"
+            >
+              <span>Clear Filter Criteria</span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
     return (
-      <div className="py-16 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01] m-4">
-        <Receipt className="w-10 h-10 text-[#8E8E93]/40 mx-auto mb-3" />
-        <h4 className="text-sm font-semibold text-white">No Expense Transactions Found</h4>
-        <p className="text-xs text-[#8E8E93] max-w-sm mx-auto mt-1">
-          No expenses match the selected month, category, or search filters.
-        </p>
+      <div className="py-16 px-6 text-center border border-white/[0.08] rounded-2xl bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 m-4 relative overflow-hidden shadow-inner">
+        {/* Ambient background glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-md mx-auto space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
+            <Receipt className="w-7 h-7" />
+          </div>
+
+          <div>
+            <h4 className="text-base font-bold text-white tracking-tight">No Expenses Recorded Yet</h4>
+            <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+              Start tracking overheads like rent, electricity bills, packaging, tea/refreshments, and logistics to keep accurate profit margins and tax books.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onRecordNewExpense}
+              className="h-10 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-xs font-semibold text-zinc-950 inline-flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+            >
+              <Receipt className="w-4 h-4 stroke-[2.5]" />
+              <span>Record First Expense</span>
+            </button>
+          </div>
+
+          {/* Quick Category Hints */}
+          <div className="pt-4 border-t border-white/[0.06] flex items-center justify-center gap-2 flex-wrap text-[11px] text-zinc-500">
+            <span className="font-medium text-zinc-400">Popular Headings:</span>
+            <span className="px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.06] text-zinc-400">🏢 Store Rent</span>
+            <span className="px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.06] text-zinc-400">⚡ Electricity</span>
+            <span className="px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.06] text-zinc-400">📦 Packaging</span>
+            <span className="px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.06] text-zinc-400">☕ Tea & Snacks</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -59,7 +126,7 @@ export default function ExpensesTable({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wider">
+            <tr className="border-b border-white/[0.08] bg-zinc-950/40 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
               <th className="py-3 px-4">Date</th>
               <th className="py-3 px-4">Expense #</th>
               <th className="py-3 px-4">Category</th>
@@ -70,7 +137,7 @@ export default function ExpensesTable({
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 text-xs text-[#D2D2D7]">
+          <tbody className="divide-y divide-white/[0.04] text-xs text-zinc-300">
             {expenses.map((exp) => {
               const IconComp = ICON_MAP[exp.categoryIcon] || Tag;
               const color = exp.categoryColor || "#8E8E93";
@@ -91,7 +158,7 @@ export default function ExpensesTable({
                   </td>
 
                   {/* Expense Number */}
-                  <td className="py-3.5 px-4 font-mono font-semibold text-[#64D2FF]">
+                  <td className="py-3.5 px-4 font-mono font-semibold text-sky-400">
                     {exp.expenseNumber}
                   </td>
 
@@ -101,8 +168,8 @@ export default function ExpensesTable({
                       <div
                         className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-xs"
                         style={{
-                          backgroundColor: `${color}20`,
-                          borderColor: `${color}40`,
+                          backgroundColor: `${color}18`,
+                          borderColor: `${color}35`,
                         }}
                       >
                         <IconComp className="w-3.5 h-3.5" style={{ color }} />
@@ -118,10 +185,10 @@ export default function ExpensesTable({
                         {exp.payee || "General Store Overhead"}
                       </p>
                       {exp.description && (
-                        <p className="text-[11px] text-[#8E8E93] truncate">{exp.description}</p>
+                        <p className="text-[11px] text-zinc-400 truncate mt-0.5">{exp.description}</p>
                       )}
                       {exp.referenceNumber && (
-                        <p className="text-[10px] text-[#64D2FF] font-mono mt-0.5">
+                        <p className="text-[10px] text-sky-400/90 font-mono mt-0.5">
                           Ref: {exp.referenceNumber}
                         </p>
                       )}
@@ -130,16 +197,18 @@ export default function ExpensesTable({
 
                   {/* Payment Method */}
                   <td className="py-3.5 px-4">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/10 text-white border border-white/10">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.06] text-zinc-300 border border-white/[0.08]">
                       {exp.paymentMethod}
                     </span>
                   </td>
 
                   {/* Amount */}
-                  <td className="py-3.5 px-4 text-right font-bold text-white whitespace-nowrap">
-                    ₹{Number(exp.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                    <span className="font-bold text-white text-sm font-mono">
+                      ₹{Number(exp.amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
                     {exp.taxAmount > 0 && (
-                      <span className="block text-[10px] font-normal text-[#8E8E93]">
+                      <span className="block text-[10px] font-normal text-zinc-400">
                         Incl. ₹{exp.taxAmount} GST
                       </span>
                     )}
@@ -151,14 +220,14 @@ export default function ExpensesTable({
                       <button
                         type="button"
                         onClick={() => setPreviewAttachment(exp.attachment)}
-                        className="p-1.5 rounded-lg bg-[#0066CC]/20 hover:bg-[#0066CC]/35 border border-[#0066CC]/40 text-[#64D2FF] transition-colors cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                        className="h-7 px-2.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
                         title={exp.attachment.fileName || "View Attachment Proof"}
                       >
                         <FileText className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-medium">View</span>
                       </button>
                     ) : (
-                      <span className="text-[11px] text-[#8E8E93]/40">—</span>
+                      <span className="text-[11px] text-zinc-600">—</span>
                     )}
                   </td>
 
@@ -168,7 +237,7 @@ export default function ExpensesTable({
                       <button
                         type="button"
                         onClick={() => onEditExpense(exp)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[#8E8E93] hover:text-white transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-zinc-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
                         title="Edit Expense"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -176,7 +245,7 @@ export default function ExpensesTable({
                       <button
                         type="button"
                         onClick={() => onArchiveExpense(exp)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-[#8E8E93] hover:text-red-400 transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-rose-500/15 border border-white/[0.06] hover:border-rose-500/30 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center justify-center"
                         title="Archive Expense"
                       >
                         <Archive className="w-3.5 h-3.5" />
@@ -191,16 +260,16 @@ export default function ExpensesTable({
       </div>
 
       {/* Table Footer & Server-Side Pagination Bar */}
-      <div className="px-5 py-3.5 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/[0.01] text-xs text-[#8E8E93]">
+      <div className="px-5 py-3.5 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-950/40 text-xs text-zinc-400">
         {/* Left: Visible Records & Page Sum */}
         <div className="flex items-center gap-3">
           <span>
-            Showing <strong className="text-white">{expenses.length}</strong> of{" "}
-            <strong className="text-white">{pagination?.totalRecords || expenses.length}</strong> records
+            Showing <strong className="text-white font-semibold">{expenses.length}</strong> of{" "}
+            <strong className="text-white font-semibold">{pagination?.totalRecords || expenses.length}</strong> records
           </span>
-          <span className="hidden sm:inline-block">•</span>
+          <span className="hidden sm:inline-block text-zinc-600">•</span>
           <span className="hidden sm:inline-block">
-            Page Total: <strong className="text-[#30D158]">₹{pageTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
+            Page Total: <strong className="text-emerald-400 font-mono font-semibold">₹{pageTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong>
           </span>
         </div>
 
@@ -211,13 +280,13 @@ export default function ExpensesTable({
               type="button"
               disabled={!pagination.hasPrevPage}
               onClick={() => onPageChange(pagination.page - 1)}
-              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
+              className="h-8 px-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               <span>Prev</span>
             </button>
 
-            <span className="px-2 font-medium text-white">
+            <span className="px-2 font-medium text-zinc-200">
               Page {pagination.page} of {pagination.totalPages}
             </span>
 
@@ -225,7 +294,7 @@ export default function ExpensesTable({
               type="button"
               disabled={!pagination.hasNextPage}
               onClick={() => onPageChange(pagination.page + 1)}
-              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
+              className="h-8 px-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
             >
               <span>Next</span>
               <ChevronRight className="w-3.5 h-3.5" />

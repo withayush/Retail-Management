@@ -39,8 +39,18 @@ api.interceptors.request.use(
     if (inMemoryAccessToken && inMemoryAccessToken !== "undefined" && inMemoryAccessToken !== "null") {
       config.headers.Authorization = `Bearer ${inMemoryAccessToken}`;
     }
-    if (businessId && businessId !== "undefined" && businessId !== "null") {
+    if (
+      businessId &&
+      businessId !== "undefined" &&
+      businessId !== "null" &&
+      businessId.trim() !== ""
+    ) {
       config.headers["x-business-id"] = businessId;
+    } else {
+      if (config.headers) {
+        delete config.headers["x-business-id"];
+        delete config.headers["x-tenant-id"];
+      }
     }
     return config;
   },
@@ -57,7 +67,7 @@ const isPublicPage = () => {
   );
 };
 
-// 2. Response Interceptor: Safe HttpOnly Cookie Refresh & loop-immune 401 handling
+// 2. Response Interceptor: Safe HttpOnly Cookie Refresh & loop-immune 401/403 handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -65,6 +75,48 @@ api.interceptors.response.use(
 
     // Guard against undefined response or network errors
     if (!error.response || !originalRequest) {
+      return Promise.reject(error);
+    }
+
+    const errStatus = error.response.status;
+    const errCode = error.response.data?.code;
+
+    // ── Handle Stale Business Context (Auto-Healing & Clean Auto-Resolve Retry) ──
+    const isStaleBusinessError =
+      error.response.data?.staleContext ||
+      errCode === "NO_ACCESS_TO_BUSINESS" ||
+      errCode === "BUSINESS_NOT_FOUND" ||
+      (errStatus === 400 && errCode === "INVALID_BUSINESS_ID");
+
+    if (isStaleBusinessError && !originalRequest._businessRetry) {
+      originalRequest._businessRetry = true;
+      console.warn(`[API] Stale business context detected (${errCode}). Purging stale business ID and auto-resolving...`);
+
+      // 1. Purge stale business from client storage
+      localStorage.removeItem("businessId");
+      localStorage.removeItem("business");
+
+      // 2. Strip stale tenant headers
+      if (originalRequest.headers) {
+        delete originalRequest.headers["x-business-id"];
+        delete originalRequest.headers["x-tenant-id"];
+      }
+
+      // 3. Notify AuthContext to refresh state in the background
+      window.dispatchEvent(new Event("business:stale_context"));
+
+      // 4. Retry cleanly without stale header so backend auto-resolves user's active business
+      return api(originalRequest);
+    }
+
+    // ── Handle BUSINESS_ONBOARDING_REQUIRED (Authenticated user has no business yet) ──
+    if (errStatus === 403 && errCode === "BUSINESS_ONBOARDING_REQUIRED") {
+      localStorage.removeItem("businessId");
+      localStorage.removeItem("business");
+      window.dispatchEvent(new Event("business:onboarding_required"));
+      if (!isPublicPage() && !window.location.pathname.includes("onboarding")) {
+        window.location.replace("/business-onboarding");
+      }
       return Promise.reject(error);
     }
 
@@ -76,7 +128,7 @@ api.interceptors.response.use(
       originalRequest.url?.includes("/auth/refresh");
 
     // Handle 401 Unauthorized only for protected endpoints (avoid infinite refresh loops)
-    if (error.response.status === 401 && !originalRequest._retry && !isAuthRoute) {
+    if (errStatus === 401 && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true;
 
       try {

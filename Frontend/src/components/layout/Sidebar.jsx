@@ -144,16 +144,14 @@ export default function Sidebar({
                   to={item.path}
                   onClick={isMobile ? onCloseMobile : undefined}
                   title={collapsed ? item.label : undefined}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-full text-xs font-medium transition-all duration-300 group active:scale-[0.98] ${
-                    isActive
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-full text-xs font-medium transition-all duration-300 group active:scale-[0.98] ${isActive
                       ? "bg-[#0066CC] text-white shadow-[0_2px_12px_rgba(0,102,204,0.35)]"
                       : "text-[#D2D2D7]/80 hover:bg-white/10 hover:text-white"
-                  } ${collapsed ? "justify-center px-0" : ""}`}
+                    } ${collapsed ? "justify-center px-0" : ""}`}
                 >
                   <Icon
-                    className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${
-                      isActive ? "text-white" : "text-[#6E6E73] group-hover:text-white"
-                    }`}
+                    className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-white" : "text-[#6E6E73] group-hover:text-white"
+                      }`}
                   />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>
@@ -210,11 +208,10 @@ export default function Sidebar({
             <button
               onClick={() => setShowLogoutConfirm((p) => !p)}
               title={collapsed ? "Sign Out" : undefined}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-xs font-medium transition-all duration-300 cursor-pointer active:scale-95 ${
-                showLogoutConfirm
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-xs font-medium transition-all duration-300 cursor-pointer active:scale-95 ${showLogoutConfirm
                   ? "bg-[#B64400]/20 text-[#FF791B] border border-[#B64400]/40"
                   : "text-[#6E6E73] hover:text-[#FF791B] hover:bg-[#B64400]/10"
-              } ${collapsed ? "justify-center px-0" : ""}`}
+                } ${collapsed ? "justify-center px-0" : ""}`}
             >
               <LogOut className="w-4 h-4 shrink-0" />
               {!collapsed && <span>Sign Out</span>}
@@ -229,9 +226,8 @@ export default function Sidebar({
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden md:flex flex-col shrink-0 h-screen sticky top-0 transition-[width] duration-300 ease-[cubic-bezier(0,0,0.5,1)] ${
-          isCollapsed ? "w-16" : "w-60"
-        }`}
+        className={`hidden md:flex flex-col shrink-0 h-screen sticky top-0 transition-[width] duration-300 ease-[cubic-bezier(0,0,0.5,1)] ${isCollapsed ? "w-16" : "w-60"
+          }`}
       >
         {renderContent(false)}
       </aside>

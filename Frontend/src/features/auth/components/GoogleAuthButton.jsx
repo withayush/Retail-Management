@@ -36,7 +36,7 @@ export default function GoogleAuthButton({
       const accessToken = data.accessToken;
       const vendor = data.vendor;
 
-      await login(account, accessToken);
+      const hasBiz = await login(account, accessToken);
 
       if (vendor) {
         localStorage.setItem("vendor", JSON.stringify(vendor));
@@ -48,7 +48,11 @@ export default function GoogleAuthButton({
           : "Signed in successfully with Google!"
       );
 
-      navigate("/dashboard");
+      if (hasBiz) {
+        navigate("/dashboard");
+      } else {
+        navigate("/business-onboarding");
+      }
     } catch (err) {
       console.error("Google Auth API Error:", err);
       const message =

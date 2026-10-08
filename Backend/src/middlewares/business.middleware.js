@@ -27,6 +27,15 @@ const businessMiddleware = async (req, res, next) => {
       req.cookies?.activeBusinessId ||
       null;
 
+    // Normalize pseudo-null values from client headers
+    if (
+      requestedBusinessId === "null" ||
+      requestedBusinessId === "undefined" ||
+      requestedBusinessId === ""
+    ) {
+      requestedBusinessId = null;
+    }
+
     let targetBusiness = null;
     let userRole = null;
     let membershipRecord = null;
@@ -38,6 +47,7 @@ const businessMiddleware = async (req, res, next) => {
           success: false,
           code: "INVALID_BUSINESS_ID",
           message: "The provided business ID format is invalid.",
+          staleContext: true,
         });
       }
 
@@ -48,6 +58,7 @@ const businessMiddleware = async (req, res, next) => {
           success: false,
           code: "BUSINESS_NOT_FOUND",
           message: "Business does not exist or has been archived.",
+          staleContext: true,
         });
       }
 
@@ -65,6 +76,7 @@ const businessMiddleware = async (req, res, next) => {
             success: false,
             code: "NO_ACCESS_TO_BUSINESS",
             message: "You do not have authorization to access this business context.",
+            staleContext: true,
           });
         }
 

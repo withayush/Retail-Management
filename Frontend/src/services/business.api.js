@@ -3,7 +3,12 @@ import api from "./api";
 // Naya business create karne ke liye (Onboarding submit)
 export const createBusiness = async (data) => {
   const response = await api.post("/businesses", data);
-  console.log("createBusiness raw response:", response);
+  const createdBiz = response?.data?.data || response?.data;
+  if (createdBiz && (createdBiz._id || createdBiz.id)) {
+    const bId = (createdBiz._id || createdBiz.id).toString();
+    localStorage.setItem("businessId", bId);
+    localStorage.setItem("business", JSON.stringify(createdBiz));
+  }
   return response.data;
 };
 

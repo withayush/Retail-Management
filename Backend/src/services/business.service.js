@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const businessRepo = require("../repositories/business.repository");
+const authRepo = require("../repositories/auth.repository");
 
 const UNLOCKED_MODULES = [
   "DASHBOARD",
@@ -170,16 +171,13 @@ const getOnboardingStatus = async (accountId) => {
   };
 };
 
-const saveOnboardingStep = async ({ accountId, step, data, isFinalStep = false }) => {
-  const vendor = await businessRepo.findVendorByAccountId(accountId);
+const saveOnboardingStep = async ({ accountId, step, data = {}, isFinalStep = false }) => {
+  let vendor = await businessRepo.findVendorByAccountId(accountId);
   if (!vendor) {
-    const error = new Error("Vendor profile not found.");
-    error.statusCode = 404;
-    error.code = "VENDOR_NOT_FOUND";
-    throw error;
+    vendor = await authRepo.ensureVendorForAccount(accountId);
   }
 
-  // 1. Step 1 Validation
+  // 1. Step 1 Validation (Store Basics & Identity)
   if (step === 1) {
     const parsed = onboardingStep1Schema.safeParse(data);
     if (!parsed.success) {
@@ -209,7 +207,7 @@ const saveOnboardingStep = async ({ accountId, step, data, isFinalStep = false }
     };
   }
 
-  // 2. Step 2 Validation
+  // 2. Step 2 Validation (Location & Normalized Contact)
   if (step === 2) {
     const parsed = onboardingStep2Schema.safeParse(data);
     if (!parsed.success) {
@@ -239,8 +237,8 @@ const saveOnboardingStep = async ({ accountId, step, data, isFinalStep = false }
     };
   }
 
-  // 3. Step 3 Validation & Finalization
-  if (step === 3 || isFinalStep) {
+  // 3. Step 3 Draft Validation (Tax Mode, Operating Hours, Preferences)
+  if (step === 3 && !isFinalStep) {
     const parsed = onboardingStep3Schema.safeParse(data);
     if (!parsed.success) {
       const error = new Error(
@@ -252,10 +250,38 @@ const saveOnboardingStep = async ({ accountId, step, data, isFinalStep = false }
     }
     const validatedStepData = parsed.data;
 
-    // Merge all wizard draft data + Step 3 data
+    // Save step 3 draft and advance wizard progress to step 4 (Review screen)
+    const updatedDraft = { ...(vendor.onboardingData || {}), ...validatedStepData };
+    await businessRepo.saveVendorOnboardingProgress({
+      vendorId: vendor._id,
+      onboardingStep: 4,
+      onboardingData: updatedDraft,
+      onboardingStatus: "IN_PROGRESS",
+    });
+
+    return {
+      step: 3,
+      nextStep: 4,
+      savedData: validatedStepData,
+      onboardingStatus: "IN_PROGRESS",
+    };
+  }
+
+  // 4. Final Step (step 4, or isFinalStep true): Atomic Business Creation & Onboarding Completion
+  if (step === 4 || isFinalStep || step === 3) {
+    let step3Validated = {};
+    if (data && Object.keys(data).length > 0) {
+      const parsed3 = onboardingStep3Schema.safeParse(data);
+      if (parsed3.success) {
+        step3Validated = parsed3.data;
+      }
+    }
+
+    // Merge all accumulated wizard draft data + current payload
     const completePayload = {
       ...(vendor.onboardingData || {}),
-      ...validatedStepData,
+      ...step3Validated,
+      ...(data || {}),
     };
 
     // Full business schema validation
@@ -297,7 +323,7 @@ const saveOnboardingStep = async ({ accountId, step, data, isFinalStep = false }
       });
 
       return {
-        step: 3,
+        step: 4,
         isCompleted: true,
         onboardingCompleted: true,
         onboardingStatus: "COMPLETED",
@@ -310,7 +336,7 @@ const saveOnboardingStep = async ({ accountId, step, data, isFinalStep = false }
     }
   }
 
-  const error = new Error("Invalid step number. Supported steps: 1, 2, 3.");
+  const error = new Error("Invalid step number. Supported steps: 1, 2, 3, 4.");
   error.statusCode = 400;
   error.code = "INVALID_STEP";
   throw error;
