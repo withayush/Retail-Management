@@ -38,6 +38,12 @@ export const getMe = async () => {
   return response.data;
 };
 
+// Google OAuth Login / Register API call
+export const googleAuthUser = async (credential) => {
+  const response = await api.post("/auth/google", { credential });
+  return response.data;
+};
+
 // Logout API call
 export const logoutUser = async () => {
   const response = await api.post("/auth/logout");

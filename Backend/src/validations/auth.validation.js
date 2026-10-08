@@ -76,9 +76,16 @@ const loginSchema = z.object({
     .min(1, "Password is required."),
 });
 
+const googleAuthSchema = z.object({
+  credential: z
+    .string({ required_error: "Google credential is required." })
+    .min(1, "Google credential is required."),
+});
+
 module.exports = {
   registerSchema, 
   verifyPhoneSchema,
   resendPhoneOtpSchema,
-  loginSchema
+  loginSchema,
+  googleAuthSchema,
 };

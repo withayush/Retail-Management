@@ -20,16 +20,32 @@ const accountSchema = new mongoose.Schema(
 
     phone: {
       type: String,
-      required: true,
-      // unique: true,
+      required: false,
       trim: true,
       maxlength: 20,
+      default: null,
     },
 
     passwordHash: {
       type: String,
-      required: true,
+      required: false,
       select: false,
+    },
+
+    authProvider: {
+      type: String,
+      enum: ["LOCAL", "GOOGLE"],
+      default: "LOCAL",
+    },
+
+    googleId: {
+      type: String,
+      default: null,
+    },
+
+    avatar: {
+      type: String,
+      default: null,
     },
 
     phoneVerifiedAt: {
@@ -66,7 +82,12 @@ accountSchema.index(
 
 accountSchema.index(
   { phone: 1 },
-  { unique: true }
+  { unique: true, sparse: true }
+);
+
+accountSchema.index(
+  { googleId: 1 },
+  { unique: true, sparse: true }
 );
 
 const Account = mongoose.model("Account", accountSchema);

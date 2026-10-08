@@ -1,6 +1,8 @@
 const authRepo = require("../repositories/auth.repository");
 
 const mongoose = require("mongoose");
+const { OAuth2Client } = require("google-auth-library");
+const googleClient = new OAuth2Client();
 
 const { hashPassword, comparePassword } = require("../utils/password");
 
@@ -796,11 +798,165 @@ const logout = async ({ refreshToken }) => {
   return true;
 };
 
+const googleLogin = async ({ credential }, meta = {}) => {
+  if (!credential) {
+    const error = new Error("Google credential token is required.");
+    error.statusCode = 400;
+    error.code = "MISSING_GOOGLE_CREDENTIAL";
+    throw error;
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    const error = new Error("Google OAuth client ID is not configured on the server.");
+    error.statusCode = 500;
+    error.code = "GOOGLE_CLIENT_ID_MISSING";
+    throw error;
+  }
+
+  let ticket;
+  try {
+    ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: clientId,
+    });
+  } catch (err) {
+    console.error("Google Token Verification Error:", err.message);
+    const error = new Error("Invalid or expired Google credential.");
+    error.statusCode = 401;
+    error.code = "INVALID_GOOGLE_TOKEN";
+    throw error;
+  }
+
+  const payload = ticket.getPayload();
+  if (!payload || !payload.email) {
+    const error = new Error("Google profile information is missing.");
+    error.statusCode = 400;
+    error.code = "INVALID_GOOGLE_PAYLOAD";
+    throw error;
+  }
+
+  if (!payload.email_verified) {
+    const error = new Error("Google email address is not verified.");
+    error.statusCode = 403;
+    error.code = "GOOGLE_EMAIL_UNVERIFIED";
+    throw error;
+  }
+
+  const cleanEmail = payload.email.trim().toLowerCase();
+  const googleId = payload.sub;
+  const fullName = payload.name || payload.given_name || "Google User";
+  const avatar = payload.picture || null;
+
+  // Find existing account by googleId or email
+  let account = await authRepo.findAccountByGoogleIdOrEmail({ googleId, email: cleanEmail });
+
+  if (account) {
+    if (account.status === "SUSPENDED" || account.status === "BLOCKED") {
+      await authRepo.logAuthAttempt({
+        accountId: account._id,
+        identifier: cleanEmail,
+        action: "GOOGLE_LOGIN",
+        success: false,
+        reason: `ACCOUNT_${account.status}`,
+        ipAddress: meta.ipAddress || null,
+        userAgent: meta.userAgent || null,
+      });
+
+      const error = new Error(`Account is ${account.status.toLowerCase()}. Please contact support.`);
+      error.statusCode = 403;
+      error.code = `ACCOUNT_${account.status}`;
+      throw error;
+    }
+
+    account = await authRepo.linkGoogleAccount(account._id, {
+      googleId,
+      avatar: account.avatar || avatar,
+    });
+  } else {
+    account = await authRepo.createGoogleAccount({
+      fullName,
+      email: cleanEmail,
+      googleId,
+      avatar,
+    });
+  }
+
+  // Ensure vendor record exists for this account
+  const vendor = await authRepo.ensureVendorForAccount(account._id);
+
+  // Generate session and tokens
+  const sessionId = new mongoose.Types.ObjectId();
+  const accessToken = generateAccessToken({
+    sub: account._id.toString(),
+  });
+  const refreshToken = generateRefreshToken({
+    sub: account._id.toString(),
+    sid: sessionId.toString(),
+  });
+  const refreshTokenHash = await hashPassword(refreshToken);
+  const expiresAt = new Date(Date.now() + REFRESH_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+  await authRepo.createSession({
+    _id: sessionId,
+    accountId: account._id,
+    refreshTokenHash,
+    ipAddress: meta.ipAddress || null,
+    userAgent: meta.userAgent || null,
+    expiresAt,
+  });
+
+  await authRepo.logAuthAttempt({
+    accountId: account._id,
+    identifier: cleanEmail,
+    action: "GOOGLE_LOGIN",
+    success: true,
+    reason: "SUCCESS",
+    ipAddress: meta.ipAddress || null,
+    userAgent: meta.userAgent || null,
+  });
+
+  await authRepo.logAuthEvent({
+    accountId: account._id,
+    eventType: "LOGIN",
+    ipAddress: meta.ipAddress || null,
+    userAgent: meta.userAgent || null,
+    metadata: {
+      method: "GOOGLE",
+      email: cleanEmail,
+    },
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    account: {
+      accountId: account._id,
+      id: account._id,
+      fullName: account.fullName,
+      name: account.fullName,
+      email: account.email,
+      phone: account.phone,
+      status: account.status,
+      avatar: account.avatar,
+      authProvider: account.authProvider,
+    },
+    vendor: vendor
+      ? {
+          vendorId: vendor._id,
+          status: vendor.status,
+          onboardingStatus: vendor.onboardingStatus,
+        }
+      : null,
+  };
+};
+
 module.exports = {
   register,
   verifyPhone,
   resendPhoneOtp,
   login,
+  googleLogin,
   getMe,
   refreshSession,
   logout,

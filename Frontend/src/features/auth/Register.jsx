@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { registerUser } from "../../services/auth.api";
 import { motion } from "framer-motion";
 import { User, Mail, Phone, Lock, Eye, EyeOff, UserPlus, AlertCircle, ArrowRight } from "lucide-react";
+import GoogleAuthButton from "./components/GoogleAuthButton";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -418,6 +419,24 @@ export default function Register() {
               )}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/70"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-3 text-muted-foreground font-semibold tracking-wider">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
+          {/* Google Auth Button */}
+          <GoogleAuthButton
+            text="signup_with"
+            onError={(errMsg) => setServerError(errMsg)}
+          />
 
           {/* Footer */}
           <div className="mt-6 pt-4 border-t border-border/50 text-center">

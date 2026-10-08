@@ -47,6 +47,64 @@ const createAccount = async ({
   });
 };
 
+const findAccountByGoogleIdOrEmail = async ({ googleId, email }) => {
+  const conditions = [];
+  if (googleId) conditions.push({ googleId });
+  if (email) conditions.push({ email });
+
+  if (conditions.length === 0) return null;
+
+  return await Account.findOne({
+    $or: conditions,
+  });
+};
+
+const createGoogleAccount = async ({
+  fullName,
+  email,
+  googleId,
+  avatar,
+}) => {
+  return await Account.create({
+    fullName,
+    email,
+    phone: null,
+    passwordHash: null,
+    authProvider: "GOOGLE",
+    googleId,
+    avatar,
+    status: "ACTIVE",
+    lastLoginAt: new Date(),
+  });
+};
+
+const linkGoogleAccount = async (accountId, { googleId, avatar }) => {
+  const update = {
+    $set: {
+      status: "ACTIVE",
+      lastLoginAt: new Date(),
+    },
+  };
+  if (googleId) update.$set.googleId = googleId;
+  if (avatar) update.$set.avatar = avatar;
+
+  return await Account.findByIdAndUpdate(accountId, update, { new: true });
+};
+
+const ensureVendorForAccount = async (accountId) => {
+  return await Vendor.findOneAndUpdate(
+    { accountId },
+    {
+      $setOnInsert: {
+        accountId,
+        status: "ACTIVE",
+        onboardingStatus: "NOT_STARTED",
+      },
+    },
+    { upsert: true, new: true }
+  );
+};
+
 // =====================================================
 // OTP
 // =====================================================
@@ -386,6 +444,11 @@ module.exports = {
   completePhoneVerification,
 
   findVendorByAccountId,
+  ensureVendorForAccount,
+
+  findAccountByGoogleIdOrEmail,
+  createGoogleAccount,
+  linkGoogleAccount,
 
   logAuthEvent,
   logAuthAttempt,

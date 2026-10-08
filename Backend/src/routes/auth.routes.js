@@ -5,6 +5,7 @@ const {
   verifyPhone,
   resendPhoneOtp,
   login,
+  googleAuth,
   getMe,
   refresh,
   logout,
@@ -19,9 +20,16 @@ const {
   verifyPhoneSchema,
   resendPhoneOtpSchema,
   loginSchema,
+  googleAuthSchema,
 } = require("../validations/auth.validation");
 
 const router = express.Router();
+
+// ============================================
+// GOOGLE AUTH
+// ============================================
+
+router.post("/google", validate(googleAuthSchema), googleAuth);
 
 // ============================================
 // REGISTER

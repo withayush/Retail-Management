@@ -171,11 +171,37 @@ const logout = async (req, res, next) => {
   }
 };
 
+const googleAuth = async (req, res, next) => {
+  try {
+    const result = await authService.googleLogin(req.body, {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    res.cookie("accessToken", result.accessToken, accessCookieOptions);
+    res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
+
+    return res.status(200).json({
+      success: true,
+      message: "Google login successful.",
+      data: {
+        account: result.account,
+        vendor: result.vendor,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   verifyPhone,
   resendPhoneOtp,
   login,
+  googleAuth,
   getMe,
   refresh,
   logout,
