@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 const saleRepo = require("../repositories/sale.repository");
 const inventoryService = require("./inventory.service");
+const revenueAnalyticsService = require("./revenueAnalytics.service");
+const cogsAnalyticsService = require("./cogsAnalytics.service");
+const grossProfitAnalyticsService = require("./grossProfitAnalytics.service");
 
 const { withTransaction } = require("../utils/transaction");
 
@@ -40,9 +43,18 @@ const createSale = async (businessId, payload) => {
   }
 
   // Execute POS Checkout atomically
-  return await withTransaction(async (session) => {
+  const createdSale = await withTransaction(async (session) => {
     return await saleRepo.createSale(businessId, payload, session);
   });
+
+  // Real-time auto-sync of Monthly Revenue (T52), COGS (T53) & Gross Profit (T54) Caches
+  if (createdSale?.createdAt) {
+    revenueAnalyticsService.autoSyncOnSaleChange(businessId, createdSale.createdAt).catch(() => {});
+    cogsAnalyticsService.autoSyncOnSaleChange(businessId, createdSale.createdAt).catch(() => {});
+    grossProfitAnalyticsService.autoSyncOnSaleChange(businessId, createdSale.createdAt).catch(() => {});
+  }
+
+  return createdSale;
 };
 
 const getSales = async (businessId, filters = {}, pagination = {}) => {
@@ -127,7 +139,16 @@ const updatePaymentStatus = async (businessId, saleId, payload) => {
     throw error;
   }
 
-  return await saleRepo.updatePaymentStatus(businessId, saleId, payload);
+  const updatedSale = await saleRepo.updatePaymentStatus(businessId, saleId, payload);
+
+  // Real-time auto-sync of Monthly Revenue (T52), COGS (T53) & Gross Profit (T54) Caches
+  if (updatedSale?.createdAt) {
+    revenueAnalyticsService.autoSyncOnSaleChange(businessId, updatedSale.createdAt).catch(() => {});
+    cogsAnalyticsService.autoSyncOnSaleChange(businessId, updatedSale.createdAt).catch(() => {});
+    grossProfitAnalyticsService.autoSyncOnSaleChange(businessId, updatedSale.createdAt).catch(() => {});
+  }
+
+  return updatedSale;
 };
 
 module.exports = {

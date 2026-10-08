@@ -52,3 +52,32 @@ export const deleteExpense = async (id) => {
   const response = await api.delete(`/expenses/${id}`);
   return response.data;
 };
+
+// ============================================
+// TASK T51: MONTHLY OPEX AGGREGATOR CLIENT
+// ============================================
+
+// 9. Get full calendar year OpEx progression & executive metrics
+export const getMonthlyOpExOverview = async (params = {}) => {
+  const response = await api.get("/expenses/monthly-opex", { params });
+  return response.data;
+};
+
+// 10. Get current calendar month OpEx summary with MoM metrics
+export const getCurrentMonthOpEx = async (params = {}) => {
+  const response = await api.get("/expenses/monthly-opex/current", { params });
+  return response.data;
+};
+
+// 11. Get single calendar month detailed aggregated statement
+export const getMonthlyOpExDetail = async (year, month, params = {}) => {
+  const response = await api.get(`/expenses/monthly-opex/${year}/${month}`, { params });
+  return response.data;
+};
+
+// 12. Trigger manual recalculation and cache synchronization
+export const recalculateMonthlyOpEx = async (payload = {}) => {
+  const response = await api.post("/expenses/monthly-opex/recalculate", payload);
+  return response.data;
+};
+

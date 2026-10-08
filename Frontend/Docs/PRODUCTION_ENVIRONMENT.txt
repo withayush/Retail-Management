@@ -1,8 +1,8 @@
 ================================================================================
                   VENDOROS - PRODUCTION ENVIRONMENT & DEPLOYMENT GUIDE          
 ================================================================================
-Last Updated : 2026-09-23
-Live Status  : Production Ready (Phase 0 through Phase 5 Fully Integrated)
+Last Updated : 2026-10-08
+Live Status  : Production Ready (Phase 0 through Phase 9 Fully Integrated - Tasks T1 to T56)
 Platform     : Render (Cloud Web Services & Static Sites)
 Repository   : https://github.com/withayush/Retail-Management.git (Branch: main)
 
@@ -233,18 +233,48 @@ B. BACKEND WEB SERVICE (Render Dashboard):
     - 1-Click CSV statement export engine for accounting and tax compliance.
     - High-performance modal previewer for invoice and receipt attachments.
 
+[✓] 22. MONTHLY OPEX PROGRESSION & MATERIALIZED CACHE (T51)
+    - Materialized 12-month OpEx progression cache (`MonthlyOpExSummary` model) powered by background worker (`monthlyOpEx.worker.js`).
+    - Delivers sub-millisecond overhead lookups (`GET /api/expenses/monthly-opex`), month-over-month (MoM) growth rates, and category spend distributions.
+    - Eliminates repetitive O(N) aggregate calculations across hundreds of raw expense documents.
+
+[✓] 23. MONTHLY REVENUE ENGINE (ACCRUAL BASIS - T52)
+    - Authoritative source of gross sales revenue recognized upon invoice completion under standard accrual principles (`GET /api/sales/analytics/revenue/monthly`).
+    - Excludes CANCELLED invoices; recognizes revenue regardless of payment status (Cash vs Receivables/Udhaar created).
+    - Materialized in `MonthlyRevenueSummary` for instant dashboard and waterfall reporting.
+
+[✓] 24. COST OF GOODS SOLD (COGS) ENGINE & TOP COST DRIVERS (T53)
+    - Evaluates exact merchandise inventory acquisition costs (`GET /api/sales/analytics/cogs/monthly`) using frozen unit cost snapshots (`SaleItem.costPrice × quantity`).
+    - Top Cost Drivers analysis (`GET /api/sales/analytics/cogs/products`) ranking highest-expense SKUs, sales volume, and gross margin contribution.
+    - Materialized in `MonthlyCogsSummary` for rapid fiscal analysis.
+
+[✓] 25. GROSS PROFIT & RETAIL MARGINS ENGINE (T54)
+    - Computes official store gross margin truth: `Gross Profit = Revenue - COGS` (`GET /api/sales/analytics/gross-profit/monthly`).
+    - Real-time diagnostic health check (`/gross-profit/health-check`) evaluating `HEALTHY` (≥ 30%), `MODERATE` (15-30%), and `LOW` (< 15%) margins.
+    - Automated margin compression detection warning merchants of unexpected cost surges (> 3.0% MoM drop).
+
+[✓] 26. OPERATING EXPENSES AGGREGATIONS & CASH BURN (T55)
+    - Maps monthly operational overheads with daily cash burn rate: `Burn Rate = OpEx / Days in Month` (`GET /api/analytics/operating-expenses`).
+    - Annualized run rate projection (`OpEx × 12`) and fixed overheads (Rent, Salaries) vs variable expenses structure.
+    - Bridges Gross Profit with OpEx to calculate intermediate Operating Profit.
+
+[✓] 27. NET PROFIT AGGREGATION SERVICE & FISCAL WATERFALL (T56)
+    - Ultimate bottom-line financial truth: `Net Profit = Gross Profit - Operating Expenses` (`GET /api/analytics/net-profit`).
+    - 3-Stage Visual P&L Waterfall Chart: Revenue (100%) -> COGS Share % -> OpEx Share % -> Net Profit Margin %.
+    - Health classification: `STELLAR_PROFIT` (>20%), `HEALTHY_PROFIT` (10-20%), `SLIM_PROFIT` (0-10%), and `NET_LOSS` (<0%).
+    - Materialized in `MonthlyNetProfitSummary` for multi-year fiscal comparison.
+
 ================================================================================
 5. PRODUCTION DEPLOYMENT & SYNC CHECKLIST
 ================================================================================
 
-
 [x] Step 1: Pre-deployment Build Verification
-    - Frontend: `cd Frontend && npm run build` (Must complete with 0 errors)
-    - Backend: `cd Backend && node tests/test-pos-checkout-transaction.js` (Verify test suites pass)
+    - Frontend: `cd Frontend && npm run build` (Must complete with 0 errors, 2,442 modules transformed)
+    - Backend: `cd Backend && node tests/test-net-profit-aggregations.js` (Verify test suites pass)
 
 [x] Step 2: Push Latest Code to GitHub
     - `git add .`
-    - `git commit -m "feat: complete Phase 4 POS terminal, payments, and khata ledger"`
+    - `git commit -m "feat: complete Phase 9 financial analytics, P&L suite, and reconciliation"`
     - `git push origin main`
 
 [ ] Step 3: Monitor Render Build Logs

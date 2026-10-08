@@ -4,7 +4,7 @@
 Base URL: http://localhost:3001
 Content-Type: application/json
 
-hello.........  Is file me Backend ki saari 80+ APIs (across 12 Modules, Phase 0 to Phase 7), unka kaam (Purpose), Headers, Testing ke liye 
+Is file me Backend ki saari 165+ APIs (across 17 Modules, Phase 0 to Phase 9), unka kaam (Purpose), Headers, Testing ke liye 
 Ready-to-use Dummy Data (JSON / Params) aur Expected Response formats diye gaye hain.
 
 --------------------------------------------------------------------------------
@@ -1994,8 +1994,591 @@ Mathematical Ledger Invariant Maintained:
 `Inventory.availableStock === sum(InventoryLedger.qtyChange)`
 
 ================================================================================
-END OF API DOCUMENTATION & TESTING GUIDE
+MODULE 14: SYSTEM AUDIT & LEDGER RECONCILIATION ENGINE (/api/reconciliation)
 ================================================================================
 
+14.1 FULL SYSTEM RECONCILIATION AUDIT
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/reconciliation?autoFix=false
+Description: Scans all active inventory, customer khata balances, and supplier payables against immutable movement/transaction ledgers to detect mathematical drift.
+Auth:        Required (JWT + T6)
+Headers:     x-business-id
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "isHealthy": false,
+    "systemHealthScore": 88,
+    "totalScannedEntities": 340,
+    "totalDiscrepancies": 3,
+    "modules": {
+      "inventory": {
+        "status": "DISCREPANCY_DETECTED",
+        "scanned": 150,
+        "discrepanciesCount": 1,
+        "discrepancies": [
+          {
+            "productId": "65f1b2c3d4e5f6a7b8c9d0e1",
+            "productName": "Maggi Masala 70g",
+            "actualStock": 45,
+            "expectedStockFromLedger": 40,
+            "discrepancy": 5
+          }
+        ]
+      },
+      "customers": {
+        "status": "DISCREPANCY_DETECTED",
+        "scanned": 120,
+        "discrepanciesCount": 1,
+        "discrepancies": [
+          {
+            "customerId": "66f1f6a7b8c9d0e1f2a3b4c5",
+            "customerName": "Rahul Sharma",
+            "actualBalance": 2500.00,
+            "expectedBalanceFromLedger": 3000.00,
+            "discrepancy": -500.00
+          }
+        ]
+      },
+      "suppliers": {
+        "status": "DISCREPANCY_DETECTED",
+        "scanned": 70,
+        "discrepanciesCount": 1,
+        "discrepancies": [
+          {
+            "supplierId": "66f1f7a8b9c0d1e2f3a4b5c6",
+            "company": "ABC Distributors",
+            "actualPayable": 40000.00,
+            "expectedPayableFromLedger": 45000.00,
+            "discrepancy": -5000.00
+          }
+        ]
+      }
+    }
+  }
+}
 
 
+14.2 AUTO-REPAIR INVENTORY DISCREPANCIES
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/reconciliation/inventory/fix
+Description: Synchronizes physical inventory available stock to the authoritative ledger sum and records audit trail entries.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Inventory discrepancies reconciled successfully.",
+  "data": {
+    "repairedCount": 1,
+    "repairedItems": [
+      {
+        "productId": "65f1b2c3d4e5f6a7b8c9d0e1",
+        "previousStock": 45,
+        "reconciledStock": 40
+      }
+    ]
+  }
+}
+
+
+14.3 AUTO-REPAIR CUSTOMER KHATA DISCREPANCIES
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/reconciliation/customers/fix
+Description: Restores customer materialized currentBalance to match chronological CustomerLedger running total.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Customer khata balances reconciled successfully.",
+  "data": {
+    "repairedCount": 1
+  }
+}
+
+
+14.4 AUTO-REPAIR SUPPLIER PAYABLES DISCREPANCIES
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/reconciliation/suppliers/fix
+Description: Restores supplier materialized payable liability to match Purchase Credit and Disbursement ledger.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "message": "Supplier payables reconciled successfully.",
+  "data": {
+    "repairedCount": 1
+  }
+}
+
+
+14.5 REPAIR ALL DISCREPANCIES ATOMICALLY
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/reconciliation/fix-all
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+MODULE 15: EXPENSE CATEGORIES MANAGEMENT (/api/expense-categories)
+================================================================================
+
+15.1 CREATE EXPENSE CATEGORY
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/expense-categories
+Description: Creates store-scoped operational expense category with optional monthly budget limit.
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "categoryName": "Store Electricity & Power",
+  "description": "Monthly electrical bills and inverter backup maintenance",
+  "monthlyBudgetLimit": 12000,
+  "color": "#FF9F0A",
+  "icon": "Zap",
+  "taxDeductible": true
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Expense category created successfully.",
+  "data": {
+    "_id": "6701a1b2c3d4e5f6a7b8c901",
+    "businessId": "66b4c16c742f36877738d76c",
+    "categoryName": "Store Electricity & Power",
+    "slug": "store-electricity-power",
+    "monthlyBudgetLimit": 12000,
+    "color": "#FF9F0A",
+    "icon": "Zap",
+    "isActive": true,
+    "createdAt": "2026-10-01T08:00:00.000Z"
+  }
+}
+
+
+15.2 LIST EXPENSE CATEGORIES
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/expense-categories?includeArchived=false
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "6701a1b2c3d4e5f6a7b8c901",
+      "categoryName": "Store Electricity & Power",
+      "monthlyBudgetLimit": 12000,
+      "color": "#FF9F0A",
+      "icon": "Zap",
+      "isActive": true,
+      "currentMonthSpend": 8500
+    }
+  ]
+}
+
+
+15.3 EXPENSE CATEGORIES SUMMARY & BUDGET LEAKAGE
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/expense-categories/summary
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalCategories": 8,
+    "activeCategories": 8,
+    "totalBudgetCap": 95000,
+    "totalSpentCurrentMonth": 67000,
+    "budgetUtilizationPercentage": 70.52
+  }
+}
+
+
+15.4 SEED DEFAULT STORE CATEGORIES
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/expense-categories/seed-defaults
+Description: Auto-seeds 8 standard retail categories (Rent, Salaries, Utilities, Marketing, Logistics, Maintenance, Software, General).
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+MODULE 16: EXPENSE TRACKING & MONTHLY OPEX ENGINE (/api/expenses)
+================================================================================
+
+16.1 RECORD NEW STORE EXPENSE
+--------------------------------------------------
+Method:      POST
+Endpoint:    /api/expenses
+Description: Records operational expenditure transaction with auto-generated sequential number (EXP-1001).
+Auth:        Required (JWT + T6)
+
+Dummy Request Body:
+{
+  "categoryId": "6701a1b2c3d4e5f6a7b8c901",
+  "amount": 8500,
+  "expenseDate": "2026-10-05T12:00:00.000Z",
+  "paymentMethod": "UPI",
+  "referenceNumber": "UPI/32948291039",
+  "payee": "Tata Power Corporation",
+  "description": "Store electricity bill for September 2026",
+  "taxAmount": 0,
+  "status": "PAID"
+}
+
+Dummy Response (201 Created):
+{
+  "success": true,
+  "message": "Expense recorded successfully.",
+  "data": {
+    "_id": "6702b2c3d4e5f6a7b8c9d012",
+    "expenseNumber": "EXP-1001",
+    "businessId": "66b4c16c742f36877738d76c",
+    "categoryName": "Store Electricity & Power",
+    "amount": 8500,
+    "expenseDate": "2026-10-05T12:00:00.000Z",
+    "paymentMethod": "UPI",
+    "referenceNumber": "UPI/32948291039",
+    "payee": "Tata Power Corporation",
+    "status": "PAID"
+  }
+}
+
+
+16.2 LIST HISTORICAL EXPENSE LEDGER
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/expenses?page=1&limit=20&month=2026-10&categoryId=&paymentMethod=ALL
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "6702b2c3d4e5f6a7b8c9d012",
+      "expenseNumber": "EXP-1001",
+      "categoryName": "Store Electricity & Power",
+      "amount": 8500,
+      "expenseDate": "2026-10-05T12:00:00.000Z",
+      "paymentMethod": "UPI",
+      "payee": "Tata Power Corporation"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+
+
+16.3 EXPENSE SUMMARY & BUDGET VARIANCE
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/expenses/summary?month=2026-10
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalExpenseAmount": 67000.00,
+    "expensesCount": 6,
+    "averageExpense": 11166.67,
+    "categoryBreakdown": [
+      {
+        "categoryName": "Store Electricity & Power",
+        "totalAmount": 8500.00,
+        "count": 1,
+        "percentage": 12.68
+      }
+    ]
+  }
+}
+
+
+16.4 MONTHLY OPEX 12-MONTH OVERVIEW (T51)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/expenses/monthly-opex?year=2026
+Description: Retrieves 12-calendar-month OpEx progression from precalculated materialized cache.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "months": [
+      {
+        "monthKey": "2026-10",
+        "monthName": "October 2026",
+        "totalOpEx": 67000.00,
+        "billCount": 6,
+        "momGrowthRate": 3.87
+      }
+    ],
+    "ytdTotalOpEx": 480000.00,
+    "monthlyAverage": 48000.00,
+    "peakMonth": "2026-10"
+  }
+}
+
+
+16.5 CURRENT MONTH OPEX SNAPSHOT (T51)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/expenses/monthly-opex/current
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+MODULE 17: FINANCIAL ANALYTICS & FULL P&L SUITE (/api/analytics & /api/sales/analytics)
+================================================================================
+
+17.1 MONTHLY REVENUE ENGINE (ACCRUAL BASIS - T52)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/analytics/revenue/monthly?year=2026
+Description: Official Source of Revenue Truth: Recognizes gross revenue upon sales completion under accrual principles (excludes CANCELLED, ignores payment status).
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "months": [
+      {
+        "monthKey": "2026-10",
+        "monthName": "October 2026",
+        "totalRevenue": 200000.00,
+        "cashCollected": 170000.00,
+        "receivablesCreated": 30000.00,
+        "invoicesCount": 120,
+        "momGrowthPercentage": 14.28
+      }
+    ],
+    "ytdRevenue": 1450000.00,
+    "peakRevenueMonth": "2026-10"
+  }
+}
+
+
+17.2 COST OF GOODS SOLD (COGS) ENGINE (T53)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/analytics/cogs/monthly?year=2026
+Description: Evaluates raw inventory cost: SUM(SaleItem.costPrice * quantity) using frozen historical price snapshots.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "months": [
+      {
+        "monthKey": "2026-10",
+        "monthName": "October 2026",
+        "totalCogs": 120000.00,
+        "unitsSold": 1850,
+        "revenue": 200000.00,
+        "grossProfit": 80000.00,
+        "grossMarginPercentage": 40.00
+      }
+    ],
+    "ytdTotalCogs": 890000.00
+  }
+}
+
+
+17.3 TOP PRODUCT COST DRIVERS (T53)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/analytics/cogs/products?month=2026-10&sortBy=cogs&limit=10
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "productId": "65f1b2c3d4e5f6a7b8c9d0e1",
+      "name": "Commercial Pack A",
+      "sku": "PROD-A",
+      "unitsSold": 300,
+      "revenue": 150000.00,
+      "cogs": 90000.00,
+      "grossProfit": 60000.00,
+      "grossMarginPercentage": 40.00,
+      "costSharePercentage": 75.00
+    }
+  ]
+}
+
+
+17.4 GROSS PROFIT & RETAIL MARGINS ENGINE (T54)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/analytics/gross-profit/monthly?year=2026
+Description: Gross Profit = Revenue - COGS. Evaluates margin health and bridges with OpEx for Operating Profit.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "months": [
+      {
+        "monthKey": "2026-10",
+        "monthName": "October 2026",
+        "revenue": 200000.00,
+        "cogs": 120000.00,
+        "grossProfit": 80000.00,
+        "grossMarginPercentage": 40.00,
+        "healthStatus": "HEALTHY",
+        "operatingExpenses": 65000.00,
+        "operatingProfit": 15000.00,
+        "operatingMarginPercentage": 7.50
+      }
+    ]
+  }
+}
+
+
+17.5 VITAL BUSINESS HEALTH DIAGNOSTIC (T54)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/sales/analytics/gross-profit/health-check
+Description: Diagnostic evaluating HEALTHY (>=30%), MODERATE (15-30%), LOW (<15%), and detecting MoM margin compression (>3% drop).
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "currentMargin": 40.00,
+    "previousMargin": 38.50,
+    "healthStatus": "HEALTHY",
+    "marginCompressionDetected": false,
+    "marginChangePoints": 1.50,
+    "recommendations": [
+      "Gross profit margin is healthy above 30% baseline."
+    ]
+  }
+}
+
+
+17.6 OPERATING EXPENSES AGGREGATIONS & CASH BURN (T55)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/operating-expenses?period=this_month
+Description: Maps daily cash burn, projected monthly burn, annualized run rate, and fixed vs variable overheads.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "periodLabel": "October 2026",
+    "totalOperatingExpense": 65000.00,
+    "dailyBurnRate": 2096.77,
+    "annualizedRunRate": 780000.00,
+    "costStructure": {
+      "fixedOverhead": 52000.00,
+      "fixedPercentage": 80.00,
+      "variableOperating": 13000.00,
+      "variablePercentage": 20.00
+    },
+    "plBridge": {
+      "revenue": 200000.00,
+      "grossProfit": 80000.00,
+      "operatingExpenses": 65000.00,
+      "operatingProfit": 15000.00,
+      "operatingMarginPercentage": 7.50,
+      "coverageRatio": 1.23
+    }
+  }
+}
+
+
+17.7 NET PROFIT AGGREGATION SERVICE (T56)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/net-profit?period=this_month
+Description: The ultimate bottom-line truth. Formula: Net Profit = Gross Profit - Operating Expenses (or Revenue - COGS - OpEx).
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "periodLabel": "October 2026",
+    "revenue": 200000.00,
+    "cogs": 120000.00,
+    "grossProfit": 80000.00,
+    "grossMarginPercentage": 40.00,
+    "operatingExpenses": 65000.00,
+    "netProfit": 15000.00,
+    "netProfitMargin": 7.50,
+    "status": "PROFITABLE",
+    "healthRating": "SLIM_PROFIT",
+    "waterfall": {
+      "cogsShare": 60.00,
+      "opexShare": 32.50,
+      "netProfitShare": 7.50
+    }
+  }
+}
+
+
+17.8 MONTHLY NET PROFIT 12-MONTH OVERVIEW (T56)
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/net-profit/monthly?year=2026
+Description: Full 12-month fiscal bottom-line progression comparing Revenue, COGS, Gross Profit, OpEx, and Net Profit.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "year": 2026,
+    "months": [
+      {
+        "monthKey": "2026-10",
+        "monthName": "October 2026",
+        "revenue": 200000.00,
+        "cogs": 120000.00,
+        "grossProfit": 80000.00,
+        "operatingExpenses": 65000.00,
+        "netProfit": 15000.00,
+        "netProfitMargin": 7.50,
+        "healthRating": "SLIM_PROFIT"
+      }
+    ],
+    "ytdNetProfit": 125000.00
+  }
+}
+
+
+================================================================================
+END OF API DOCUMENTATION & TESTING GUIDE
+================================================================================

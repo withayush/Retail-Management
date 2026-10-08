@@ -14,6 +14,10 @@ const {
   updateExpense,
   archiveExpense,
   getSummary,
+  getMonthlyOpExOverview,
+  getCurrentMonthOpEx,
+  getMonthlyOpExDetail,
+  recalculateMonthlyOpEx,
 } = require("../controllers/expense.controller");
 
 const router = express.Router();
@@ -23,7 +27,15 @@ router.use(authMiddleware);
 router.use(businessMiddleware);
 
 // ============================================
-// EXPENSE API ENDPOINTS (PHASE 8 - T49)
+// MONTHLY OPEX AGGREGATOR ENDPOINTS (PHASE 8 - T51)
+// ============================================
+router.get("/monthly-opex", getMonthlyOpExOverview);
+router.get("/monthly-opex/current", getCurrentMonthOpEx);
+router.get("/monthly-opex/:year/:month", getMonthlyOpExDetail);
+router.post("/monthly-opex/recalculate", recalculateMonthlyOpEx);
+
+// ============================================
+// EXPENSE API ENDPOINTS (PHASE 8 - T49 / T50)
 // ============================================
 
 // Summary Analytics

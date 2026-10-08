@@ -14,7 +14,7 @@ async function runTests() {
   console.log("================================================================================");
 
   try {
-    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/vendoros";
+    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/vendoros";
     await mongoose.connect(mongoUri);
     console.log("Connected to MongoDB successfully.\n");
 
@@ -22,12 +22,14 @@ async function runTests() {
 
     // [TEST 1] Setup Two Multi-Tenant Stores
     const storeAlpha = await Business.create({
+      ownerId: new mongoose.Types.ObjectId(),
       businessName: `Store Alpha Exp T49 ${runId}`,
       ownerPhone: `91971${runId.toString().padStart(7, "0")}`,
       status: "ACTIVE",
     });
 
     const storeBeta = await Business.create({
+      ownerId: new mongoose.Types.ObjectId(),
       businessName: `Store Beta Exp T49 ${runId}`,
       ownerPhone: `91972${runId.toString().padStart(7, "0")}`,
       status: "ACTIVE",

@@ -3,10 +3,10 @@
 ====================================================================================================
 Project Name   : VendorOS (Retail & Kirana Store Management Operating System)
 Repository     : https://github.com/withayush/Retail-Management.git
-Current Status : Phase 0 to Phase 7 (Tasks T1 to T45) - 100% Implemented & Verified
+Current Status : Phase 0 to Phase 9 (Tasks T1 to T56) - 100% Implemented & Verified
 Architecture   : 6-Layer Clean Architecture + Multi-Tenant Isolation + Keyboard-First POS
 Author/Vendor  : Ayush Sharma
-Last Updated   : 2026-09-30
+Last Updated   : 2026-10-08
 
 ====================================================================================================
 TABLE OF CONTENTS
@@ -14,10 +14,10 @@ TABLE OF CONTENTS
 1. PROJECT OVERVIEW & CORE DESIGN PRINCIPLES
 2. COMPLETE TECHNOLOGY STACK
 3. 6-LAYER CLEAN ARCHITECTURE PATTERN (DATA FLOW)
-4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6, T31, T32, T33, T34, T35, T36, T37, T44)
+4. MULTI-TENANT ISOLATION & SECURITY BOUNDARY (T6, T31, T32, T33, T34, T35, T36, T37, T44, T48, T52-T56)
 5. COMPLETE REPOSITORY DIRECTORY TREE & FILE ANATOMY
-6. DATABASE SCHEMAS (20 MONGOOSE MODELS) & RELATIONSHIPS
-7. COMPLETE API MATRIX (80+ ENDPOINTS ACROSS 12 MODULES)
+6. DATABASE SCHEMAS (29 MONGOOSE MODELS) & RELATIONSHIPS
+7. COMPLETE API MATRIX (165+ ENDPOINTS ACROSS 17 MODULES)
 8. DETAILED END-TO-END WORKFLOW PIPELINES (ASCII FLOWCHARTS)
    - 8.1 Authentication & Phone OTP Verification Flow
    - 8.2 Multi-Step Business Onboarding Wizard Flow
@@ -36,8 +36,11 @@ TABLE OF CONTENTS
    - 8.15 Customer 360° CRM & Debt Aging Aggregation Architecture (T36)
    - 8.16 Supplier Master Schema & Procurement Architecture (T37)
    - 8.17 Purchase Order Commitment vs Physical Stock IN Flow (T42-T43)
-   - 8.18 Goods Received Note (GRN) Stock IN & Immutable Ledger Integration (T44)
-9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T36, T38, T41, T44)
+   - 8.18 Goods Received Note (GRN) Stock IN & Immutable Ledger Integration (T44-T45)
+   - 8.19 Cross-System Ledger Reconciliation & Drift Detection Flow (T47)
+   - 8.20 Store Operational Expenses (OpEx) & Category Budget Flow (T48-T51)
+   - 8.21 Full P&L Financial Engines Pipeline (Revenue, COGS, Gross Profit, OpEx, Net Profit Waterfall T52-T56)
+9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T36, T38, T41, T44, T47, T50, T55-T56)
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
 11. SECURITY, REFRESH TOKEN ROTATION (RTR) & SESSION MANAGEMENT
 12. AUTOMATED TESTING SUITES & VERIFICATION COMMANDS
@@ -183,35 +186,47 @@ VenderOS/
 │   │   │   └── env.js                 # Environment variable loader
 │   │   ├── constants/                 # Roles, statuses, and payment method enums
 │   │   ├── controllers/               # HTTP Controller layer
+│   │   │   ├── analytics.controller.js# P&L suite, Revenue, COGS, Gross Profit & OpEx (T52-T56)
 │   │   │   ├── auth.controller.js     # Auth, OTP, login, profile controllers
 │   │   │   ├── business.controller.js # Store onboarding & profile controllers
 │   │   │   ├── category.controller.js # Category CRUD controllers
 │   │   │   ├── customer.controller.js # Customer CRM & Khata controllers
+│   │   │   ├── expense.controller.js  # Store OpEx & monthly summaries (T49-T51)
+│   │   │   ├── expenseCategory.controller.js # Expense categories & budget caps (T48)
 │   │   │   ├── grn.controller.js      # Goods Received Note & stock receipt controllers (T44)
 │   │   │   ├── inventory.controller.js# Stock In/Out, adjusts, and alert controllers
 │   │   │   ├── payment.controller.js  # Payment recording & settlement controllers
 │   │   │   ├── purchaseOrder.controller.js # PO procurement controllers (T42)
+│   │   │   ├── reconciliation.controller.js # System reconciliation & drift detection (T47)
 │   │   │   ├── sale.controller.js     # POS checkout, sales history & PDF controllers
 │   │   │   └── supplier.controller.js # Supplier master & ledger controllers (T37-T41)
 │   │   ├── middlewares/               # Express middlewares
-│   │   │   ├── auth.middleware.js     # JWT & session verification
+│   │   │   ├── auth.middleware.js     # JWT & session verification (Security 3.3 pure cookie support)
 │   │   │   ├── business.middleware.js # T6 Tenant context injector (`req.businessId`)
 │   │   │   ├── error.middleware.js    # Global error response handler
 │   │   │   ├── idempotency.middleware.js # Double-submission protection
 │   │   │   └── validate.middleware.js # Zod schema validator
-│   │   ├── models/                    # 20 Mongoose Schemas
+│   │   ├── models/                    # 29 Mongoose Schemas
 │   │   │   ├── account.model.js       # User credentials & account status
 │   │   │   ├── authAttempt.model.js   # Login audit trail
 │   │   │   ├── business.model.js      # Store profile, GST, address, currency
 │   │   │   ├── businessMember.model.js# Multi-tenant user-to-store role mapping
 │   │   │   ├── category.model.js      # Scoped product categories
+│   │   │   ├── counter.model.js       # Atomic sequence counter (INV-, PO-, GRN-, EXP-) (Bug 2.3)
 │   │   │   ├── customer.model.js      # Customer CRM & credit balance master
 │   │   │   ├── customerLedger.model.js# Immutable Khata debit/credit ledger
+│   │   │   ├── expense.model.js       # Store operational expenditures (T49-T50)
+│   │   │   ├── expenseCategory.model.js# Scoped expense categories with budget limits (T48)
 │   │   │   ├── grn.model.js           # Goods Received Note & physical receipt log (T44)
 │   │   │   ├── inventory.model.js     # Physical stock master & reorder levels
 │   │   │   ├── inventoryAlert.model.js# Deterministic low-stock notification queue
 │   │   │   ├── inventoryLedger.model.js# Immutable stock movement audit trail
 │   │   │   ├── invoice.model.js       # Sales header & sequential invoice tracker
+│   │   │   ├── monthlyCogsSummary.model.js # Materialized COGS and margins (T53)
+│   │   │   ├── monthlyGrossProfitSummary.model.js # Materialized Gross Profit summaries (T54)
+│   │   │   ├── monthlyNetProfitSummary.model.js # Materialized Net Profit & P&L Waterfall (T56)
+│   │   │   ├── monthlyOpExSummary.model.js # Materialized monthly OpEx progression (T51)
+│   │   │   ├── monthlyRevenueSummary.model.js # Materialized Accrual Gross Revenue (T52)
 │   │   │   ├── otpChallenge.model.js  # 6-digit phone verification codes
 │   │   │   ├── payment.model.js       # Multi-tranche payment records
 │   │   │   ├── product.model.js       # Master product catalog & pricing
@@ -224,9 +239,10 @@ VenderOS/
 │   │   │   └── vendor.model.js        # Vendor owner & onboarding draft state
 │   │   ├── repositories/              # Tenant-isolated DB query modules
 │   │   ├── routes/                    # API route declarations
-│   │   ├── services/                  # Business logic engines
+│   │   ├── services/                  # Business logic engines & P&L analytics
 │   │   └── utils/                     # Token helpers, phone normalizers, PDF generator
-│   └── tests/                         # Automated end-to-end test suites
+│   │   └── workers/                   # Background aggregation workers (monthlyOpEx.worker.js)
+│   └── tests/                         # Automated end-to-end test suites (50+ suites)
 │
 └── Frontend/
     ├── index.html                     # HTML root template
@@ -234,10 +250,11 @@ VenderOS/
     ├── vite.config.js                 # Vite build & plugin configuration
     ├── tailwind.config.js             # Tailwind CSS theme tokens
     ├── Docs/
+    │   ├── DESIGN_SYSTEM.txt          # Master frontend design system specifications
     │   ├── LOCAL_ENVIRONMENT.txt      # Local frontend environment guide
     │   └── PRODUCTION_ENVIRONMENT.txt # Render deployment and production tracker
     └── src/
-        ├── App.jsx                    # Root React component
+        ├── App.jsx                    # Root React component & route trees
         ├── main.jsx                   # React 19 DOM entry point
         ├── index.css                  # Global styles & design system tokens
         ├── context/
@@ -255,24 +272,28 @@ VenderOS/
         │   ├── business.api.js        # Business API calls
         │   ├── category.api.js        # Category API calls
         │   ├── customer.api.js        # Customer & Khata API calls
+        │   ├── expense.api.js         # Expense & OpEx API calls (T48-T51)
         │   ├── inventory.api.js       # Stock & Ledger API calls
         │   ├── product.api.js         # Product catalog API calls
         │   ├── purchaseOrder.api.js   # PO & GRN API calls (T42-T44)
-        │   ├── sale.api.js            # Sales & POS API calls
+        │   ├── reconciliation.api.js  # System reconciliation API calls (T47)
+        │   ├── sale.api.js            # Sales, POS & Financial Analytics API calls (T52-T56)
         │   └── supplier.api.js        # Supplier & Accounts Payable API calls (T37-T41)
-        └── features/                  # Feature Modules
+        └── features/                  # Feature Modules (11 Full Functional Areas)
             ├── auth/                  # Login, Register, VerifyOTP
             ├── business/              # 3-Step Business Onboarding Wizard
             ├── dashboard/             # Vendor Dashboard Home
             ├── products/              # Catalog table, filters, product form, categories modal
             ├── inventory/             # Store state, ledger table, alerts queue, stock modals
-            ├── pos/                   # POS terminal, quick cart, payments modal, receipts
+            ├── pos/                   # POS terminal, quick cart, payments modal, receipts, OpEx
             ├── customers/             # Customer CRM, stats cards, ledger modal, settle modal
             ├── suppliers/             # Supplier directory, 360 profile, PO manager, GRN receipt log
-            └── sales/                 # Invoices history table, detail view, PDF download
+            ├── sales/                 # Invoices history table, detail view, PDF download
+            ├── expenses/              # Expense tracking, budget variance, categories modal (T48-T50)
+            └── reconciliation/        # System health audit, drift detection, 1-click auto-fix (T47)
 
 ====================================================================================================
-6. DATABASE SCHEMAS (20 MONGOOSE MODELS) & RELATIONSHIPS
+6. DATABASE SCHEMAS (29 MONGOOSE MODELS) & RELATIONSHIPS
 ====================================================================================================
 
 1. `Account`: User credentials (`email`, `phone`, `passwordHash`, `status: ACTIVE | PENDING`).
@@ -297,13 +318,22 @@ VenderOS/
 19. `PurchaseOrder`: Stock order commitment (`poNumber`, `supplierId`, `status: DRAFT | PENDING | PARTIAL | RECEIVED | CANCELLED`, `costTotal`, `items`).
 20. `PurchaseItem`: Frozen PO line cost, ordered quantity, and fulfilled `receivedQty` snapshot.
 21. `GoodsReceivedNote`: Physical goods reception record (`grnNumber: GRN-1001`, `poNumber`, `items`, `totalItemsReceived`, `totalCostReceived`, `deliveryChallanNumber`, `invoiceNumber`).
+22. `ExpenseCategory`: Scoped store overhead accounts (`categoryName`, `slug`, `monthlyBudgetLimit`, `color`, `icon`, `taxDeductible`, `isActive`).
+23. `Expense`: Sequential store operational expenses (`expenseNumber: EXP-1001`, `amount`, `categoryId`, `expenseDate`, `paymentMethod`, `payee`, `status`).
+24. `MonthlyOpExSummary`: Materialized monthly overhead progression (`year`, `month`, `monthKey`, `totalOpEx`, `billCount`, `categoryBreakdown`, `momGrowthRate`).
+25. `MonthlyRevenueSummary`: Official source of gross revenue truth under accrual accounting (`year`, `month`, `monthKey`, `totalRevenue`, `cashCollected`, `receivablesCreated`).
+26. `MonthlyCogsSummary`: Cost of Goods Sold evaluation using frozen price snapshots (`year`, `month`, `totalCogs`, `unitsSold`, `revenue`, `grossProfit`, `grossMarginPercentage`).
+27. `MonthlyGrossProfitSummary`: Margins engine (`grossProfit`, `grossMarginPercentage`, `healthStatus`, `operatingExpenses`, `operatingProfit`, `operatingMarginPercentage`).
+28. `MonthlyNetProfitSummary`: Bottom-line fiscal truth & P&L Waterfall (`revenue`, `cogs`, `grossProfit`, `operatingExpenses`, `netProfit`, `netProfitMargin`, `status`, `healthRating`, `waterfall`).
+29. `Counter`: Distributed atomic sequential counter generator (`key`, `seq`) eliminating ID collision race conditions (Bug 2.3).
 
 ====================================================================================================
-7. COMPLETE API MATRIX (80+ ENDPOINTS ACROSS 12 MODULES)
+7. COMPLETE API MATRIX (165+ ENDPOINTS ACROSS 17 MODULES)
 ====================================================================================================
 
 MODULE 1: SYSTEM & HEALTH
   GET    /                                      -> Server health check
+  GET    /health                                -> System uptime & health heartbeat
 
 MODULE 2: AUTHENTICATION & SESSIONS (`/api/auth`)
   POST   /api/auth/register                     -> Register new account + generate OTP
@@ -428,6 +458,48 @@ MODULE 12: GOODS RECEIVED NOTE (GRN) API (`/api/purchases`) (T44)
   GET    /api/purchases/grn/:id                 -> Single GRN details with line-by-line received variances
   GET    /api/purchases/grn/po/:poId            -> Get receiving history for a specific PO
   GET    /api/purchases/grn/summary             -> GRN KPI totals (Completed GRNs, Stock In Units, Cost)
+
+MODULE 13: AUTO INVENTORY IN DEDUCTIONS / INFLOW ENGINE (T45)
+  - Internal Service Engine integrating GRN delivery confirmation directly with available sellable stock.
+  - Generates immutable `InventoryLedger` entries with `source: 'GOODS_RECEIPT'`.
+  - Maintains strict mathematical ledger invariant: `availableStock === sum(InventoryLedger.qtyChange)`.
+
+MODULE 14: SYSTEM AUDIT & LEDGER RECONCILIATION ENGINE (`/api/reconciliation`) (T47)
+  GET    /api/reconciliation                    -> Full system mathematical health audit (Inventory, Customer, Supplier)
+  POST   /api/reconciliation/inventory/fix      -> Auto-repair detected inventory physical stock drifts
+  POST   /api/reconciliation/customers/fix      -> Auto-repair customer khata outstanding balance drifts
+  POST   /api/reconciliation/suppliers/fix      -> Auto-repair supplier accounts payable liability drifts
+  POST   /api/reconciliation/fix-all            -> Atomic self-healing repair across all store subsystems
+
+MODULE 15: EXPENSE CATEGORIES MANAGEMENT (`/api/expense-categories`) (T48)
+  POST   /api/expense-categories                -> Create store operational expense category with monthly budget cap
+  GET    /api/expense-categories                -> List active expense categories with budget usage
+  GET    /api/expense-categories/summary        -> Expense categories summary & total budget utilization
+  GET    /api/expense-categories/:id            -> Single expense category details
+  PUT    /api/expense-categories/:id            -> Update expense category & budget limits
+  DELETE /api/expense-categories/:id            -> Safe soft-delete / archive expense category
+  POST   /api/expense-categories/seed-defaults  -> Auto-seed 8 standard retail operational overhead categories
+
+MODULE 16: EXPENSE TRACKING & MONTHLY OPEX ENGINE (`/api/expenses`) (T49-T51)
+  POST   /api/expenses                          -> Record new store operational expenditure (Sequential EXP-1001)
+  GET    /api/expenses                          -> List expense ledger entries (Filtered by month, category, payment mode)
+  GET    /api/expenses/summary                  -> Expense KPI summary & category breakdown
+  GET    /api/expenses/monthly-opex             -> 12-Month OpEx progression overview from materialized cache (T51)
+  GET    /api/expenses/monthly-opex/current     -> Real-time current month OpEx snapshot
+  GET    /api/expenses/:id                      -> Single expense transaction details with receipt attachment
+  PUT    /api/expenses/:id                      -> Update expense details & payee
+  DELETE /api/expenses/:id                      -> Cancel / soft-delete expense transaction
+
+MODULE 17: FINANCIAL ANALYTICS & FULL P&L SUITE (`/api/analytics` & `/api/sales/analytics`) (T52-T56)
+  GET    /api/sales/analytics/revenue/monthly   -> Monthly Gross Revenue Engine (Accrual basis truth, T52)
+  GET    /api/sales/analytics/cogs/monthly      -> Cost of Goods Sold (COGS) Engine (Frozen line items cost, T53)
+  GET    /api/sales/analytics/cogs/products     -> Top Product Cost Drivers ranking & gross margin % (T53)
+  GET    /api/sales/analytics/gross-profit/monthly -> Gross Profit & Retail Margins Engine (Revenue - COGS, T54)
+  GET    /api/sales/analytics/gross-profit/health-check -> Diagnostic health check (HEALTHY / MODERATE / LOW margins, T54)
+  GET    /api/analytics/operating-expenses      -> Operating Expenses & Daily Cash Burn Rate Engine (T55)
+  GET    /api/analytics/net-profit              -> Net Profit Aggregation Service & Waterfall breakdown (T56)
+  GET    /api/analytics/net-profit/monthly      -> Full 12-Month bottom-line P&L progression (T56)
+
 
 ====================================================================================================
 8. DETAILED END-TO-END WORKFLOW PIPELINES (ASCII FLOWCHARTS)
@@ -748,8 +820,99 @@ GRN Completed Document                Inventory Service Layer                Mon
         │ 7. Available Stock Active & Sellable      │                                      │
         │◄──────────────────────────────────────────┤                                      │
 
+----------------------------------------------------------------------------------------------------
+8.19 CROSS-SYSTEM LEDGER RECONCILIATION & DRIFT DETECTION FLOW (T47)
+----------------------------------------------------------------------------------------------------
+
+Admin / Merchant UI             Reconciliation Controller / Service          MongoDB Collections
+        │                                           │                                      │
+        │ 1. GET /api/reconciliation                │                                      │
+        ├──────────────────────────────────────────►│ 2. Scan Inventory Drift:             │
+        │                                           │    actualStock vs sum(qtyChange)     │
+        │                                           │ 3. Scan Customer Khata Drift:        │
+        │                                           │    currentBalance vs sum(Credit-Debit│
+        │                                           │ 4. Scan Supplier Payable Drift:      │
+        │                                           │    currentBalance vs sum(Credit-Debit│
+        │                                           ├─────────────────────────────────────►│
+        │                                           │ 5. Compute System Integrity Score %  │
+        │ 6. 200 OK (Discrepancy Report)            │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+        │                                           │                                      │
+        │ 7. POST /api/reconciliation/fix-all       │                                      │
+        ├──────────────────────────────────────────►│ 8. ATOMIC RECONCILIATION FIX:        │
+        │                                           │    - Sync Inventory Stock to Ledger  │
+        │                                           │    - Sync Customer Balance to Ledger │
+        │                                           │    - Sync Supplier Payable to Ledger │
+        │                                           │    - Append SYSTEM_AUDIT Log Entries │
+        │                                           ├─────────────────────────────────────►│
+        │ 9. 200 OK (All Subsystems Repaired)       │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
+----------------------------------------------------------------------------------------------------
+8.20 STORE OPERATIONAL EXPENSES (OPEX) & CATEGORY BUDGET FLOW (T48-T51)
+----------------------------------------------------------------------------------------------------
+
+Merchant / Staff                        Expense Service                      Expense & OpEx Models
+        │                                           │                                      │
+        │ 1. POST /api/expenses                     │                                      │
+        │    { categoryId, amount: 8500, payee }    │                                      │
+        ├──────────────────────────────────────────►│ 2. Validate Active ExpenseCategory   │
+        │                                           │ 3. Atomic Sequential EXP-1001 via    │
+        │                                           │    `Counter.getNextSequence()`       │
+        │                                           │ 4. Insert Expense Document           │
+        │                                           ├─────────────────────────────────────►│
+        │                                           │ 5. Invalidate / Trigger Worker Sync: │
+        │                                           │    `monthlyOpEx.worker.js`           │
+        │                                           │    Update `MonthlyOpExSummary` Cache │
+        │                                           │    (Compute MoM growth & totals)     │
+        │                                           ├─────────────────────────────────────►│
+        │ 6. 201 Created (EXP-1001 Recorded)        │                                      │
+        │◄──────────────────────────────────────────┤                                      │
+
+----------------------------------------------------------------------------------------------------
+8.21 FULL P&L FINANCIAL ENGINES PIPELINE (REVENUE -> COGS -> GROSS PROFIT -> OPEX -> NET PROFIT T52-T56)
+----------------------------------------------------------------------------------------------------
+
+        ┌────────────────────────────────────────────────────────┐
+        │  GROSS REVENUE ENGINE (Accrual Basis - T52)            │
+        │  Revenue = Σ(Invoice.grandTotal) [Excludes CANCELLED]   │
+        │  Cash Collected vs Receivables Created                 │
+        └───────────────────────────┬────────────────────────────┘
+                                    │
+                                    ▼ Minus
+        ┌────────────────────────────────────────────────────────┐
+        │  COST OF GOODS SOLD (COGS) ENGINE (T53)                │
+        │  COGS = Σ(SaleItem.costPrice * quantity) [Frozen Cost] │
+        │  Top Cost Drivers Analysis                             │
+        └───────────────────────────┬────────────────────────────┘
+                                    │
+                                    ▼ Equals
+        ┌────────────────────────────────────────────────────────┐
+        │  GROSS PROFIT & RETAIL MARGINS ENGINE (T54)            │
+        │  Gross Profit = Revenue - COGS                         │
+        │  Gross Margin % = (Gross Profit / Revenue) * 100       │
+        │  Health Diagnostic: HEALTHY (≥30%) | MODERATE | LOW    │
+        └───────────────────────────┬────────────────────────────┘
+                                    │
+                                    ▼ Minus
+        ┌────────────────────────────────────────────────────────┐
+        │  OPERATING EXPENSES & CASH BURN ENGINE (T51, T55)      │
+        │  Total OpEx = Σ(Expense.amount) [Precalculated Cache]  │
+        │  Daily Burn Rate = Total OpEx / Days in Month          │
+        │  Fixed Overhead (Rent/Salary) vs Variable (Transport)  │
+        └───────────────────────────┬────────────────────────────┘
+                                    │
+                                    ▼ Equals
+        ┌────────────────────────────────────────────────────────┐
+        │  NET PROFIT & BOTTOM-LINE WATERFALL ENGINE (T56)       │
+        │  Net Profit = Gross Profit - Operating Expenses        │
+        │  Net Margin % = (Net Profit / Revenue) * 100           │
+        │  Status: PROFITABLE | BREAK_EVEN | LOSS                │
+        │  3-Stage Waterfall: COGS Share % + OpEx % + Net %     │
+        └────────────────────────────────────────────────────────┘
+
 ====================================================================================================
-9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T36, T38, T41, T44, T45)
+9. FRONTEND ARCHITECTURE, CUSTOM HOOKS & UI COMPONENTS (T30, T32, T36, T38, T41, T44, T47, T50, T55-T56)
 ====================================================================================================
 
 1. Hardware Barcode Scanner Hook (`useBarcodeScanner.js`):
@@ -807,6 +970,22 @@ GRN Completed Document                Inventory Service Layer                Mon
    - `GoodsReceivedNotesModal.jsx`: Store-wide GRN master audit log displaying completed receipts, search,
      filters, and expandable received line-item breakdown with variance tracking (Exact, Pending, Excess).
 
+14. System Audit & Reconciliation Center (`ReconciliationPage.jsx`) (T47):
+   Full-screen integrity control center displaying Real-time System Integrity Score (%), total audited records,
+   detected discrepancies, live discrepancy cards across Inventory, Customer Khata, and Supplier Payables,
+   and 1-click atomic auto-repair trigger modal.
+
+15. Store Operational Expenses Center (`ExpensesPage.jsx`, `RecordExpenseModal.jsx`, `ExpenseCategoryModal.jsx`, `ExpenseLedgerTable.jsx`) (T48-T50):
+   Store overhead management suite with expense category definitions, monthly budget limit alerts,
+   sequential expense recording (`EXP-1001`), payment mode classification, and filterable monthly ledger.
+
+16. Monthly OpEx & Burn Analytics (`MonthlyOpExAggregations.jsx`) (T51, T55):
+   12-Month OpEx progression charts, category allocation bar charts, MoM growth rates, and daily cash burn metrics.
+
+17. Executive Financial P&L Suite & Waterfall Analytics (T52-T56):
+   Unifies Gross Revenue (Accrual), Cost of Goods Sold (COGS), Gross Profit margins, Operating Overheads,
+   and Net Profit into an executive dashboard with 3-stage visual Waterfall charts and margin health diagnostics.
+
 ====================================================================================================
 10. CASHIER KEYBOARD SHORTCUTS REFERENCE TABLE
 ====================================================================================================
@@ -840,56 +1019,107 @@ GRN Completed Document                Inventory Service Layer                Mon
    If an old, previously rotated refresh token is presented again (indicating potential token theft),
    the system immediately terminates and revokes the entire user session, forcing a re-login.
 
+4. Pure HttpOnly Cookie Authentication (Security 3.3):
+   Zero JWT tokens are stored in `localStorage` or `sessionStorage`, completely neutralizing client-side
+   XSS session hijacking vectors.
+
 ====================================================================================================
 12. AUTOMATED TESTING SUITES & VERIFICATION COMMANDS
 ====================================================================================================
 
 All backend test suites are located in `Backend/tests/`:
 
-1. Auto Inventory IN Deductions & Invariant Test (T45):
-   `node tests/test-auto-inventory-in-deductions.js`
-2. Goods Received Note (GRN) API & Stock Receive Test (T44):
-   `node tests/test-goods-received-note-api.js`
-3. Purchase Item Schema Model & Snapshot Test (T43):
-   `node tests/test-purchase-item-schema-model.js`
-3. Purchase Order Schema Model & Multi-Tenant Test (T42):
-   `node tests/test-purchase-order-schema-model.js`
-4. Supplier 360° Management Center Test (T41):
-   `node tests/test-supplier-360-management-center.js`
-5. Supplier Outstanding Payables Indexer Test (T40):
-   `node tests/test-supplier-outstanding-payables-indexer.js`
-6. Supplier Ledger Transaction Log Test (T39):
-   `node tests/test-supplier-ledger-transaction-log.js`
-7. Supplier CRUD APIs & Lifecycle Test (T38):
-   `node tests/test-supplier-crud-apis.js`
-8. Supplier Schema DB Model & Multi-Tenant Test (T37):
-   `node tests/test-supplier-schema-model.js`
-9. Customer 360° CRM & Debt Aging Profiling Test (T36):
-   `node tests/test-customer-crm-profiling.js`
-10. Customer Credit Payment History Test (T35):
-   `node tests/test-customer-payment-history.js`
-11. Real-Time Customer Outstanding Calculations Test (T34):
-   `node tests/test-customer-realtime-outstanding.js`
-12. Customer Ledger Transaction Log Test (T33):
-   `node tests/test-customer-ledger-transaction-log.js`
-13. Customer CRUD APIs & Phone Normalization Test (T32):
-   `node tests/test-customer-crud-apis.js`
-14. Customer Schema DB Model Test (T31):
-   `node tests/test-customer-schema-model.js`
-15. Customer Credit & Khata Ledger Test (T29):
-   `node tests/test-customer-credit-integration.js`
-16. Payment Recording & Multi-Tranche Settlement Test (T28):
-   `node tests/test-payment-recording-entity.js`
-17. POS Checkout Atomic Transaction & Rollback Test (T25):
-   `node tests/test-pos-checkout-transaction.js`
-18. Sale Line Items Price Snapshot Test (T24):
-   `node tests/test-sale-items-snapshot.js`
-19. Invoice PDF Generation Test (T27):
-   `node tests/test-invoice-pdf-generation.js`
-20. Low-Stock Alerts Queue Test (T22):
-   `node tests/test-low-stock-notifications.js`
-21. Inventory Ledger Statement Test (T21):
-   `node tests/test-inventory-ledger-ui.js`
+Phase 9: Financial Analytics & Full P&L Suite
+1. Net Profit Aggregation Service & Waterfall Test (T56):
+   `node tests/test-net-profit-aggregations.js`
+2. OpEx Analytics & Daily Cash Burn Rate Test (T55):
+   `node tests/test-opex-analytics.js`
+3. Monthly Gross Profit Engine & Health Check Test (T54):
+   `node tests/test-monthly-gross-profit-engine.js`
+4. Monthly COGS Engine & Top Cost Drivers Test (T53):
+   `node tests/test-monthly-cogs-engine.js`
+5. Monthly Revenue Accrual Engine Test (T52):
+   `node tests/test-monthly-revenue-aggregations.js`
+
+Phase 8: Store Operational Expenses (OpEx)
+6. Monthly OpEx Progression & Materialized Cache Test (T51):
+   `node tests/test-monthly-opex-summary-model.js`
+7. Expense Historical Ledger UI & Leakage Test (T50):
+   `node tests/test-expense-historical-ledger.js`
+8. Create Expense API Endpoint & Sequential EXP-1001 Test (T49):
+   `node tests/test-create-expense-api.js`
+9. Expense Category Configurations & Budget Limits Test (T48):
+   `node tests/test-expense-category-model.js`
+
+Phase 7: Procurement, GRN & Reconciliation
+10. System Reconciliation Engine & Drift Self-Healing Test (T47):
+    `node tests/test-reconciliation-engine.js`
+11. Supplier Payable Handler Integration Test (T46):
+    `node tests/test-supplier-payable-update-handler.js`
+12. Auto Inventory IN Deductions & Invariant Test (T45):
+    `node tests/test-auto-inventory-in-deductions.js`
+13. Goods Received Note (GRN) API & Stock Receive Test (T44):
+    `node tests/test-goods-received-note-api.js`
+14. Purchase Item Schema Model & Snapshot Test (T43):
+    `node tests/test-purchase-item-schema-model.js`
+15. Purchase Order Schema Model & Multi-Tenant Test (T42):
+    `node tests/test-purchase-order-schema-model.js`
+
+Phase 6: Supplier Directory & Accounts Payable
+16. Supplier 360° Management Center Test (T41):
+    `node tests/test-supplier-360-management-center.js`
+17. Supplier Outstanding Payables Indexer Test (T40):
+    `node tests/test-supplier-outstanding-payables-indexer.js`
+18. Supplier Ledger Transaction Log Test (T39):
+    `node tests/test-supplier-ledger-transaction-log.js`
+19. Supplier CRUD APIs & Lifecycle Test (T38):
+    `node tests/test-supplier-crud-apis.js`
+20. Supplier Schema DB Model & Multi-Tenant Test (T37):
+    `node tests/test-supplier-schema-model.js`
+
+Phase 5: Customer CRM & Khata
+21. Customer 360° CRM & Debt Aging Profiling Test (T36):
+    `node tests/test-customer-crm-profiling.js`
+22. Customer Credit Payment History Test (T35):
+    `node tests/test-customer-payment-history.js`
+23. Real-Time Customer Outstanding Calculations Test (T34):
+    `node tests/test-customer-realtime-outstanding.js`
+24. Customer Ledger Transaction Log Test (T33):
+    `node tests/test-customer-ledger-transaction-log.js`
+25. Customer CRUD APIs & Phone Normalization Test (T32):
+    `node tests/test-customer-crud-apis.js`
+26. Customer Schema DB Model Test (T31):
+    `node tests/test-customer-schema-model.js`
+
+Phase 4: POS Billing & Sales Invoicing
+27. Customer Credit & Khata Ledger Test (T29):
+    `node tests/test-customer-credit-integration.js`
+28. Payment Recording & Multi-Tranche Settlement Test (T28):
+    `node tests/test-payment-recording-entity.js`
+29. POS Checkout Atomic Transaction & Rollback Test (T25):
+    `node tests/test-pos-checkout-transaction.js`
+30. Sale Line Items Price Snapshot Test (T24):
+    `node tests/test-sale-items-snapshot.js`
+31. Invoice PDF Generation Test (T27):
+    `node tests/test-invoice-pdf-generation.js`
+
+Phase 3: Inventory Movement & Ledgers
+32. Low-Stock Alerts Queue Test (T22):
+    `node tests/test-low-stock-notifications.js`
+33. Inventory Ledger Statement Test (T21):
+    `node tests/test-inventory-ledger-ui.js`
+
+Concurrency & Security Quality Gate Tests:
+34. Concurrency Decrement vs Save Overwrite Test (Bug 2.2):
+    `node tests/test-bug-2.2-concurrency-save-fix.js`
+35. Sequential Counter Race Condition Generator Test (Bug 2.3):
+    `node tests/test-bug-2.3-sequential-counter-race-fix.js`
+36. Identity Property Mismatch Aliasing Test (Bug 2.4):
+    `node tests/test-bug-2.4-identity-property-mismatch-fix.js`
+37. Pure HttpOnly Cookie Authentication Security Test (Security 3.3):
+    `node tests/test-security-3.3-cookie-auth.js`
+38. Idempotency Key Processing & Lock Engine Test (Bug 2.6):
+    `node tests/test-idempotency-engine.js`
 
 Frontend Build Verification:
    `cd Frontend && npm run build` (Builds clean in < 2 seconds with 0 errors).

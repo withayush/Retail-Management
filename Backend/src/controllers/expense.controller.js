@@ -1,4 +1,5 @@
 const expenseService = require("../services/expense.service");
+const monthlyOpExService = require("../services/monthlyOpEx.service");
 
 /**
  * Expense Controller Layer
@@ -123,6 +124,80 @@ const getSummary = async (req, res, next) => {
   }
 };
 
+// ============================================
+// MONTHLY OPEX AGGREGATOR CONTROLLERS (T51)
+// ============================================
+
+const getMonthlyOpExOverview = async (req, res, next) => {
+  try {
+    const year = req.query.year || new Date().getUTCFullYear();
+    const forceRefresh = req.query.forceRefresh === "true" || req.query.forceRefresh === true;
+
+    const data = await monthlyOpExService.getYearlyOpExOverview(req.businessId, year, { forceRefresh });
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCurrentMonthOpEx = async (req, res, next) => {
+  try {
+    const forceRefresh = req.query.forceRefresh === "true" || req.query.forceRefresh === true;
+    const data = await monthlyOpExService.getCurrentMonthOpEx(req.businessId, forceRefresh);
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMonthlyOpExDetail = async (req, res, next) => {
+  try {
+    const { year, month } = req.params;
+    const forceRefresh = req.query.forceRefresh === "true" || req.query.forceRefresh === true;
+
+    const data = await monthlyOpExService.getMonthlyOpExSummary(req.businessId, {
+      year: Number(year),
+      month: Number(month),
+      forceRefresh,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const recalculateMonthlyOpEx = async (req, res, next) => {
+  try {
+    const { year, month } = req.body || {};
+    let result;
+
+    if (year && month) {
+      result = await monthlyOpExService.recalculateMonth(req.businessId, Number(year), Number(month));
+    } else {
+      const targetYear = year || new Date().getUTCFullYear();
+      result = await monthlyOpExService.recalculateYear(req.businessId, Number(targetYear));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Monthly OpEx summary recalculated and cached successfully.",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createExpense,
   getExpenses,
@@ -131,4 +206,9 @@ module.exports = {
   updateExpense,
   archiveExpense,
   getSummary,
+  getMonthlyOpExOverview,
+  getCurrentMonthOpEx,
+  getMonthlyOpExDetail,
+  recalculateMonthlyOpEx,
 };
+

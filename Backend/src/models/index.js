@@ -22,6 +22,11 @@ const { Supplier, SupplierLedger } = require("./supplier.model");
 const IdempotencyKey = require("./idempotency.model");
 const Vendor = require("./vendor.model");
 const Counter = require("./counter.model");
+const MonthlyOpExSummary = require("./monthlyOpExSummary.model");
+const MonthlyRevenueSummary = require("./monthlyRevenueSummary.model");
+const MonthlyCogsSummary = require("./monthlyCogsSummary.model");
+const MonthlyGrossProfitSummary = require("./monthlyGrossProfitSummary.model");
+const MonthlyNetProfitSummary = require("./monthlyNetProfitSummary.model");
 
 module.exports = {
   Account,
@@ -46,6 +51,11 @@ module.exports = {
   PurchaseOrderHistory,
   ExpenseCategory,
   Expense,
+  MonthlyOpExSummary,
+  MonthlyRevenueSummary,
+  MonthlyCogsSummary,
+  MonthlyGrossProfitSummary,
+  MonthlyNetProfitSummary,
   Session,
   Supplier,
   SupplierLedger,

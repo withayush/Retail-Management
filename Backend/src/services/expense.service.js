@@ -1,5 +1,6 @@
 const expenseRepository = require("../repositories/expense.repository");
 const expenseCategoryRepository = require("../repositories/expenseCategory.repository");
+const monthlyOpExService = require("./monthlyOpEx.service");
 
 class ExpenseService {
   /**
@@ -55,7 +56,7 @@ class ExpenseService {
     const createdByName = accountUser?.name || accountUser?.phone || "Store Admin";
 
     // 4. Create Immutable Expense Transaction
-    return await expenseRepository.createExpense({
+    const createdExpense = await expenseRepository.createExpense({
       businessId,
       categoryId: category._id,
       categoryName: category.categoryName,
@@ -67,12 +68,17 @@ class ExpenseService {
       referenceNumber: referenceNumber || "",
       payee: payee || "",
       description: description || "",
-      taxAmount: Number(taxAmount) || 0,
+      taxAmount: Math.max(0, Number(taxAmount) || 0),
       attachment: attachment || { fileName: "", url: "", fileType: "", fileSize: 0 },
       status: status || "PAID",
       createdBy,
       createdByName,
     });
+
+    // 5. Auto-sync Monthly OpEx Aggregator Engine cache (T51)
+    monthlyOpExService.autoSyncOnExpenseChange(businessId, createdExpense.expenseDate).catch(() => {});
+
+    return createdExpense;
   }
 
   /**
@@ -161,7 +167,17 @@ class ExpenseService {
       updateData.categoryColor = newCategory.color || "#8E8E93";
     }
 
-    return await expenseRepository.updateExpenseById(businessId, expenseId, updateData);
+    const updated = await expenseRepository.updateExpenseById(businessId, expenseId, updateData);
+
+    // Auto-sync Monthly OpEx Aggregator Engine cache (T51)
+    if (updated?.expenseDate) {
+      monthlyOpExService.autoSyncOnExpenseChange(businessId, updated.expenseDate).catch(() => {});
+    }
+    if (existing.expenseDate && (!updated?.expenseDate || existing.expenseDate.getTime() !== updated.expenseDate.getTime())) {
+      monthlyOpExService.autoSyncOnExpenseChange(businessId, existing.expenseDate).catch(() => {});
+    }
+
+    return updated;
   }
 
   /**
@@ -181,7 +197,14 @@ class ExpenseService {
       throw error;
     }
 
-    return await expenseRepository.archiveExpenseById(businessId, expenseId);
+    const archived = await expenseRepository.archiveExpenseById(businessId, expenseId);
+
+    // Auto-sync Monthly OpEx Aggregator Engine cache (T51)
+    if (existing.expenseDate) {
+      monthlyOpExService.autoSyncOnExpenseChange(businessId, existing.expenseDate).catch(() => {});
+    }
+
+    return archived;
   }
 
   /**

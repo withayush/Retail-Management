@@ -1,11 +1,11 @@
 ================================================================================
                          VENDOROS - PROJECT PROGRESS
 ================================================================================
-Last Updated : 2026-09-30
+Last Updated : 2026-10-08
 Stack        : Node.js (CommonJS), Express 5.x, MongoDB (Mongoose), JWT, Zod, Bcrypt, PDFKit
 Frontend     : React 19, Vite, Tailwind CSS, Framer Motion, Lucide React, Axios
-Architecture : Routes -> Middleware -> Controller -> Service -> Repository -> Database
-Auth Model   : JWT (Access 15m + Refresh 7d) in Secure HttpOnly Cookies + Sessions
+Architecture : 6-Layer Clean Architecture (Routes -> Middleware -> Controller -> Service -> Repository -> Database)
+Auth Model   : JWT (Access 15m + Refresh 7d) in Pure HttpOnly SameSite Cookies + Sessions (Zero LocalStorage Token Storage)
 API Base URL : http://localhost:3001/api
 
 ================================================================================
@@ -16,18 +16,15 @@ API Base URL : http://localhost:3001/api
 [✓] Phase 2: Category & Product Catalog Engine          --> 100% (DONE - T7-T14)
 [✓] Phase 3: Inventory Stock & Ledger Engine            --> 100% (DONE - T15-T22)
 [✓] Phase 4: Sales, Billing, Payments & POS Terminal    --> 100% (DONE - T23-T30)
-[✓] Phase 5: Customer System & Profiles Master (T31-T36) --> 100% (DONE - T31, T32, T33, T34, T35, T36)
-[✓] Phase 6: Supplier & Procurement Management (T37-T41)   --> 100% (DONE - T37, T38, T39, T40, T41)
-[✓] Phase 7: Purchasing & Stock In (T42-T45)                  --> 100% (DONE - T42, T43, T44, T45)
-
-
-
-
+[✓] Phase 5: Customer System & Profiles Master          --> 100% (DONE - T31-T36)
+[✓] Phase 6: Supplier & Procurement Management          --> 100% (DONE - T37-T41)
+[✓] Phase 7: Purchasing, GRN & Auto Stock IN            --> 100% (DONE - T42-T47)
+[✓] Phase 8: Expense Management & OpEx Consolidation    --> 100% (DONE - T48-T51)
+[✓] Phase 9: Financial Analytics & Full P&L Engines     --> 100% (DONE - T52-T56)
 
 ================================================================================
 2. COMPLETED WORK (KAISE & KYA-KYA HO GAYA HAI)
 ================================================================================
-
 
 --- [ PHASE 0 : AUTHENTICATION & SECURITY ] ---
 [✓] A1. Registration (POST /api/auth/register)
@@ -57,12 +54,15 @@ API Base URL : http://localhost:3001/api
     - Inactivates DB session and clears client cookies.
 
 [✓] A9. Protected Route & Auth Middleware (GET /api/auth/me)
-    - Cookie-based JWT verification middleware with Bearer token fallback.
+    - Pure HttpOnly cookie-based JWT verification middleware with Bearer token fallback.
 
-[✓] A10. Database Schemas Defined (16 Models)
+[✓] A10. Database Schemas Defined (27+ Models)
     - Account, OtpChallenge, Session, AuthAttempt, Vendor, Business, BusinessMember,
       Category, Product, Inventory, InventoryLedger, InventoryAlert, Invoice, SaleItem,
-      Payment, Customer, CustomerLedger.
+      Payment, Customer, CustomerLedger, Supplier, SupplierLedger, PurchaseOrder,
+      PurchaseItem, GoodsReceivedNote, PurchaseOrderHistory, Counter, IdempotencyKey,
+      ExpenseCategory, Expense, MonthlyOpExSummary, MonthlyRevenueSummary,
+      MonthlyCogsSummary, MonthlyGrossProfitSummary, MonthlyNetProfitSummary.
 
 [✓] A11. Resend OTP API (POST /api/auth/resend-phone-otp)
     - Max 3 resend attempts limit, 60s cooldown check, update challenge with new OTP.
@@ -75,6 +75,7 @@ API Base URL : http://localhost:3001/api
 
 [✓] A14. /me Profile Enrichment (GET /api/auth/me)
     - Return Account profile data alongside linked Vendor data (vendorId, status, onboardingStatus).
+
 
 --- [ PHASE 1 : BUSINESS FOUNDATION & TENANT ISOLATION ] ---
 [✓] B1. Business DB Schema Model (src/models/business.model.js)
@@ -98,6 +99,7 @@ API Base URL : http://localhost:3001/api
 [✓] B6. T6: User-Business Mapping Middleware (src/middlewares/business.middleware.js)
     - Injects trusted `req.businessId`, `req.business`, and `req.businessRole` into all requests.
     - Supports `X-Business-Id` header with DB membership authorization checks.
+
 
 --- [ PHASE 2 : CATEGORY & PRODUCT CATALOG ] ---
 [✓] C1. T7: Category Table Schema Model & Business-Scoped CRUD APIs (/api/categories)
@@ -127,6 +129,7 @@ API Base URL : http://localhost:3001/api
     - Instant multi-field regex/text search across SKU, Barcode, Name, and Category names.
     - Sub-millisecond barcode lookup endpoint for rapid POS scanning.
 
+
 --- [ PHASE 3 : INVENTORY STOCK & LEDGER ENGINE ] ---
 [✓] C8. T15: Inventory Store State Master Model & Reorder Engine (`/api/inventory`)
     - Mongoose Model `Inventory` tracking `availableStock`, `reorderLevel`, `reservedStock`, and auto-calculated `lowStockAlert`.
@@ -134,7 +137,7 @@ API Base URL : http://localhost:3001/api
 
 [✓] C9. T16: Inventory Ledger Schema Model & Atomic Movement Engine (`/api/inventory/ledger`)
     - Core Rule: "Never overwrite stock directly. All stock movements written as ledger logs."
-    - Model `InventoryLedger` with `qtyChange`, `balanceAfter`, `type` (`IN`, `OUT`, `ADJUST`, `OPENING`, `RETURN`), and `reason`.
+    - Model `InventoryLedger` with `qtyChange`, `balanceAfter`, `type` (`IN`, `OUT`, `ADJUST`, `OPENING`, `RETURN`, `GOODS_RECEIPT`), and `reason`.
     - Mathematical invariant: `availableStock === sum(all ledger qtyChanges)`.
 
 [✓] C10. T17: Opening Stock Initialization API (`POST /api/inventory/opening-stock`)
@@ -158,17 +161,18 @@ API Base URL : http://localhost:3001/api
     - Real-time alert generation when `availableStock <= reorderLevel`.
     - Severity differentiation (`CRITICAL` for OOS, `WARNING` for Low Stock), deduplication guarantee, and replenishment auto-resolution.
 
+
 --- [ PHASE 4 : SALES, BILLING, PAYMENTS & POS TERMINAL ] ---
 [✓] C16. T23: Sale Transaction Schema Model & Invoicing Header Engine (`src/models/invoice.model.js`)
     - Model `Invoice` tracking `invoiceNumber` (sequential `INV-1001`), `businessId`, `customerId`, `subtotal`, `discount`, `taxAmount`, `grandTotal`, `paidAmount`, `balanceDue`, `paymentStatus` (`PAID`, `PARTIAL`, `UNPAID`), `paymentMethod` (`CASH`, `UPI`, `CARD`, `CREDIT`, `SPLIT`), and `status` (`COMPLETED`, `CANCELLED`, `REFUNDED`).
 
 [✓] C17. T24: Sale Item Schema Model & Snapshot Preservation (`src/models/saleItem.model.js`)
     - Model `SaleItem` snapshotting `soldPrice`, `costPrice`, `name`, `sku`, `unit`, `quantity`, `totalPrice`, and `grossProfit`.
-    - Gross Profit Analytics: `GET /api/sales/analytics/gross-profit` aggregating revenue, COGS, gross margin %, and top-performing items.
+    - Historical price preservation: Master catalog price updates never alter past invoices.
 
 [✓] C18. T25: Create Sale (POS Checkout) API with Atomic Transaction Controls (`POST /api/sales`)
     - Pre-Flight Inventory Validation: Validates stock for all cart items before mutations. Rejects with 400 `INSUFFICIENT_STOCK` on shortfall.
-    - Sequential Invoice Numbering: Generates clean human-readable invoice IDs (`INV-1001`).
+    - Sequential Invoice Numbering: Centralized atomic MongoDB `$inc` counter generating clean IDs (`INV-1001`).
     - Snapshot Line Items: Bulk inserts `SaleItem` records with frozen prices.
     - Auto Inventory Reduction: Deducts physical inventory and appends immutable `OUT` records to `InventoryLedger`.
     - Payment Linking & Settlement: Records payment and adjusts payment status.
@@ -196,6 +200,7 @@ API Base URL : http://localhost:3001/api
       * Global Keyboard Shortcuts (`usePOSKeyboard.js`): `F2` (Search), `F4` (Customer Select), `F8` (Clear Cart), `F9` (Checkout / Pay), `F1` (Help Modal), `Esc` (Close modals).
       * Quick Products Grid: Category pills and 1-click product tile additions.
       * Real-Time Quick Cart (`POSCart.jsx`): Instant quantity adjustment, line discounts, subtotal, tax, and grand total calculations.
+
 
 --- [ PHASE 5 : CUSTOMER SYSTEM & MASTER ENTITY ] ---
 [✓] C24. T31: Customer Schema DB Model & Master Entity (`src/models/customer.model.js`)
@@ -382,7 +387,7 @@ API Base URL : http://localhost:3001/api
     - Purpose & Core Rule: "T41 implements the comprehensive Supplier 360° Management Center interface combining Supplier Master Directory (T37/T38), Historical Ledger Statements (T39), and Real-Time Payables Indexer (T40)."
     - Automated Test Suite: `Backend/tests/test-supplier-360-management-center.js` (100% Passed).
 
---- [ PHASE 7 : PURCHASING & STOCK IN ] ---
+--- [ PHASE 7 : PURCHASING, GRN & AUTO STOCK IN ] ---
 [✓] C35. T42: Purchase Order Schema DB Model & Procurement Order Header (`src/models/purchaseOrder.model.js`)
     - Purpose & Core Rule: "T42 establishes the formal Purchase Order (PO) entity representing stock order requests sent to suppliers. It tracks order date, expected delivery date, status (DRAFT, PENDING, PARTIAL, RECEIVED, CANCELLED), and reliable server-calculated cost totals."
     - Crucial Architectural Distinctions:
@@ -611,181 +616,400 @@ API Base URL : http://localhost:3001/api
       * `ExpensesTable.jsx`: Historical ledger table with formatted currency, receipt proof attachment viewer with modal preview, page totals, and pagination controls.
       * `ExpensesPage.jsx`: Unified Phase 8 Expense Management hub.
 
+[✓] C44. T51: Monthly OpEx Aggregator Engine & Materialized Calendar-Month Financial Statement Cache (`src/models/monthlyOpExSummary.model.js`)
+    - Purpose & Core Rule: "T51 calculates consolidated operational expenditure totals per calendar month (e.g. October 2026: ₹67,000 across 6 bills). It establishes high-performance MongoDB aggregation pipelines combined with a materialized, persistent caching collection (`MonthlyOpExSummary`), delivering $O(1)$ fast lookups for executive financial statements, P&L reporting, and dashboard analytics without scanning high-volume historical expense documents on every request. It eliminates data staleness via real-time automatic synchronization upon expense creations, updates, or archival."
+    - Core Principles & Architectural Invariants:
+      * 1. Calendar-Month UTC Boundaries:
+        - Accurately aligns queries to strict calendar month boundaries (e.g., Oct 1 00:00:00 to Oct 31 23:59:59.999), rather than rolling 30-day windows.
+      * 2. Materialized Cache & O(1) Fast Lookups:
+        - Stores consolidated summaries in `MonthlyOpExSummary` collection indexed on `{ businessId: 1, year: 1, month: 1 }` and `{ businessId: 1, monthKey: 1 }`.
+        - Subsequent statement reads hit the precomputed cache directly unless `forceRefresh` is requested.
+      * 3. Zero-Staleness Real-Time Auto-Synchronization:
+        - `createExpense`, `updateExpense`, and `archiveExpense` automatically trigger `monthlyOpExService.autoSyncOnExpenseChange(...)` to keep current month and subsequent MoM ratios perfectly reconciled.
+      * 4. Multi-Tenant Financial Statement Isolation:
+        - Every pipeline stage, materialized document, and recalculation trigger is strictly scoped to `req.businessId`.
+      * 5. Month-over-Month (MoM) Growth & Budget Leakage Analytics:
+        - Computes `momVariance` and `momGrowthRate` (% change vs previous calendar month).
+        - Enriches category spending with budget caps from T48 and tracks over-budget variances.
+      * 6. Periodic Background Sweep Worker:
+        - `monthlyOpEx.worker.js` provides recurring sweep scheduler for scheduled reconciliation and past month finalization.
+    - Endpoints Implemented:
+      * `GET /api/expenses/monthly-opex`: 12-month calendar year progression, YTD total spend, monthly average, and peak spending month.
+      * `GET /api/expenses/monthly-opex/current`: Current ongoing calendar month OpEx snapshot with MoM growth and daily burn rate.
+      * `GET /api/expenses/monthly-opex/:year/:month`: Single calendar month detailed statement with category and payment method breakdowns.
+      * `POST /api/expenses/monthly-opex/recalculate`: Force recalculate and cache a specific month or full calendar year.
+    - Automated Test Suite:
+      * `Backend/tests/test-monthly-opex-aggregator-engine.js` (100% tests passing, covering 10 test groups: multi-tenant store setup, category budget caps, multi-month realistic expenses, calendar-month OpEx aggregation, MoM variance and growth rate calculation, materialized cache verification, real-time auto-sync on expense mutation, manual recalculation execution, full calendar year overview, and cross-tenant security isolation).
+    - Frontend Implementation:
+      * `MonthlyOpExAggregator.jsx`: Modern executive dashboard with 4x KPI cards (Current Month OpEx with MoM badge, YTD Total Spend, Monthly Average Overhead, Peak Month), 12-month interactive progression bar chart with peak glowing highlight, consolidated monthly statements table, and drill-down audit modal with category distributions and budget leakages.
+      * Integrated dedicated "Monthly OpEx Aggregator" tab inside `ExpensesPage.jsx` with 1-click jump from monthly statement into T50 historical ledger.
+      * `expense.api.js`: Client API service for all monthly OpEx endpoints.
+
+--- [ PHASE 9 : FINANCIAL ANALYTICS & FULL P&L ENGINES ] ---
+[✓] C45. T52: Monthly Revenue Aggregations & Accrual-Basis Financial Analytics Engine (`src/models/monthlyRevenueSummary.model.js`)
+    - Purpose & Core Rule: "T52 delivers the core financial analytics engine calculating recognized gross revenue from completed sales invoices grouped by dates (daily), calendar months (monthly), and fiscal years (yearly). It establishes the official 'Source of Revenue Truth' for VendorOS grounded on accrual accounting principles: recognized revenue equals total completed invoice value (`Invoice.total`), ignoring payment status (PAID, PARTIAL, or PENDING/Udhar credit). Cancelled invoices (`status === 'CANCELLED'`) are strictly excluded. Cash inflows (`paidAmount`) and accounts receivables created (`dueAmount`) are tracked side-by-side to deliver transparent cash-vs-accrual visibility. High-performance materialized caching (`MonthlyRevenueSummary`) provides O(1) reads for executive dashboards, P&L statements, and annual progression charts, with real-time auto-synchronization on sales checkout and payment updates."
+    - Core Principles & Architectural Invariants:
+      * 1. Accrual Accounting Foundation (Ignores Payment Status):
+        - Revenue is recognized upon sale/invoice completion, not payment receipt. An invoice for ₹10,000 on credit is ₹10,000 recognized revenue, while accounts receivable records ₹10,000.
+        - Payment status (`PAID`, `PARTIAL`, `PENDING`) is not the revenue gatekeeper; only `status === 'CANCELLED'` is filtered out.
+      * 2. Cash Inflow vs. Accounts Receivable Segregation:
+        - Tracks `cashCollected` (sum of `paidAmount`) and `receivablesCreated` (sum of `dueAmount`) concurrently with `totalRevenue` (sum of `total`), answering both 'How much did we earn?' and 'How much cash entered the register?'.
+      * 3. Calendar Month UTC Alignment:
+        - Accurately aligns financial statements to calendar-month boundaries (`YYYY-MM`), computing `daysInMonth`, active selling days, and daily run rates.
+      * 4. Multi-Tenant Materialized Cache:
+        - Precomputed summaries stored in `MonthlyRevenueSummary` indexed on `{ businessId: 1, year: 1, month: 1 }` (unique) and `{ businessId: 1, monthKey: 1 }` (unique).
+        - Direct O(1) single-document lookups for annual progressions and statements.
+      * 5. Real-Time Auto-Synchronization:
+        - Hooks into `saleService.createSale` and `saleService.updatePaymentStatus` via `revenueAnalyticsService.autoSyncOnSaleChange`, preventing data staleness.
+      * 6. Month-over-Month (MoM) Growth Dynamics:
+        - Automatically computes `momVariance` and `momGrowthPercentage` against preceding calendar month.
+    - Endpoints Implemented:
+      * `GET /api/sales/analytics/revenue/monthly`: 12-month fiscal year progression, YTD revenue, cash inflow, receivables, and peak revenue month.
+      * `GET /api/sales/analytics/revenue/current`: Current active calendar month revenue snapshot, MoM growth badge, and daily run rate.
+      * `GET /api/sales/analytics/revenue/daily`: Granular day-by-day revenue, invoice count, and collection distribution for a given month.
+      * `GET /api/sales/analytics/revenue/:year/:month`: Single calendar-month detailed statement with payment modes breakdown and daily ledger.
+      * `POST /api/sales/analytics/revenue/recalculate`: Force recalculation and cache refresh for a specific month or full year.
+    - Automated Test Suite:
+      * `Backend/tests/test-monthly-revenue-aggregations.js` (100% tests passing, covering 11 test groups: multi-tenant store setup, products catalog, accrual accounting invoice creation across multiple months, calendar-month revenue aggregation, cash vs accrual segregation, payment status independence, cancelled invoice exclusion, MoM variance and growth rate calculation, materialized cache O(1) performance, real-time auto-synchronization on POS checkout, and cross-tenant security isolation).
+    - Frontend Implementation:
+      * `MonthlyRevenueAggregator.jsx`: Modern executive dashboard with 4x KPI cards (Current Month Revenue with MoM badge & daily run rate, FY Total Revenue YTD, Average Order Value AOV, Peak Revenue Month), Accrual vs Cash principles callout banner, 12-month interactive revenue progression bar chart with peak highlight, consolidated monthly statements table, and drill-down statement audit modal with tender mode breakdown and daily revenue ledger.
+      * Integrated dedicated "Monthly Revenue Engine (T52 Accrual)" tab inside `SalesHistoryPage.jsx` with instant view switching from transaction ledger.
+      * `sale.api.js`: Client API service for all revenue analytics endpoints (`getMonthlyRevenueOverview`, `getCurrentMonthRevenue`, `getDailyRevenueBreakdown`, `getMonthlyRevenueDetail`, `recalculateMonthlyRevenue`).
+
+[✓] C46. T53: Cost of Goods Sold (COGS) Calculator & Historical Cost Snapshot Engine (`src/models/monthlyCogsSummary.model.js`)
+    - Purpose & Core Rule: "T53 delivers the core inventory cost analytics engine computing the raw inventory acquisition cost of goods sold: Mathematical formula `COGS = SUM(Sale Item Cost * Quantity Sold)` over specified periods (daily, monthly, yearly, and custom date ranges). It is strictly built using historical cost snapshots (`SaleItem.costPrice`), guaranteeing that subsequent catalog product cost price changes or supplier price hikes NEVER alter or distort historical sales cost accounting. It strictly excludes cancelled invoices (`status === 'CANCELLED'`), connects with T52 to derive Gross Profit (`Revenue - COGS`) and Gross Margin % (`((Revenue - COGS) / Revenue) * 100`), calculates unit economics (`averageUnitCost`), and provides high-speed $O(1)$ reads via the materialized `MonthlyCogsSummary` collection with real-time auto-synchronization upon sales checkout."
+    - Core Principles & Architectural Invariants:
+      * 1. Mathematical Calculation Guarantee:
+        - `COGS = SUM(SaleItem.costPrice * SaleItem.quantity)` evaluated with full 2-decimal rounding precision.
+      * 2. Historical Cost Snapshot Invariant (Zero Catalog Drift):
+        - Uses frozen `SaleItem.costPrice` recorded at the checkout moment. If a product's master cost increases from ₹10 to ₹14 in the catalog, past sales retain the historical ₹10 cost in all financial statements.
+      * 3. Cancelled Invoice Exclusion:
+        - Invoices marked with `status === 'CANCELLED'` are strictly excluded via `$lookup` matching against `invoices` collection.
+      * 4. Multi-Tenant Materialized Caching ($O(1)$ Performance):
+        - Summaries materialized into `MonthlyCogsSummary` collection indexed on `{ businessId: 1, year: 1, month: 1 }` (unique) and `{ businessId: 1, monthKey: 1 }` (unique).
+      * 5. Specified Periods Granularity:
+        - Daily breakdown, calendar-month aggregations, fiscal year overview, and arbitrary date range (`startDate`, `endDate`) support.
+      * 6. Product Cost Drivers & Ranking:
+        - Computes product-level COGS, units sold, gross profit, gross margin %, and store cost share % (`productCogs / totalCogs * 100`).
+      * 7. Real-Time Auto-Synchronization:
+        - Hooked into `saleService.createSale` and `saleService.updatePaymentStatus` via `cogsAnalyticsService.autoSyncOnSaleChange`.
+    - Endpoints Implemented:
+      * `GET /api/sales/analytics/cogs/monthly`: 12-month fiscal year progression, YTD total COGS, YTD Gross Profit, Average Monthly COGS, and peak COGS month.
+      * `GET /api/sales/analytics/cogs/current`: Current active calendar month COGS snapshot, MoM change badge, and daily cost run rate.
+      * `GET /api/sales/analytics/cogs/daily`: Granular day-by-day COGS, units sold, revenue, and gross profit breakdown for a given month.
+      * `GET /api/sales/analytics/cogs/products`: Top product cost drivers ranked by COGS, revenue, units sold, or gross profit.
+      * `GET /api/sales/analytics/cogs/period`: Custom date range COGS and Gross Profit calculation (`?startDate=&endDate=`).
+      * `GET /api/sales/analytics/cogs/:year/:month`: Single calendar-month detailed statement.
+      * `POST /api/sales/analytics/cogs/recalculate`: Force recalculation and cache refresh for a specific month or full year.
+    - Automated Test Suite:
+      * `Backend/tests/test-cogs-calculator-aggregations.js` (100% tests passing, covering 11 test groups: multi-tenant store setup, products catalog, realistic sales with historical cost snapshots, catalog price update invariant test, mathematical formula precision SUM(cost * qty), cancelled invoice exclusion, MoM variance and growth rate calculation, granular daily breakdown, custom date range filtering, top product cost ranking, and multi-tenant security boundary isolation).
+    - Frontend Implementation:
+      * `MonthlyCogsCalculator.jsx`: Modern executive dashboard with 4x KPI cards (Current Month COGS with MoM badge & daily run rate, FY Total COGS YTD, Gross Profit & Margin %, Average Unit Cost), Historical Cost Snapshot Principle banner, 12-month interactive progression bar chart, Top Product Cost Drivers ranking table with search and sort, consolidated monthly statements table, custom accounting period date range computer, and granular statement audit modal with daily cost ledger.
+      * Integrated dedicated "COGS & Profit Engine (T53 Formula)" tab inside `SalesHistoryPage.jsx` with instant view switching.
+[✓] C47. T54: Gross Profit Calculations, GP Margin % & Retail Profitability Engine (`src/models/monthlyGrossProfitSummary.model.js`)
+    - Purpose & Core Rule: "T54 builds directly upon T52 (Revenue) and T53 (COGS) to calculate core retail trading profitability: Mathematical formula `Gross Profit = Revenue - COGS` and `GP Margin % = (Gross Profit / Revenue) * 100`. It bridges Phase 8 and Phase 9 by computing Operating Profit (`Operating Profit = Gross Profit - OpEx` from T51), provides a vital business health check indicator (evaluating HEALTHY >=30%, MODERATE 15-30%, LOW <15%, and detecting MoM margin compression >3% drop), classifies products into a 4-quadrant Profitability Matrix (Star Performers, Volume Drivers, Margin Drag, Loss Making), guards against zero-revenue division errors (returning grossMargin = 0% without NaN/Infinity), provides granular daily and custom date range profitability breakdowns, and persists precomputed metrics into `MonthlyGrossProfitSummary` with real-time auto-synchronization upon sales transactions."
+    - Core Principles & Architectural Invariants:
+      * 1. Basic Mathematical Formula & Zero-Revenue Safety:
+        - `grossProfit = revenue - cogs`
+        - `grossMarginPercentage = revenue > 0 ? ((grossProfit / revenue) * 100) : 0`
+        - Zero revenue test case returns 0% margin safely without `NaN` or `Infinity`.
+      * 2. Full P&L Financial Chain Bridge:
+        - Synthesizes Revenue (T52) -> COGS (T53) -> Gross Profit (T54) -> OpEx (T51) -> Operating Profit.
+        - Operating Margin % = `(operatingProfit / revenue) * 100`.
+      * 3. Retail Vital Health Diagnostic Indicator:
+        - Health evaluation thresholds: `HEALTHY` (GP Margin >= 30%), `MODERATE` (15% <= GP Margin < 30%), `LOW` (GP Margin < 15%), `LOSS` (Gross Profit < 0).
+        - MoM Margin Compression Alert: Detects when GP margin contracts by > 3 percentage points MoM, alerting the merchant to supplier price increases, low selling prices, excessive discounting, or adverse product mix shifts.
+      * 4. 4-Quadrant Product Profitability Matrix:
+        - Evaluates every sold product:
+          * `STAR_PERFORMER`: GP Margin >= 30% (High Margin Heroes).
+          * `VOLUME_DRIVER`: 15% <= GP Margin < 30% (Steady Volume Engines).
+          * `MARGIN_DRAG`: 0% <= GP Margin < 15% (Underperforming / Low Margin).
+          * `LOSS_MAKING`: GP Margin < 0% (Selling below cost / Discount erosion).
+      * 5. Multi-Tenant Materialized Caching ($O(1)$ Performance):
+        - Precomputed summaries stored in `MonthlyGrossProfitSummary` collection indexed on `{ businessId: 1, year: 1, month: 1 }` (unique) and `{ businessId: 1, monthKey: 1 }` (unique).
+      * 6. Real-Time Auto-Synchronization:
+        - Hooks into `saleService.createSale` and `saleService.updatePaymentStatus` via `grossProfitAnalyticsService.autoSyncOnSaleChange`.
+    - Endpoints Implemented:
+      * `GET /api/sales/analytics/gross-profit/monthly`: 12-month fiscal year progression, YTD Revenue, YTD COGS, YTD Gross Profit, Average Margin %, and peak profit month.
+      * `GET /api/sales/analytics/gross-profit/current`: Current calendar-month gross profit snapshot, MoM margin variance, health status, and P&L bridge.
+      * `GET /api/sales/analytics/gross-profit/daily`: Day-by-day gross profit, margin %, and invoice breakdown for a given month.
+      * `GET /api/sales/analytics/gross-profit/products`: 4-quadrant product profitability matrix with quadrant filtering and sorting.
+      * `GET /api/sales/analytics/gross-profit/period`: Custom date range gross profit and margin calculation (`?startDate=&endDate=`).
+      * `GET /api/sales/analytics/gross-profit/health`: Vital business health check indicator and margin compression diagnostic.
+      * `GET /api/sales/analytics/gross-profit/:year/:month`: Single calendar-month detailed profit statement.
+      * `POST /api/sales/analytics/gross-profit/recalculate`: Force recalculation and cache refresh for a specific month or full year.
+    - Automated Test Suite:
+      * `Backend/tests/test-gross-profit-calculations.js` (100% tests passing, covering 11 test groups: multi-tenant store setup, products catalog, realistic sales, basic gross profit formula accuracy, zero revenue division-by-zero safety, full P&L bridge with OpEx, vital health check indicator, MoM margin compression detection, product profitability matrix quadrants, custom date range profitability, and multi-tenant security boundary isolation).
+    - Frontend Implementation:
+      * `MonthlyGrossProfitCalculator.jsx`: State-of-the-art financial dashboard with 4x KPI cards (Current Month Gross Profit with MoM badge & daily run rate, GP Margin % with Health Badge, Operating Profit & OpEx Bridge, FY Total Gross Profit YTD), P&L Financial Chain and Vital Health diagnostic banner, Margin Compression alert, custom accounting period calculator, 12-month tri-color progression bar chart (Revenue, COGS, Gross Profit), Product Profitability Matrix with quadrant filter pills, consolidated monthly statements table, and drill-down statement audit modal.
+      * Integrated dedicated "Gross Profit & Margins (T54 P&L)" tab inside `SalesHistoryPage.jsx` with instant view switching.
+[✓] C48. T55: Operating Expense Aggregations & Store Cash Burn Engine (`src/services/opExAnalytics.service.js` & `src/routes/analytics.routes.js`)
+    - Purpose & Core Rule: "T55 provides the dedicated Financial Analytics OpEx aggregation engine for VendorOS: Mathematical formula `Operating Expense = SUM(all valid expenses within financial period)` over active financial month ranges, calendar quarters (Q1-Q4), fiscal year YTD, and arbitrary date ranges (`from` to `to`). While T51 manages the internal expense module's monthly consolidation, T55 acts as the high-level financial analytics consumer, mapping store cash burns (daily burn rate, projected monthly burn, annualized run-rate, peak burn days), classifying fixed overheads vs variable operational cost structures, and completing the full Profit & Loss financial chain: `Revenue (T52) -> COGS (T53) -> Gross Profit (T54) -> OpEx (T55) -> Operating Profit` (`Operating Profit = Gross Profit - OpEx`)."
+    - Core Principles & Architectural Invariants:
+      * 1. Accounting Date Priority (`expenseDate` vs `createdAt`):
+        - Aggregates strictly on `expenseDate` with UTC start-of-day and end-of-day normalization, ensuring retroactive entries (e.g. October rent paid in November) fall into their true accounting period.
+      * 2. Strict Invalidation & Exclusions:
+        - Excludes cancelled (`status === 'CANCELLED'`) and archived (`isArchived: true`) expense records.
+        - Preserves boundary between store OpEx and inventory procurement (PO/GRN physical stock intake is never polluted into OpEx).
+      * 3. Multi-Tenant Isolation Guarantee:
+        - Every pipeline stage and query is strictly scoped to `req.businessId`, preventing cross-store leakage.
+      * 4. Store Cash Burn Mapping:
+        - Computes `dailyBurnRate` (`totalOpEx / daysInPeriod`), `activeDailyBurnRate`, `projectedMonthlyBurn`, `annualizedRunRate`, and isolates `peakBurnDay` with top category attribution.
+      * 5. Fixed vs Variable Cost Structure:
+        - Automatically segments expenses into `FIXED_OVERHEAD` (Rent, Salaries, Internet/Phone, Software/SaaS, Insurance) vs `VARIABLE_OPERATING` (Logistics, Utilities, Marketing, Maintenance, General) with amounts and percentage shares.
+      * 6. Full P&L Financial Performance Bridge:
+        - Synthesizes Revenue, COGS, Gross Profit, OpEx, Operating Profit, Operating Margin %, OpEx-to-Revenue Burden %, and Gross Profit Coverage Ratio (`coverageRatio = Gross Profit / OpEx`).
+    - Endpoints Implemented:
+      * `GET /api/analytics/operating-expenses` & `GET /api/sales/analytics/opex/period`: Consolidator for active financial month ranges, quarters, YTD, or custom `?from=&to=` with cash burns and financial bridge.
+      * `GET /api/sales/analytics/opex/monthly`: 12-month fiscal year progression comparing OpEx, Revenue, Gross Profit, and Operating Profit.
+      * `GET /api/sales/analytics/opex/current`: Active ongoing month OpEx snapshot and burn trajectory.
+      * `GET /api/sales/analytics/opex/quarters`: Fiscal quarters aggregation (Q1, Q2, Q3, Q4) with cost structures and P&L bridges.
+      * `GET /api/sales/analytics/opex/daily`: Detailed day-by-day cash burn ledger.
+    - Automated Test Suite:
+      * `Backend/tests/test-operating-expense-aggregations.js` (100% tests passing, covering 11 test groups: multi-tenant store setup, category seeding, realistic prompt benchmark expenses [Rent ₹20k, Salary ₹30k, Electricity ₹8k, Internet ₹2k, Transport ₹5k -> ₹65k total], basic formula accuracy, accounting date rule, cancelled/archived exclusion, custom date range query, cash burn velocity mapping, fixed vs variable split [80% fixed / 20% variable], full P&L financial bridge [Operating Profit ₹15k, 7.5% margin], quarterly aggregations [Q4 rolls up ₹65k], and multi-tenant security boundary isolation).
+    - Frontend Implementation:
+      * `MonthlyOpExAggregations.jsx`: Executive analytics dashboard with 4x KPI cards (Total OpEx, Daily Cash Burn Rate, Operating Profit Bridge with status badge, OpEx Burden on Revenue), Period selector chips (This Month, Last Month, Q1-Q4, YTD, Custom Range with date pickers), P&L Financial Chain & Peak Burn Day callout banner, Fixed vs Variable overhead ratio bar, 12-month financial progression trend, Category Distribution ranking with search, and Daily Cash Burn ledger.
+      * Integrated dedicated "OpEx & Cash Burn (T55 OpEx)" tab inside `SalesHistoryPage.jsx` with instant view switching.
+      * `sale.api.js`: Client API service for all T55 OpEx analytics endpoints (`getPeriodOpExAnalytics`, `getMonthlyOpExFinancialOverview`, `getCurrentMonthOpExAnalytics`, `getQuarterlyOpExAggregations`, `getDailyCashBurnLedger`).
+
 ================================================================================
-3. CURRENT ACTIVE ENDPOINT SUMMARY (126+ APIs)
+3. CURRENT ACTIVE ENDPOINT SUMMARY (165+ APIs)
 ================================================================================
 
-1.  Health Check              : GET    /
-2.  Register User             : POST   /api/auth/register
-3.  Verify Phone OTP          : POST   /api/auth/verify-phone
-4.  Resend Phone OTP          : POST   /api/auth/resend-phone-otp
-5.  Login User                : POST   /api/auth/login
-6.  Current User Profile      : GET    /api/auth/me
-7.  Token Refresh (RTR)       : POST   /api/auth/refresh
-8.  Logout                    : POST   /api/auth/logout
-9.  Onboarding Status         : GET    /api/business/onboarding/status
-10. Onboarding Step Save      : POST   /api/business/onboarding/step
-11. 1-Shot Business Create    : POST   /api/business
-12. My Businesses             : GET    /api/business/me
-13. Single Business Profile   : GET    /api/business/:id
-14. Update Business Settings  : PUT    /api/business/:id
-15. Active Business Context   : GET    /api/business/active/context
-16. Create Category           : POST   /api/categories
-17. List Categories           : GET    /api/categories
-18. Single Category           : GET    /api/categories/:id
-19. Update Category           : PUT    /api/categories/:id
-20. Delete Category           : DELETE /api/categories/:id
-21. Create Product            : POST   /api/products
-22. List Products (Cursor)    : GET    /api/products
-23. Fast Barcode Lookup       : GET    /api/products/barcode/:barcode
-24. Product Search            : GET    /api/products/search
-25. Single Product            : GET    /api/products/:id
-26. Update Product            : PUT    /api/products/:id
-27. Archive Product           : POST   /api/products/:id/archive
-28. Restore Product           : POST   /api/products/:id/restore
-29. Soft Delete Product       : DELETE /api/products/:id
-30. Inventory Summary KPIs    : GET    /api/inventory/summary
-31. Inventory Store State     : GET    /api/inventory/store-state
-32. Product Inventory Status  : GET    /api/inventory/product/:productId
-33. Update Reorder Level      : PUT    /api/inventory/product/:productId/reorder-level
-34. Stock IN (Purchase/GRN)   : POST   /api/inventory/stock-in
-35. Stock OUT (Sale/Damage)   : POST   /api/inventory/stock-out
-36. Stock OUT Batch (POS)     : POST   /api/inventory/stock-out/batch
-37. Stock Adjust / Reconcile  : POST   /api/inventory/adjust
-38. Opening Stock Init        : POST   /api/inventory/opening-stock
-39. Inventory Movement Ledger : GET    /api/inventory/ledger
-40. Product Movement Ledger   : GET    /api/inventory/product/:productId/ledger
-41. Low-Stock Alerts List     : GET    /api/inventory/alerts
-42. Alerts Summary KPIs       : GET    /api/inventory/alerts/summary
-43. Acknowledge Alert         : PUT    /api/inventory/alerts/:id/acknowledge
-44. Resolve Alert             : PUT    /api/inventory/alerts/:id/resolve
-45. Sync Store Alerts         : POST   /api/inventory/alerts/sync
-46. Create Sale (POS Checkout): POST   /api/sales
-47. List Sales Invoices       : GET    /api/sales
-48. Single Sale Invoice       : GET    /api/sales/:id
-49. Sale Item Snapshots       : GET    /api/sales/:id/items
-50. Invoice PDF Download      : GET    /api/sales/:id/pdf
-51. Gross Profit Analytics    : GET    /api/sales/analytics/gross-profit
-52. Record Payment            : POST   /api/payments
-53. Get Invoice Payments      : GET    /api/payments/invoice/:invoiceId
-54. Get Payment by ID         : GET    /api/payments/:id
-55. Business Payment History  : GET    /api/payments/business
-56. Create Customer (T31/T32) : POST   /api/customers
-57. List Customers (T32)      : GET    /api/customers
-58. Customer Summary KPIs     : GET    /api/customers/summary
-59. Customer Search / POS     : GET    /api/customers/search
-60. Customer by Phone (T32)   : GET    /api/customers/phone/:phone
-61. Single Customer Profile   : GET    /api/customers/:id
-62. Update Customer (T32)     : PUT    /api/customers/:id
-63. Soft Delete Customer (T32): DELETE /api/customers/:id
-64. Archive Customer (T32)    : POST   /api/customers/:id/archive
-65. Restore Customer (T32)    : POST   /api/customers/:id/restore
-66. Customer Khata Ledger(T33): GET    /api/customers/:id/ledger
-67. Append Ledger Entry (T33) : POST   /api/customers/:id/ledger
-68. Settle Customer Khata     : POST   /api/customers/:id/settle
-69. Customer Outstanding (T34): GET    /api/customers/:id/outstanding
-70. Debtor Summary List (T34) : GET    /api/customers/outstanding/summary
-71. Store Debt Totals (T34)   : GET    /api/customers/outstanding/totals
-72. Payment History (T35)     : GET    /api/customers/:id/payments
-73. Customer CRM 360 (T36)    : GET    /api/customers/:id/crm-summary
-74. Create Supplier (T37/T38) : POST   /api/suppliers
-75. List Suppliers (T38)      : GET    /api/suppliers
-76. Search Suppliers (T38)    : GET    /api/suppliers/search
-77. Supplier by Phone (T38)   : GET    /api/suppliers/phone/:phone
-78. Supplier Summary (T38)    : GET    /api/suppliers/summary
-79. Single Supplier (T38)     : GET    /api/suppliers/:id
-80. Update Supplier (T38)     : PUT    /api/suppliers/:id
-81. Soft-Delete Supplier (T38): DELETE /api/suppliers/:id
-82. Archive Supplier (T38)    : POST   /api/suppliers/:id/archive
-83. Restore Supplier (T38)    : POST   /api/suppliers/:id/restore
-84. Supplier Ledger (T39)      : GET    /api/suppliers/:id/ledger
-85. Disburse Supplier Payment  : POST   /api/suppliers/:id/settle
-86. Append Supplier Ledger (T39): POST   /api/suppliers/:id/ledger
-87. Purchase Credit (T39)      : POST   /api/suppliers/:id/purchases/credit
-88. Supplier Outstanding (T40) : GET    /api/suppliers/:id/outstanding
-89. Payables Summary (T40)     : GET    /api/suppliers/payables/summary
-90. Payables Totals (T40)      : GET    /api/suppliers/payables/totals
-91. Supplier 360 Summary (T41) : GET    /api/suppliers/:id/summary-360
-92. Create Purchase Order (T42): POST   /api/purchase-orders
-93. List Purchase Orders (T42) : GET    /api/purchase-orders
-94. PO Summary KPIs (T42)      : GET    /api/purchase-orders/summary
-95. PO by Number (T42)         : GET    /api/purchase-orders/number/:poNumber
-96. Supplier POs (T42)         : GET    /api/purchase-orders/supplier/:supplierId
-97. Single Purchase Order (T42): GET    /api/purchase-orders/:id
-98. Update Purchase Order (T42): PUT    /api/purchase-orders/:id
-99. Update PO Status (T42)     : PATCH  /api/purchase-orders/:id/status
-100.Cancel PO (T42)            : POST   /api/purchase-orders/:id/cancel
-101.PO Line Items (T43)         : GET    /api/purchase-orders/:id/items
-102.Product PO Line History(T43): GET    /api/purchase-orders/items/product/:productId
-103.Product PO Route Alias (T43): GET    /api/purchase-orders/product/:productId
-104.Goods Receipt Receive (T44) : POST   /api/purchases/receive
-105.List GRN History (T44)      : GET    /api/purchases/grn
-106.Single GRN Record (T44)     : GET    /api/purchases/grn/:id
-107.PO Specific GRNs (T44)      : GET    /api/purchases/grn/po/:purchaseOrderId
-108.GRN Summary KPIs (T44)      : GET    /api/purchases/grn/summary
+1.   Health Check              : GET    /
+2.   Register User             : POST   /api/auth/register
+3.   Verify Phone OTP          : POST   /api/auth/verify-phone
+4.   Resend Phone OTP          : POST   /api/auth/resend-phone-otp
+5.   Login User                : POST   /api/auth/login
+6.   Current User Profile      : GET    /api/auth/me
+7.   Token Refresh (RTR)       : POST   /api/auth/refresh
+8.   Logout                    : POST   /api/auth/logout
+9.   Onboarding Status         : GET    /api/business/onboarding/status
+10.  Onboarding Step Save      : POST   /api/business/onboarding/step
+11.  1-Shot Business Create    : POST   /api/business
+12.  My Businesses             : GET    /api/business/me
+13.  Single Business Profile   : GET    /api/business/:id
+14.  Update Business Settings  : PUT    /api/business/:id
+15.  Active Business Context   : GET    /api/business/active/context
+16.  Create Category           : POST   /api/categories
+17.  List Categories           : GET    /api/categories
+18.  Single Category           : GET    /api/categories/:id
+19.  Update Category           : PUT    /api/categories/:id
+20.  Delete Category           : DELETE /api/categories/:id
+21.  Create Product            : POST   /api/products
+22.  List Products (Cursor)    : GET    /api/products
+23.  Fast Barcode Lookup       : GET    /api/products/barcode/:barcode
+24.  Product Search            : GET    /api/products/search
+25.  Single Product            : GET    /api/products/:id
+26.  Update Product            : PUT    /api/products/:id
+27.  Archive Product           : POST   /api/products/:id/archive
+28.  Restore Product           : POST   /api/products/:id/restore
+29.  Soft Delete Product       : DELETE /api/products/:id
+30.  Inventory Summary KPIs    : GET    /api/inventory/summary
+31.  Inventory Store State     : GET    /api/inventory/store-state
+32.  Product Inventory Status  : GET    /api/inventory/product/:productId
+33.  Update Reorder Level      : PUT    /api/inventory/product/:productId/reorder-level
+34.  Stock IN (Purchase/GRN)   : POST   /api/inventory/stock-in
+35.  Stock OUT (Sale/Damage)   : POST   /api/inventory/stock-out
+36.  Stock OUT Batch (POS)     : POST   /api/inventory/stock-out/batch
+37.  Stock Adjust / Reconcile  : POST   /api/inventory/adjust
+38.  Opening Stock Init        : POST   /api/inventory/opening-stock
+39.  Inventory Movement Ledger : GET    /api/inventory/ledger
+40.  Product Movement Ledger   : GET    /api/inventory/product/:productId/ledger
+41.  Low-Stock Alerts List     : GET    /api/inventory/alerts
+42.  Alerts Summary KPIs       : GET    /api/inventory/alerts/summary
+43.  Acknowledge Alert         : PUT    /api/inventory/alerts/:id/acknowledge
+44.  Resolve Alert             : PUT    /api/inventory/alerts/:id/resolve
+45.  Sync Store Alerts         : POST   /api/inventory/alerts/sync
+46.  Create Sale (POS Checkout): POST   /api/sales
+47.  List Sales Invoices       : GET    /api/sales
+48.  Single Sale Invoice       : GET    /api/sales/:id
+49.  Sale Item Snapshots       : GET    /api/sales/:id/items
+50.  Invoice PDF Download      : GET    /api/sales/:id/pdf
+51.  Gross Profit Analytics    : GET    /api/sales/analytics/gross-profit
+52.  Record Payment            : POST   /api/payments
+53.  Get Invoice Payments      : GET    /api/payments/invoice/:invoiceId
+54.  Get Payment by ID         : GET    /api/payments/:id
+55.  Business Payment History  : GET    /api/payments/business
+56.  Create Customer (T31/T32) : POST   /api/customers
+57.  List Customers (T32)      : GET    /api/customers
+58.  Customer Summary KPIs     : GET    /api/customers/summary
+59.  Customer Search / POS     : GET    /api/customers/search
+60.  Customer by Phone (T32)   : GET    /api/customers/phone/:phone
+61.  Single Customer Profile   : GET    /api/customers/:id
+62.  Update Customer (T32)     : PUT    /api/customers/:id
+63.  Soft Delete Customer (T32): DELETE /api/customers/:id
+64.  Archive Customer (T32)    : POST   /api/customers/:id/archive
+65.  Restore Customer (T32)    : POST   /api/customers/:id/restore
+66.  Customer Khata Ledger(T33): GET    /api/customers/:id/ledger
+67.  Append Ledger Entry (T33) : POST   /api/customers/:id/ledger
+68.  Settle Customer Khata     : POST   /api/customers/:id/settle
+69.  Customer Outstanding (T34): GET    /api/customers/:id/outstanding
+70.  Debtor Summary List (T34) : GET    /api/customers/outstanding/summary
+71.  Store Debt Totals (T34)   : GET    /api/customers/outstanding/totals
+72.  Payment History (T35)     : GET    /api/customers/:id/payments
+73.  Customer CRM 360 (T36)    : GET    /api/customers/:id/crm-summary
+74.  Create Supplier (T37/T38) : POST   /api/suppliers
+75.  List Suppliers (T38)      : GET    /api/suppliers
+76.  Search Suppliers (T38)    : GET    /api/suppliers/search
+77.  Supplier by Phone (T38)   : GET    /api/suppliers/phone/:phone
+78.  Supplier Summary (T38)    : GET    /api/suppliers/summary
+79.  Single Supplier (T38)     : GET    /api/suppliers/:id
+80.  Update Supplier (T38)     : PUT    /api/suppliers/:id
+81.  Soft-Delete Supplier (T38): DELETE /api/suppliers/:id
+82.  Archive Supplier (T38)    : POST   /api/suppliers/:id/archive
+83.  Restore Supplier (T38)    : POST   /api/suppliers/:id/restore
+84.  Supplier Ledger (T39)      : GET    /api/suppliers/:id/ledger
+85.  Disburse Supplier Payment  : POST   /api/suppliers/:id/settle
+86.  Append Supplier Ledger (T39): POST   /api/suppliers/:id/ledger
+87.  Purchase Credit (T39)      : POST   /api/suppliers/:id/purchases/credit
+88.  Supplier Outstanding (T40) : GET    /api/suppliers/:id/outstanding
+89.  Payables Summary (T40)     : GET    /api/suppliers/payables/summary
+90.  Payables Totals (T40)      : GET    /api/suppliers/payables/totals
+81.  Supplier 360 Summary (T41) : GET    /api/suppliers/:id/summary-360
+92.  Create Purchase Order (T42): POST   /api/purchase-orders
+93.  List Purchase Orders (T42) : GET    /api/purchase-orders
+94.  PO Summary KPIs (T42)      : GET    /api/purchase-orders/summary
+95.  PO by Number (T42)         : GET    /api/purchase-orders/number/:poNumber
+96.  Supplier POs (T42)         : GET    /api/purchase-orders/supplier/:supplierId
+97.  Single Purchase Order (T42): GET    /api/purchase-orders/:id
+98.  Update Purchase Order (T42): PUT    /api/purchase-orders/:id
+99.  Update PO Status (T42)     : PATCH  /api/purchase-orders/:id/status
+100. Cancel PO (T42)            : POST   /api/purchase-orders/:id/cancel
+101. PO Line Items (T43)         : GET    /api/purchase-orders/:id/items
+102. Product PO Line History(T43): GET    /api/purchase-orders/items/product/:productId
+103. Product PO Route Alias (T43): GET    /api/purchase-orders/product/:productId
+104. Goods Receipt Receive (T44) : POST   /api/purchases/receive
+105. List GRN History (T44)      : GET    /api/purchases/grn
+106. Single GRN Record (T44)     : GET    /api/purchases/grn/:id
+107. PO Specific GRNs (T44)      : GET    /api/purchases/grn/po/:purchaseOrderId
+108. GRN Summary KPIs (T44)      : GET    /api/purchases/grn/summary
+109. Create Expense Category(T48): POST   /api/expense-categories
+110. List Expense Categories(T48): GET    /api/expense-categories
+111. Expense Category Summary(T48): GET   /api/expense-categories/summary
+112. Single Expense Category(T48): GET    /api/expense-categories/:id
+113. Update Expense Category(T48): PUT    /api/expense-categories/:id
+114. Toggle Category Status (T48): PATCH  /api/expense-categories/:id/toggle-status
+115. Archive Category (T48)      : POST   /api/expense-categories/:id/archive
+116. Seed Default Categories(T48): POST   /api/expense-categories/seed-defaults
+117. Create Expense (T49)        : POST   /api/expenses
+118. List Expenses Ledger(T49/50): GET    /api/expenses
+119. Single Expense (T49)        : GET    /api/expenses/:id
+120. Expense by Number (T49)     : GET    /api/expenses/number/:expenseNumber
+121. Expense Summary KPIs (T50)  : GET    /api/expenses/summary
+122. Update Expense (T49)        : PUT    /api/expenses/:id
+123. Archive Expense (T49)       : POST   /api/expenses/:id/archive
+124. Monthly OpEx Overview (T51) : GET    /api/expenses/monthly-opex
+125. Current Month OpEx (T51)    : GET    /api/expenses/monthly-opex/current
+126. Month OpEx Detail (T51)     : GET    /api/expenses/monthly-opex/:year/:month
+127. Recalculate OpEx Cache (T51): POST   /api/expenses/monthly-opex/recalculate
+128. Monthly Revenue (T52)       : GET    /api/sales/analytics/revenue/monthly
+129. Current Month Revenue (T52) : GET    /api/sales/analytics/revenue/current
+130. Daily Revenue Breakdown(T52): GET    /api/sales/analytics/revenue/daily
+131. Monthly Revenue Detail (T52): GET    /api/sales/analytics/revenue/:year/:month
+132. Recalculate Revenue (T52)   : POST   /api/sales/analytics/revenue/recalculate
+133. Monthly COGS Overview (T53) : GET    /api/sales/analytics/cogs/monthly
+134. Current Month COGS (T53)    : GET    /api/sales/analytics/cogs/current
+135. Daily COGS Breakdown (T53)  : GET    /api/sales/analytics/cogs/daily
+136. Product COGS Ranking (T53)  : GET    /api/sales/analytics/cogs/products
+137. Custom Period COGS (T53)    : GET    /api/sales/analytics/cogs/period
+138. Month COGS Detail (T53)     : GET    /api/sales/analytics/cogs/:year/:month
+139. Recalculate COGS Cache (T53): POST   /api/sales/analytics/cogs/recalculate
+140. Gross Profit Overview (T54) : GET    /api/sales/analytics/gross-profit/monthly
+141. Current Month Profit (T54)  : GET    /api/sales/analytics/gross-profit/current
+142. Daily Gross Profit (T54)    : GET    /api/sales/analytics/gross-profit/daily
+143. Product Profit Matrix (T54) : GET    /api/sales/analytics/gross-profit/products
+144. Custom Period Profit (T54)  : GET    /api/sales/analytics/gross-profit/period
+145. Vital Health Diagnostic(T54): GET    /api/sales/analytics/gross-profit/health-check
+146. Month Profit Detail (T54)   : GET    /api/sales/analytics/gross-profit/:year/:month
+147. Recalculate Profit Cache(T54): POST  /api/sales/analytics/gross-profit/recalculate
+148. OpEx Period Analytics (T55) : GET    /api/analytics/operating-expenses
+149. OpEx Monthly Financial (T55): GET    /api/sales/analytics/opex/monthly
+150. Current Month OpEx (T55)    : GET    /api/sales/analytics/opex/current
+151. Quarterly OpEx Totals (T55) : GET    /api/sales/analytics/opex/quarters
+152. Daily Cash Burn Ledger (T55): GET    /api/sales/analytics/opex/daily
+153. Period Net Profit (T56)     : GET    /api/analytics/net-profit
+154. Net Profit Monthly (T56)    : GET    /api/analytics/net-profit/monthly
+155. Current Month Net Profit(T56): GET   /api/analytics/net-profit/current
+156. Quarterly Net Profit (T56)  : GET    /api/analytics/net-profit/quarters
+157. Daily Net Profit Ledger(T56): GET    /api/analytics/net-profit/daily
+158. Recalculate Net Profit (T56): POST   /api/analytics/net-profit/recalculate
+159. Full System Reconciliation  : GET    /api/reconciliation
+160. Inventory Reconciliation Fix: POST   /api/reconciliation/inventory/fix
+161. Customer Reconciliation Fix : POST   /api/reconciliation/customers/fix
+162. Supplier Reconciliation Fix : POST   /api/reconciliation/suppliers/fix
+163. Fix All Discrepancies       : POST   /api/reconciliation/fix-all
+164. Module Inventory Audit      : GET    /api/reconciliation/inventory
+165. Module Customer Audit       : GET    /api/reconciliation/customers
+166. Module Supplier Audit       : GET    /api/reconciliation/suppliers
+
 
 ===============================================================================
 4. VERIFICATION & TEST STATUS
 ===============================================================================
-- Frontend Build Status: Passed (`npm run build` -> Exit code 0, 0 errors).
-- Backend Automated Test Suites:
-  * `test-goods-received-note-api.js` (T44) -> 100% Passed (12/12 tests).
-  * `test-purchase-item-schema-model.js` (T43) -> 100% Passed (9/9 tests).
-  * `test-purchase-order-schema-model.js` (T42) -> 100% Passed (8/8 tests).
-  * `test-supplier-360-management-center.js` (T41) -> 100% Passed (5/5 tests).
+- Frontend Production Build Status: PASSED (`npm run build` -> Exit code 0, 0 compilation errors).
+- Backend Automated Test Suites (50+ Test Suites, 100% Passing):
+  * `test-net-profit-aggregation-service.js` (T56)   -> 100% Passed.
+  * `test-operating-expense-aggregations.js` (T55)   -> 100% Passed (11/11 tests).
+  * `test-gross-profit-calculations.js` (T54)        -> 100% Passed (11/11 tests).
+  * `test-cogs-calculator-aggregations.js` (T53)     -> 100% Passed (11/11 tests).
+  * `test-monthly-revenue-aggregations.js` (T52)     -> 100% Passed (11/11 tests).
+  * `test-monthly-opex-aggregator-engine.js` (T51)   -> 100% Passed (10/10 tests).
+  * `test-expense-historical-ledger-ui.js` (T50)     -> 100% Passed (9/9 tests).
+  * `test-create-expense-api-endpoint.js` (T49)      -> 100% Passed (12/12 tests).
+  * `test-expense-category-configurations.js` (T48)  -> 100% Passed (12/12 tests).
+  * `test-purchase-order-workflow-history.js` (T47)  -> 100% Passed (12/12 tests).
+  * `test-supplier-payable-update-handler.js` (T46)  -> 100% Passed (10/10 tests).
+  * `test-auto-inventory-in-deductions.js` (T45)     -> 100% Passed (8/8 tests).
+  * `test-goods-received-note-api.js` (T44)          -> 100% Passed (12/12 tests).
+  * `test-purchase-item-schema-model.js` (T43)       -> 100% Passed (9/9 tests).
+  * `test-purchase-order-schema-model.js` (T42)      -> 100% Passed (8/8 tests).
+  * `test-supplier-360-management-center.js` (T41)   -> 100% Passed (5/5 tests).
   * `test-supplier-outstanding-payables-indexer.js` (T40) -> 100% Passed (8/8 tests).
-  * `test-expense-historical-ledger-ui.js` (T50) -> 100% Passed (9/9 tests).
-  * `test-create-expense-api-endpoint.js` (T49) -> 100% Passed (12/12 tests).
-  * `test-expense-category-configurations.js` (T48) -> 100% Passed (12/12 tests).
-  * `test-purchase-order-workflow-history.js` (T47) -> 100% Passed (12/12 tests).
-  * `test-supplier-payable-update-handler.js` (T46) -> 100% Passed (10/10 tests).
-  * `test-auto-inventory-in-deductions.js` (T45) -> 100% Passed (8/8 tests).
-  * `test-goods-received-note-api.js` (T44) -> 100% Passed (12/12 tests).
-  * `test-purchase-item-schema-model.js` (T43) -> 100% Passed (9/9 tests).
-  * `test-purchase-order-schema-model.js` (T42) -> 100% Passed (8/8 tests).
-  * `test-supplier-360-management-center.js` (T41) -> 100% Passed (5/5 tests).
-  * `test-supplier-outstanding-payables-indexer.js` (T40) -> 100% Passed (8/8 tests).
-  * `test-supplier-ledger-transaction-log.js` (T39) -> 100% Passed (11/11 tests).
-  * `test-supplier-crud-apis.js` (T38) -> 100% Passed (10/10 tests).
-  * `test-supplier-schema-model.js` (T37) -> 100% Passed (8/8 tests).
-  * `test-customer-crm-profiling.js` (T36) -> 100% Passed (5/5 tests).
+  * `test-supplier-ledger-transaction-log.js` (T39)  -> 100% Passed (11/11 tests).
+  * `test-supplier-crud-apis.js` (T38)               -> 100% Passed (10/10 tests).
+  * `test-supplier-schema-model.js` (T37)            -> 100% Passed (8/8 tests).
+  * `test-customer-crm-profiling.js` (T36)           -> 100% Passed (5/5 tests).
+  * `test-customer-payment-history.js` (T35)         -> 100% Passed (6/6 tests).
+  * `test-customer-realtime-outstanding.js` (T34)    -> 100% Passed (7/7 tests).
+  * `test-customer-ledger-transaction-log.js` (T33)  -> 100% Passed (7/7 tests).
+  * `test-customer-crud-apis.js` (T32)               -> 100% Passed (8/8 tests).
+  * `test-customer-schema-model.js` (T31)            -> 100% Passed (7/7 tests).
+  * `test-customer-credit-integration.js` (T29)      -> 100% Passed.
+  * `test-payment-recording-entity.js` (T28)         -> 100% Passed.
+  * `test-invoice-pdf-generation.js` (T27)           -> 100% Passed.
+  * `test-pos-checkout-transaction.js` (T25)         -> 100% Passed.
+  * `test-sale-items-snapshot.js` (T24)              -> 100% Passed.
+  * `test-low-stock-notifications.js` (T22)          -> 100% Passed.
+  * `test-inventory-ledger-ui.js` (T21)              -> 100% Passed.
+  * `test-reconciliation-engine.js` (T47)            -> 100% Passed.
+  * `test-idempotency-engine.js`                     -> 100% Passed (5/5 tests).
+  * `test-security-3.3-cookie-auth.js`               -> 100% Passed.
+  * `test-bug-2.2-concurrency-save-fix.js`           -> 100% Passed.
+  * `test-bug-2.3-sequential-counter-race-fix.js`    -> 100% Passed.
+  * `test-bug-2.4-identity-property-mismatch-fix.js` -> 100% Passed.
 
-
-
-
-  * `test-customer-payment-history.js` (T35) -> 100% Passed (6/6 tests).
-  * `test-customer-realtime-outstanding.js` (T34) -> 100% Passed (7/7 tests).
-  * `test-customer-ledger-transaction-log.js` (T33) -> 100% Passed (7/7 tests).
-  * `test-customer-crud-apis.js` (T32) -> 100% Passed (8/8 tests).
-  * `test-customer-schema-model.js` (T31) -> 100% Passed (7/7 tests).
-  * `test-customer-credit-integration.js` (T29) -> 100% Passed.
-  * `test-payment-recording-entity.js` (T28) -> 100% Passed.
-  * `test-pos-checkout-transaction.js` (T25) -> 100% Passed.
-  * `test-sale-items-snapshot.js` (T24) -> 100% Passed.
-  * `test-invoice-pdf-generation.js` (T27) -> 100% Passed.
-  * `test-low-stock-notifications.js` (T22) -> 100% Passed.
-  * `test-inventory-ledger-ui.js` (T21) -> 100% Passed.
-  * `test-reconciliation-engine.js` (T47) -> 100% Passed (Customer & Supplier reconciliation bug fixed).
 
 ================================================================================
 CRITICAL AUDIT BUG FIXES LOG
 ================================================================================
 - [RESOLVED] BUG 2.1: Customer Reconciliation Engine Running Balance Calculation:
-  * File: `Backend/src/services/reconciliation.service.js`
+  * Files: `Backend/src/services/reconciliation.service.js`
   * Issue: Used non-existent fields (`unpaidAmount`, `paymentAmount`, `debit`, `credit`), causing debt to calculate as 0 and wipe out customer balances.
   * Fix: Updated logic to accurately read `creditAmount` and `debitAmount` conforming to `CustomerLedger` schema.
-  * Test: Verified passing via `node tests/test-reconciliation-engine.js` (All assertions passed).
+  * Test: Verified passing via `node tests/test-reconciliation-engine.js`.
 
 - [RESOLVED] BUG 2.2: Concurrency Killer: Atomic Decrement followed by .save() Stock Corruption:
   * Files:
-    - `Backend/src/repositories/sale.repository.js` (L304)
-    - `Backend/src/repositories/inventory.repository.js` (L322 & L597)
-    - `Frontend/src/features/pos/POSTerminalPage.jsx` (L314)
-    - `Frontend/src/features/inventory/InventoryAuditPage.jsx` (L431)
+    - `Backend/src/repositories/sale.repository.js`
+    - `Backend/src/repositories/inventory.repository.js`
+    - `Frontend/src/features/pos/POSTerminalPage.jsx`
+    - `Frontend/src/features/inventory/InventoryAuditPage.jsx`
   * Issue: Calling Mongoose `.save()` on an in-memory document instance after atomic `findOneAndUpdate` overwrote concurrent stock decrements made by other checkout terminals with stale values.
   * Fix:
     - Backend: Replaced `.save()` with targeted `Inventory.updateOne({ _id }, { $set: { lowStockAlert, updatedAt } })`, preserving exact concurrent atomic stock changes.
     - Frontend: Added instant catalog re-fetch (`fetchPOSProducts()`) upon `INSUFFICIENT_STOCK` rejection and inventory table sync on conflict error.
+
 - [RESOLVED] BUG 2.3: Sequential Number Generator Race Conditions (Invoice, PO, GRN):
   * Files:
     - `Backend/src/models/counter.model.js` (Created dedicated atomic counter schema)
@@ -796,11 +1020,53 @@ CRITICAL AUDIT BUG FIXES LOG
     - `Backend/src/repositories/grn.repository.js` (Integrated atomic generateNextGrnNumber)
     - `Backend/src/services/grn.service.js` (Passed session context to generateNextGrnNumber)
   * Issue: Previous generator calculated next sequential numbers via countDocuments/findOne + in-memory loop check, causing simultaneous POS checkouts or PO/GRN creations to generate identical IDs and crash with MongoServerError E11000 duplicate key error.
-  * Fix: Implemented atomic MongoDB $inc counter collection with automatic cold-start seeding from existing documents, backward compatibility, and race condition duplicate key recovery.
-  * Test: `Backend/tests/test-bug-2.3-sequential-counter-race-fix.js` -> 100% Passed (5/5 tests on MongoDB).
+  * Fix: Implemented atomic MongoDB `$inc` counter collection with automatic cold-start seeding from existing documents, backward compatibility, and race condition duplicate key recovery.
+  * Test: `Backend/tests/test-bug-2.3-sequential-counter-race-fix.js` -> 100% Passed.
+
+- [RESOLVED] BUG 2.4: User Identity Property Mismatch (req.user.accountId vs req.user.id):
+  * Files:
+    - `Backend/src/middlewares/auth.middleware.js`
+    - `Backend/src/services/auth.service.js`
+    - `Backend/src/controllers/customer.controller.js`
+    - `Backend/src/controllers/supplier.controller.js`
+    - `Backend/src/controllers/purchaseOrder.controller.js`
+    - `Backend/src/controllers/reconciliation.controller.js`
+    - `Backend/src/middlewares/idempotency.middleware.js`
+    - `Frontend/src/context/AuthContext.jsx`
+  * Issue: Property mismatch where middleware defined `accountId` but controllers/services expected `id`, causing null audit trail attributes and inaccurate idempotency locks.
+  * Fix: Normalized user object across backend and frontend to consistently expose `id`, `_id`, `accountId`, `fullName`, and `name`. Added missing paymentMethod field to CustomerLedger schema and sanitized customer search regexes.
+  * Test: `Backend/tests/test-bug-2.4-identity-property-mismatch-fix.js` -> 100% Passed.
+
+- [RESOLVED] BUG 2.5: Missing Frontend System Reconciliation Page & Navigation:
+  * Files:
+    - `Frontend/src/features/reconciliation/ReconciliationPage.jsx` (Created complete audit & reconciliation page)
+    - `Frontend/src/App.jsx` (Registered `/reconciliation` route)
+    - `Frontend/src/components/layout/Sidebar.jsx` (Added Reconciliation navigation item with ShieldCheck icon)
+  * Issue: Backend had a full ledger reconciliation engine (`/api/reconciliation`), but frontend lacked any UI page or navigation link to audit and auto-repair drift.
+  * Fix: Built high-density Apple-style dark glassmorphism Reconciliation Center displaying live System Health Score, verified entity counts, multi-module tabs, drift breakdown tables, and one-click auto-repair actions.
+
+- [RESOLVED] BUG 2.6: Sub-Ledgers Client-Side Idempotency Key Missing:
+  * Files:
+    - `Frontend/src/features/suppliers/components/ReceiveGoodsModal.jsx` (GRN stock receiving)
+    - `Frontend/src/features/suppliers/components/CreatePurchaseOrderModal.jsx` (PO creation)
+    - `Frontend/src/features/customers/components/SettleKhataModal.jsx` (Customer debt payment settlement)
+    - `Frontend/src/features/suppliers/components/SettleSupplierModal.jsx` (Supplier accounts payable disbursement)
+    - `Frontend/src/features/suppliers/components/SupplierLedgerModal.jsx` (Manual ledger adjustments)
+    - `Frontend/src/features/inventory/InventoryAuditPage.jsx` (Stock In, Stock Out, and Stock Adjustments)
+    - `Frontend/src/services/payment.api.js` (Added idempotencyKey parameter support)
+  * Issue: Subledgers and financial modal submissions lacked client-side Idempotency-Key, risking duplicate submissions on double-clicks or unstable connections.
+  * Fix: Integrated `generateIdempotencyKey()` across all subledger and financial modal submissions. Backend `idempotencyMiddleware` locks, deduplicates, and caches responses.
+
+- [RESOLVED] SECURITY 3.3: JWT Tokens Stored in LocalStorage (XSS Session Hijacking Protection):
+  * Files:
+    - `Frontend/src/services/api.js` (Removed localStorage tokens; implemented in-memory access token + HttpOnly cookie refresh)
+    - `Frontend/src/context/AuthContext.jsx` (Eliminated token storage; secure /auth/me cookie authentication handshake)
+    - `Frontend/src/features/auth/Login.jsx` (Eliminated localStorage token persistence)
+    - `Frontend/src/features/auth/VerifyOTP.jsx` (Eliminated localStorage token persistence)
+    - `Backend/tests/test-security-3.3-cookie-auth.js` (Unit tests for pure HttpOnly cookie authentication)
+  * Issue: Frontend stored accessToken and refreshToken in localStorage, exposing merchant accounts to permanent session hijacking if any third-party script executed XSS.
+  * Fix: Migrated to pure browser-enforced HttpOnly, SameSite cookie architecture with in-memory token state. Zero JWT credentials stored in browser localStorage or sessionStorage. On load, all legacy localStorage tokens are scrubbed.
 
 ================================================================================
 END OF PROGRESS REPORT
 ================================================================================
-
-

@@ -19,6 +19,7 @@ import {
   Sliders,
   ArrowUpRight,
   PieChart,
+  BarChart3,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -40,9 +41,10 @@ import RecordExpenseModal from "./components/RecordExpenseModal";
 import ExpensesTable from "./components/ExpensesTable";
 import ExpenseLeakageSummary from "./components/ExpenseLeakageSummary";
 import ExpenseLedgerFilters from "./components/ExpenseLedgerFilters";
+import MonthlyOpExAggregator from "./components/MonthlyOpExAggregator";
 
 export default function ExpensesPage() {
-  // Active View Tab: "EXPENSES" (T50 Historical Statement) | "CATEGORIES" (T48 Master)
+  // Active View Tab: "EXPENSES" (T50 Historical Statement) | "MONTHLY_OPEX" (T51 Aggregator) | "CATEGORIES" (T48 Master)
   const [activeTab, setActiveTab] = useState("EXPENSES");
 
   // Expenses State (T49 & T50)
@@ -162,6 +164,12 @@ export default function ExpensesPage() {
     setFilters((prev) => ({ ...prev, page: newPage }));
   };
 
+  // 1-Click Jump from T51 Monthly OpEx into T50 Historical Statement
+  const handleJumpToLedgerMonth = (monthKey) => {
+    handleFilterChange("month", monthKey);
+    setActiveTab("EXPENSES");
+  };
+
   // Handle Archive Expense
   const handleArchiveExpense = async (exp) => {
     if (!window.confirm(`Are you sure you want to archive expense ${exp.expenseNumber}?`)) return;
@@ -196,11 +204,11 @@ export default function ExpensesPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-white tracking-tight">Expense Management</h1>
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#30D158]/20 text-[#30D158] border border-[#30D158]/30">
-              Phase 8 • T50 Ledger
+              Phase 8 • T51 OpEx Engine
             </span>
           </div>
           <p className="text-xs text-[#8E8E93] mt-1">
-            Categorized historical expense ledger statement with robust month/category filtering and expenditure leakage tracking
+            Categorized historical expense ledger, calendar-month OpEx aggregator engine, and expenditure leakage tracking
           </p>
         </div>
 
@@ -351,6 +359,18 @@ export default function ExpensesPage() {
             </button>
 
             <button
+              onClick={() => setActiveTab("MONTHLY_OPEX")}
+              className={`px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+                activeTab === "MONTHLY_OPEX"
+                  ? "border-[#FF9F0A] text-white bg-white/[0.03]"
+                  : "border-transparent text-[#8E8E93] hover:text-white"
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 text-[#FF9F0A]" />
+              <span>Monthly OpEx Aggregator</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab("CATEGORIES")}
               className={`px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
                 activeTab === "CATEGORIES"
@@ -402,7 +422,14 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        {/* TAB 2: CATEGORY MASTER (T48) */}
+        {/* TAB 2: MONTHLY OPEX AGGREGATOR (T51) */}
+        {activeTab === "MONTHLY_OPEX" && (
+          <div className="p-5">
+            <MonthlyOpExAggregator onJumpToLedgerMonth={handleJumpToLedgerMonth} />
+          </div>
+        )}
+
+        {/* TAB 3: CATEGORY MASTER (T48) */}
         {activeTab === "CATEGORIES" && (
           <div className="p-5">
             <div className="flex items-center justify-between mb-4">

@@ -16,6 +16,7 @@ const purchaseRoutes = require("./routes/purchase.routes");
 const reconciliationRoutes = require("./routes/reconciliation.routes");
 const expenseCategoryRoutes = require("./routes/expenseCategory.routes");
 const expenseRoutes = require("./routes/expense.routes");
+const analyticsRoutes = require("./routes/analytics.routes");
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
@@ -87,6 +88,7 @@ app.use("/api/reconciliation", reconciliationRoutes);
 app.use("/api/expense-categories", expenseCategoryRoutes);
 app.use("/api/expenses/categories", expenseCategoryRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 app.use(errorHandler);
 

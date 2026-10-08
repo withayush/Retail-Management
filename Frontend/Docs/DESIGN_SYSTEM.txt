@@ -2,11 +2,12 @@
                         VENDOROS - MASTER DESIGN SYSTEM SPECIFICATION
 ====================================================================================================
 Design System  : VendorOS Dark Monochrome Design System
-Tech Stack     : Tailwind CSS + Framer Motion + Lucide React + Inter Typography
+Tech Stack     : React 19 + Tailwind CSS + Framer Motion + Lucide React + Inter Typography
 Color Scale    : HSL Tailored Zinc / Slate Dark Palette
-Target Users   : Retail Store Owners, Kirana Merchants, POS Terminal Cashiers
+Target Users   : Retail Store Owners, Kirana Merchants, POS Terminal Cashiers, Warehouse Managers
 Aesthetic Goal : High-Density, State-of-the-Art Dark Ergonomics with Instant Visual Feedback
-Last Updated   : 2026-09-23
+Last Updated   : 2026-10-08
+Project Scope  : POS Terminal, Inventory Ledger, Customer 360 & Khata, Supplier 360, PO & GRN Engine, Reconciliation, Expenses & OpEx, Financial Analytics & P&L Waterfall
 
 ====================================================================================================
 TABLE OF CONTENTS
@@ -17,16 +18,26 @@ TABLE OF CONTENTS
 4. SPACING, ELEVATION & BORDER RADIUS TOKENS
 5. MOTION SYSTEM & SPRING ANIMATION CURVES
 6. CORE COMPONENT SPECIFICATIONS & CLASS TOKENS
-   - 6.1 Buttons & Interactive Triggers
-   - 6.2 Input Fields & Search Bars with Hotkey Badges
-   - 6.3 Semantic Status Badges & Pill Chips
-   - 6.4 High-Density Retail Data Tables
-   - 6.5 KPI Stat Cards & Financial Summaries
-   - 6.6 Animated Modals & Dialog Backdrops
-   - 6.7 POS Billing Terminal Layout (T30 Screen Spec)
-   - 6.8 80mm / 58mm Thermal Printable Receipt Spec (T27)
+   - 6.1  Buttons & Interactive Triggers
+   - 6.2  Input Fields & Search Bars with Hotkey Badges
+   - 6.3  Semantic Status Badges & Pill Chips
+   - 6.4  High-Density Retail Data Tables
+   - 6.5  KPI Stat Cards & Financial Summaries
+   - 6.6  Animated Modals & Dialog Backdrops
+   - 6.7  POS Billing Terminal Layout (T30 Screen Spec)
+   - 6.8  80mm / 58mm Thermal Printable Receipt Spec (T27)
+   - 6.9  Customer 360° CRM, Khata (Udhaar) Ledger & Debt Aging Spec (T31-T36)
+   - 6.10 Supplier 360° & Accounts Payable Management Center Spec (T37-T41)
+   - 6.11 Purchase Order, Goods Received Note (GRN) & Auto-Stock Receiving Spec (T42-T45)
+   - 6.12 Inventory Audit Trail & Real-Time Stock Flow Statement Spec (T15-T22)
+   - 6.13 Sales History & Multi-Tranche Invoicing Audit Center Spec (T23-T30)
+   - 6.14 System Audit, Health Diagnostic & Reconciliation Center Spec (T47)
+   - 6.15 Store Operational Expenses & Budget Variance Spec (T48-T50)
+   - 6.16 Financial Analytics & Full P&L Suite Spec (T51-T56)
 7. CASHIER ERGONOMICS & KEYBOARD-FIRST ACCESSIBILITY
-8. USAGE RULES & DEVELOPER GUIDELINES
+8. CONCURRENCY-SAFE UI PATTERNS & STATE RESILIENCY
+9. FINANCIAL DATA INTEGRITY & AUDIT TRAIL STANDARDS
+10. USAGE RULES & DEVELOPER GUIDELINES
 
 ====================================================================================================
 1. DESIGN PHILOSOPHY & CORE PRINCIPLES
@@ -47,6 +58,14 @@ TABLE OF CONTENTS
 4. Tabular Financial Precision:
    Monetary amounts, quantities, SKUs, and barcodes always render with monospace / tabular numeral
    alignment (`font-mono` / `tabular-nums`) to prevent optical misalignment during rapid calculation.
+
+5. Append-Only Ledger Visibility:
+   Financial debits/credits and physical inventory additions/deductions are displayed with immutable,
+   audit-transparent indicators (Running Balance, Transaction Type, Source, Timestamp, and Auditor).
+
+6. Concurrency-Aware Feedback:
+   In multi-terminal environments where stock and cash states change simultaneously, the UI communicates
+   live inventory availability, locks expired transactions gracefully, and auto-syncs without data clobbering.
 
 ====================================================================================================
 2. COLOR TOKENS & HSL PALETTE SPECIFICATION
@@ -78,6 +97,7 @@ All colors are defined as HSL CSS variables in `Frontend/src/index.css` and mapp
 │ --warning           │ 38 92% 50%        │ #f59e0b     │ Low Stock Alert, Partial Payment, Adjust  │
 │ --destructive       │ 0 84% 60%         │ #ef4444     │ Out of Stock, Stock OUT, Unpaid, Errors   │
 │ --info (Opening)    │ 217 91% 60%       │ #3b82f6     │ Opening Stock, Informational badges       │
+│ --purple / Udhaar   │ 270 70% 60%       │ #a855f7     │ Khata settlements, Credit metrics         │
 └─────────────────────┴───────────────────┴─────────────┴───────────────────────────────────────────┘
 
 ====================================================================================================
@@ -177,17 +197,20 @@ button:active:not(:disabled) {
 6.3 SEMANTIC STATUS BADGES & PILL CHIPS
 ----------------------------------------------------------------------------------------------------
 
-1. SUCCESS BADGE (In Stock / Paid / +Stock IN):
+1. SUCCESS BADGE (In Stock / Paid / +Stock IN / Exact Match):
    `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30`
 
-2. WARNING BADGE (Low Stock / Partial / ~Adjust):
+2. WARNING BADGE (Low Stock / Partial / ~Adjust / Moderate Due):
    `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30`
 
-3. DANGER BADGE (Out of Stock / Unpaid / -Stock OUT):
+3. DANGER BADGE (Out of Stock / Unpaid / -Stock OUT / Overdue):
    `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30`
 
-4. INFO BADGE (Opening Stock / Restored / Categories):
+4. INFO BADGE (Opening Stock / Restored / Categories / Over-delivery):
    `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30`
+
+5. NEUTRAL BADGE (Draft / Inactive / Archived):
+   `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700`
 
 ----------------------------------------------------------------------------------------------------
 6.4 HIGH-DENSITY RETAIL DATA TABLES
@@ -260,37 +283,325 @@ STRUCTURE:
 - Payment Mode     : Paid via CASH / UPI (with Reference ID), Balance Due
 - Footer Notice    : "Thank you for shopping! Please visit again."
 
+----------------------------------------------------------------------------------------------------
+6.9 CUSTOMER 360° CRM, KHATA (UDHAAR) LEDGER & DEBT AGING SPEC (T31-T36)
+----------------------------------------------------------------------------------------------------
+
+1. Customer 360° CRM Center (`CustomerCRMModal.jsx`, `max-w-5xl`):
+   - Avatar Header: Amber gradient badge with customer initial (`bg-gradient-to-tr from-amber-500/20 to-amber-400/10 border border-amber-500/30 text-amber-400 font-bold`), full demographic info, phone, email, and "Customer Since" timestamp.
+   - Quick Action Command Strip:
+     * Settle Udhaar (`SettleKhataModal.jsx`) -> Direct payment disbursement dialog.
+     * Ledger Statement (`CustomerLedgerModal.jsx`) -> Chronological audit trail.
+     * Repayments History (`CustomerPaymentHistoryModal.jsx`) -> All historical Jama logs.
+     * Edit Customer Profile (`EditCustomerModal.jsx`) -> Demographic & credit limit modal.
+   - 4-Card CRM Financial KPI Matrix:
+     * Current Udhaar / Outstanding Debt: Amber/Rose tabular rupee figure. If `currentDebt > creditLimit`, activates alert glow (`border-rose-500/30 text-rose-400`). Features credit limit progress bar (`h-1.5 rounded-full bg-zinc-800` with dynamic fill transition).
+     * Lifetime Sales Volume: `text-sky-400 font-mono` with shopping bag icon.
+     * Total Store Visits: `text-emerald-400 font-mono` with orders count.
+     * Average Spend / Basket Size: `text-purple-400 font-mono` with upward trend icon.
+   - FIFO Debt Aging Visualizer Bar:
+     * Segmented horizontal risk distribution bar:
+       - 0-30 Days  : `bg-emerald-500` (Current debt)
+       - 31-60 Days : `bg-amber-500` (Moderate risk)
+       - 61-90 Days : `bg-orange-500` (Attention required)
+       - 90+ Days   : `bg-rose-500` (Critical overdue debt)
+     * 4-Column Breakdown Grid displaying exact rupee figures and percentage share of total debt.
+   - Multi-Tab Historic Explorer:
+     * Purchases Tab: Chronological sales invoices with item badges, totals, and payment status stamps.
+     * Payments Tab : Historical repayment settlements with method chips (CASH, UPI, CARD) and reference numbers.
+     * Profile Tab  : Demographic data, delivery address, city, state, pincode, credit limit, and merchant notes.
+
+2. Customer Khata Running Sub-Ledger (`CustomerLedgerModal.jsx`):
+   - Bank-statement style running ledger table:
+     * Date & Timestamp: Monospace formatted date (`text-xs text-muted-foreground`).
+     * Reference ID    : Direct clickable link to Sale Invoice (`INV-XXXX`) or Settlement ID.
+     * Transaction Type: `SALE_CREDIT` (Udhaar added), `PAYMENT_SETTLEMENT` (Jama paid), `ADJUSTMENT`.
+     * Credit Amount   : `text-amber-400 font-mono tabular-nums` (+ debt owed).
+     * Debit Amount    : `text-emerald-400 font-mono tabular-nums` (- debt cleared).
+     * Running Balance : Monospace bold authoritative running balance snapshot at transaction completion.
+
+3. Settle Khata Modal (`SettleKhataModal.jsx`):
+   - Balance due callout banner with 1-click "Pay Full Balance" action pill.
+   - Numeric payment amount field with instant post-payment balance calculation.
+   - Mode selector buttons: CASH, UPI, CARD, BANK_TRANSFER with Reference / UTR field.
+
+4. Customer Payment History Explorer (`CustomerPaymentHistoryModal.jsx`):
+   - Dedicated "Deep-Trust Repayment Tracker" answering "Ab tak customer ne kab-kab kitna repay kiya?".
+   - KPI Trio: Total Amount Repaid, Average Settlement Value, Remaining Outstanding Balance.
+   - Payment method breakdown tags (CASH / UPI / CARD share) and date range filters.
+
+----------------------------------------------------------------------------------------------------
+6.10 SUPPLIER 360° & ACCOUNTS PAYABLE MANAGEMENT CENTER SPEC (T37-T41)
+----------------------------------------------------------------------------------------------------
+
+1. Supplier 360° Profile Center (`Supplier360Modal.jsx`, `max-w-5xl`):
+   - Header: Supplier company name, GSTIN badge, primary contact person, phone, and full address.
+   - KPI Trio: Current Payable Liability (`text-amber-400`), Lifetime Procurements (`text-sky-400`), Completed POs (`text-emerald-400`).
+   - 4-Tab Management Surface:
+     * Purchases       : Procurement invoices with delivered items and billing totals.
+     * Payments        : Settlement disbursement vouchers with payment modes and UTR references.
+     * Purchase Orders : Open, partial, and fulfilled purchase orders with 1-click "Receive Stock" trigger.
+     * Vendor Profile  : Corporate GSTIN, banking details, registered address, and contract notes.
+
+2. Accounts Payable Indexer (`OutstandingPayablesModal.jsx`):
+   - Store-wide cash allocation and supplier liability dashboard.
+   - KPI Quartet:
+     * Total Accounts Payable (Store-wide liability in ₹).
+     * Suppliers with Dues Count.
+     * Highest Single Vendor Due.
+     * Average Liability per Supplier.
+   - Threshold Filtering Bar: All Dues, ≥ ₹5,000, ≥ ₹20,000, ≥ ₹50,000.
+   - Ranked Creditors Table with direct "Disburse Payment" and "View Statement" shortcuts.
+
+3. Settle Supplier Payout Modal (`SettleSupplierModal.jsx`):
+   - Fast debt disbursement dialog reducing accounts payable liability.
+   - Payment mode selector: Bank Transfer (NEFT/RTGS/IMPS), UPI, Cash, Cheque.
+   - UTR / Reference ID capture with automated ledger debit posting.
+
+4. Supplier Ledger Modal (`SupplierLedgerModal.jsx`):
+   - Inverted symmetrical counterpart to Customer Ledger:
+     * Purchase Credit (+) : Inventory procurement increases business liability.
+     * Payment Debit (-)   : Cash disbursement reduces accounts payable liability.
+     * Running Balance Formula: `Balance = Prev + PurchaseCredit - PaymentDebit`.
+
+----------------------------------------------------------------------------------------------------
+6.11 PURCHASE ORDER, GOODS RECEIVED NOTE (GRN) & AUTO-STOCK RECEIVING SPEC (T42-T45)
+----------------------------------------------------------------------------------------------------
+
+1. Purchase Order Creation & Studio (`CreatePurchaseOrderModal.jsx`, `PurchaseOrdersListModal.jsx`):
+   - Multi-Item Dynamic Table:
+     * SKU & Catalog product selector with name, SKU, and unit prefill.
+     * Master cost price autofill with custom negotiated purchase cost override.
+     * Quantity stepper and real-time line total computation.
+   - Status Hierarchy Badges:
+     * DRAFT     : `bg-zinc-800 text-zinc-400 border-zinc-700`
+     * PENDING   : `bg-amber-500/10 text-amber-400 border-amber-500/20`
+     * PARTIAL   : `bg-blue-500/10 text-blue-400 border-blue-500/20`
+     * RECEIVED  : `bg-emerald-500/10 text-emerald-400 border-emerald-500/20`
+     * CANCELLED : `bg-rose-500/10 text-rose-400 border-rose-500/20`
+
+2. Goods Received Note (GRN) Receiving Modal (`ReceiveGoodsModal.jsx`):
+   - Dual-Mode Tabs: "Receive Items" (default for PENDING/PARTIAL) and "Receipt History" (default for RECEIVED).
+   - Challan & Invoice Metadata: Delivery Challan / LR #, Supplier Invoice #, Received Date.
+   - Real-Time Line Receiving Table with 7 Columns:
+     * Product / Item  : Name and SKU pill.
+     * Ordered Qty     : Monospace ordered units.
+     * Remaining Qty   : Units pending delivery (`bg-amber-500/10 text-amber-400`).
+     * Current Stock   : Real-time physical inventory badge (`bg-zinc-800/80 text-zinc-300 font-mono`).
+     * Receiving Now   : Interactive number input stepper with "Receive All Remaining" shortcut.
+     * Projected Stock : Live calculation of `currentStock + receivingNow` with `+N` emerald badge.
+     * Unit Cost & Line: Monospace cost calculations.
+   - Over-Delivery & Tolerance Guards:
+     * Visual warning glow (`border-amber-500 text-amber-300`) if receiving units exceed remaining order.
+     * Require explicit "Allow Over-delivery" toggle to submit excess shipments.
+   - T45 Auto-Inventory IN Notification Banner:
+     * Active integration callout: Confirmed goods automatically increment active sellable stock
+       (`Inventory.availableStock += receivedQty`) and append immutable `InventoryLedger` entries
+       with `source: 'GOODS_RECEIPT'`. Zero manual stock-in required.
+
+3. GRN Master Audit Explorer Modal (`GoodsReceivedNotesModal.jsx`):
+   - Global receipt log: Filter by PO, Supplier, Status (COMPLETED / CANCELLED), and Date Range.
+   - Expandable Delivery Accordion:
+     * Shows GRN Number (`GRN-XXXX`), Challan #, Invoice #, Supplier Company, and Received Date.
+     * Line Item Sub-Table with Variance Chips:
+       - Exact Match   : `text-emerald-400 font-bold "Exact ✓"`
+       - Partial Short : `text-amber-400 font-bold "-X Pending"`
+       - Over-Delivery : `text-blue-400 font-bold "+X Excess"`
+     * Auto-Stock IN Verification Badge on every completed physical shipment receipt.
+
+----------------------------------------------------------------------------------------------------
+6.12 INVENTORY AUDIT TRAIL & REAL-TIME STOCK FLOW STATEMENT SPEC (T15-T22)
+----------------------------------------------------------------------------------------------------
+
+1. Inventory Store State Master Table (`InventoryAuditPage.jsx`, `StockStateTable.jsx`):
+   - High-density table displaying Product, SKU, Category, Reorder Level, Available Stock, and Value.
+   - Stock Status Semantic Indicators:
+     * In Stock     : `text-emerald-400 font-mono` (> reorder level).
+     * Low Stock    : `text-amber-400 font-mono animate-pulse` (<= reorder level).
+     * Out of Stock : `text-rose-400 font-mono font-bold` (0 units).
+
+2. Double-Entry Stock Movement Ledger (`LedgerTable.jsx`, `LedgerFlowCards.jsx`):
+   - Mathematical Invariant: `availableStock === sum(all ledger qtyChanges)`.
+   - Movement Type Badges:
+     * `IN`      : `bg-emerald-500/10 text-emerald-400 border border-emerald-500/20` (+ Stock addition)
+     * `OUT`     : `bg-rose-500/10 text-rose-400 border border-rose-500/20` (- POS sales deduction)
+     * `ADJUST`  : `bg-amber-500/10 text-amber-400 border border-amber-500/20` (~ Audit reconciliation)
+     * `OPENING` : `bg-blue-500/10 text-blue-400 border border-blue-500/20` (* Store balance init)
+     * `RETURN`  : `bg-purple-500/10 text-purple-400 border border-purple-500/20` (< Customer return)
+   - Reason & Reference Columns: SALE, GOODS_RECEIPT, PHYSICAL_AUDIT, EXPIRY, DAMAGE, THEFT.
+
+3. Physical Stock Reconciliation / Adjustment Modal (`StockAdjustModal.jsx`):
+   - Current recorded stock vs physical count field with automatic delta computation.
+   - Reason taxonomy dropdown (Miscount, Damaged Goods, Expiry, Theft/Loss, Physical Audit).
+
+4. Low-Stock & Out-of-Stock Alert Management Queue (`AlertsTable.jsx`, `AlertsSummaryCards.jsx`):
+   - Real-time alerts queue triggered when `availableStock <= reorderLevel`.
+   - Severity differentiation: `CRITICAL` (Zero stock, high-priority red) vs `WARNING` (Low stock, amber).
+   - Instant acknowledgement and auto-resolution upon stock intake via GRN or Stock-IN.
+
+----------------------------------------------------------------------------------------------------
+6.13 SALES HISTORY & MULTI-TRANCHE INVOICING AUDIT CENTER SPEC (T23-T30)
+----------------------------------------------------------------------------------------------------
+
+1. Sales History Explorer (`SalesHistoryPage.jsx`, `SalesHistoryTable.jsx`):
+   - Paginated invoices table: Invoice # (`INV-XXXX`), Date/Time, Customer Name, Payment Status, Payment Method, Grand Total, Balance Due.
+   - Payment Status Badges:
+     * `PAID`    : `bg-emerald-500/10 text-emerald-400 border-emerald-500/20`
+     * `PARTIAL` : `bg-amber-500/10 text-amber-400 border-amber-500/20`
+     * `UNPAID`  : `bg-rose-500/10 text-rose-400 border-rose-500/20`
+   - Payment Method Chips: CASH, UPI, CARD, CREDIT (Udhaar), SPLIT.
+
+2. Sale Detail Inspector Modal (`SaleDetailModal.jsx`):
+   - Frozen Line Item Snapshots: Name, SKU, sold price, quantity, line total.
+   - Gross Profit Analytics Callout: Real-time COGS snapshot vs selling price displaying gross margin percentage (`text-emerald-400 font-mono`).
+   - Multi-Tranche Payment Timeline: Full history of partial payment installments with dates, modes, and reference numbers.
+   - Actions: 1-click PDF download (`/api/sales/:id/pdf`), thermal print receipt, settle remaining balance.
+
+----------------------------------------------------------------------------------------------------
+6.14 SYSTEM AUDIT, HEALTH DIAGNOSTIC & RECONCILIATION CENTER SPEC (T47)
+----------------------------------------------------------------------------------------------------
+
+1. System Integrity Dashboard (`ReconciliationPage.jsx`):
+   - Executive Header: System Health Score gauge with glowing status badge:
+     * Healthy (100%)       : `text-emerald-400 bg-emerald-500/10 border-emerald-500/20`
+     * Warning (80-99%)     : `text-amber-400 bg-amber-500/10 border-amber-500/20 animate-pulse`
+     * Critical (<80%)      : `text-rose-400 bg-rose-500/10 border-rose-500/20`
+   - Quick Action: 1-click "Reconcile All Discrepancies" trigger button with confirmation modal.
+   - 3-Subsystem Drift Inspection Tabs:
+     * Tab 1: Physical Inventory Stock Drift (Stored Stock vs Sum of Movement Ledgers).
+     * Tab 2: Customer Khata Udhaar Drift (Materialized Balance vs Chronological Sub-Ledger Sum).
+     * Tab 3: Supplier Accounts Payable Drift (Materialized Payable vs Goods Receipts / Disbursements).
+   - High-Density Drift Table:
+     * Entity Column   : Product SKU / Customer Name / Supplier Company with badge.
+     * Stored Balance  : Current database field figure (`font-mono tabular-nums`).
+     * Ledger Balance  : Authoritative recomputed ledger total (`font-mono text-sky-400`).
+     * Drift Indicator : Discrepancy delta pill (`text-rose-400` if negative, `text-amber-400` if positive).
+     * Action Column   : 1-Click "Sync with Ledger" repair button per row.
+
+----------------------------------------------------------------------------------------------------
+6.15 STORE OPERATIONAL EXPENSES & BUDGET VARIANCE SPEC (T48-T50)
+----------------------------------------------------------------------------------------------------
+
+1. Store Expenses Hub (`ExpensesPage.jsx`, `ExpensesTable.jsx`):
+   - KPI Quartet:
+     * Total Spent Current Month : Monospace bold rupee figure with MoM percentage change.
+     * Total Active Overheads    : Count of active categories.
+     * Store Budget Cap          : Overall monthly budget limit across all categories.
+     * Budget Utilization %      : Dynamic progress bar with threshold color shifts (Green < 75%, Amber 75-90%, Red > 90%).
+   - Sequential Expense Recording Modal (`RecordExpenseModal.jsx`):
+     * Read-only sequential badge: `EXP-XXXX` generated by atomic Counter sequence.
+     * Category Picker with custom icons and color swatches (Rent, Salaries, Electricity, Internet, Transport, Marketing).
+     * Amount Input with quick increment chips (+₹500, +₹1,000, +₹5,000).
+     * Payment Mode Selector: Cash, UPI, Bank Transfer, Card, Cheque.
+     * Payee Name & Reference / UTR input fields.
+   - Categorized Expense Ledger Table:
+     * Columns: Expense #, Date, Category with Color Pill, Payee / Description, Payment Mode Chip, Amount (₹ font-mono), Actions.
+     * 1-Click CSV Statement Export button.
+
+----------------------------------------------------------------------------------------------------
+6.16 FINANCIAL ANALYTICS & FULL P&L SUITE SPEC (T51-T56)
+----------------------------------------------------------------------------------------------------
+
+1. Monthly OpEx & Burn Rate Card (`MonthlyOpExAggregations.jsx`, T51 & T55):
+   - Daily Cash Burn Rate: `₹ / Day` calculation displaying store operating overhead velocity.
+   - Annualized Run Rate projection: `₹ (Total OpEx * 12)`.
+   - Cost Structure Breakdown: Fixed Overheads (Rent, Salaries) vs Variable Operating (Logistics, Packaging) split.
+
+2. Cost of Goods Sold (COGS) & Margins Engine (T53-T54):
+   - Margin Health Diagnostic Gauge:
+     * `HEALTHY` (≥ 30% margin) : `bg-emerald-500/15 text-emerald-400 border-emerald-500/30`
+     * `MODERATE` (15-30%)      : `bg-amber-500/15 text-amber-400 border-amber-500/30`
+     * `LOW` (< 15%)            : `bg-rose-500/15 text-rose-400 border-rose-500/30`
+   - Margin Compression Alert: Flags MoM margin drops exceeding 300 basis points (3.0%).
+   - Top Cost Drivers Table: Top 10 SKUs sorted by absolute COGS, units sold, and profit share.
+
+3. Net Profit & Fiscal Waterfall Chart (T56):
+   - 3-Stage Visual Waterfall Bar:
+     * Segment 1 (COGS Share %)   : `bg-sky-500` (Raw inventory cost deducted from revenue).
+     * Segment 2 (OpEx Share %)    : `bg-amber-500` (Operating overheads deducted).
+     * Segment 3 (Net Profit %)    : `bg-emerald-500` (True bottom-line net profit retained).
+   - Bottom-Line Rating Badges:
+     * `STELLAR_PROFIT` (Net Margin > 20%): Emerald illuminated badge.
+     * `HEALTHY_PROFIT` (10-20%): Emerald soft badge.
+     * `SLIM_PROFIT` (0-10%): Amber warning badge.
+     * `NET_LOSS` (< 0%): Rose danger badge.
+
 ====================================================================================================
 7. CASHIER ERGONOMICS & KEYBOARD-FIRST ACCESSIBILITY
 ====================================================================================================
 
 1. Hardware Barcode Listener (`useBarcodeScanner.js`):
    - Seamlessly captures automated keystrokes from USB / Wireless 1D & 2D barcode scanners.
-   - Buffer resets automatically if keypress gap exceeds 50ms, distinguishing human typing from barcode scans.
+   - Buffer resets automatically if keypress gap exceeds 50ms, distinguishing rapid human typing from hardware scanner blasts.
+   - Automatically matches product barcode, checks stock, and appends to cart without mouse navigation.
 
-2. Zero-Mouse POS Workflow:
-   - Cashiers never need to reach for the mouse to complete sales:
-     * `F2` -> Search SKU or Barcode
-     * `F4` -> Select Customer or Khata profile
-     * `F8` -> Clear Cart on cancellation
-     * `F9` -> Open Payment settlement modal
-     * `Enter` -> Submit and print receipt
-     * `Esc` -> Close any modal dialog
+2. Zero-Mouse POS Keyboard Shortcuts Cheat Sheet (`usePOSKeyboard.js`):
+   ┌──────────┬──────────────────────────────────────┬──────────────────────────────────────────┐
+   │ KEYPRESS │ ACTION TRIGGER                       │ BEHAVIOR & SAFETIES                      │
+   ├──────────┼──────────────────────────────────────┼──────────────────────────────────────────┤
+   │ `F1`     │ POS Shortcuts Help Modal             │ Opens keyboard shortcuts overlay dialog  │
+   │ `F2`     │ Focus Barcode / SKU Search Bar       │ Auto-selects text for instant scanning   │
+   │ `F4`     │ Customer / Khata Selection Dialog    │ Opens customer selector / quick create   │
+   │ `F8`     │ Clear Cart                           │ Requires confirmation if cart has items  │
+   │ `F9`     │ Open Payment Settlement Dialog       │ Opens payment split / settlement window  │
+   │ `Enter`  │ Confirm & Settle / Print Receipt     │ Finalizes checkout in settlement modal   │
+   │ `Esc`    │ Dismiss Modal / Blur Input           │ Closes active modal or clears search bar │
+   └──────────┴──────────────────────────────────────┴──────────────────────────────────────────┘
 
-3. Focus Trap & Contrast:
-   - High contrast ratios (exceeding WCAG 2.1 AAA 7:1 ratio for text).
-   - Modal backdrops trap focus and auto-focus the first actionable input field upon opening.
+3. Real-Time Concurrency Synchronization in POS:
+   - When a checkout fails due to concurrent stock depletion (`INSUFFICIENT_STOCK`), the POS terminal
+     automatically executes an instant catalog refresh (`fetchPOSProducts()`).
+   - The cashier immediately sees real-time updated stock quantities without manually refreshing the browser.
 
 ====================================================================================================
-8. USAGE RULES & DEVELOPER GUIDELINES
+8. CONCURRENCY-SAFE UI PATTERNS & STATE RESILIENCY
+====================================================================================================
+
+1. Prevention of Stale In-Memory State Overwrites:
+   - All backend inventory mutations use atomic `$inc` operators. The UI reflects this by never caching
+     quantities across stale tab instances.
+   - Inventory audit adjustments auto-refetch the latest server state upon conflict rejections.
+
+2. Atomic Sequential Identifiers:
+   - Invoice IDs (`INV-1001`), Purchase Order IDs (`PO-1001`), and GRN IDs (`GRN-1001`) are backed by
+     centralized MongoDB `$inc` counter sequences.
+   - UI forms display generated numbers as immutable read-only badges to prevent duplicate key race conditions.
+
+3. Credit Limit Enforcement Feedback:
+   - In both POS Checkout and Settle Khata flows, customers exceeding credit limits are flagged with
+     amber/rose warning callouts (`CREDIT_LIMIT_EXCEEDED`).
+   - The UI disables credit checkout when customer has reached or exceeded their assigned credit limit.
+
+====================================================================================================
+9. FINANCIAL DATA INTEGRITY & AUDIT TRAIL STANDARDS
+====================================================================================================
+
+1. Mathematical Invariant Verification:
+   - Customer Outstanding Balance = `Σ(Credit Sales) - Σ(Repayment Settlements) ± Adjustments`.
+   - Supplier Accounts Payable    = `Σ(Purchase Deliveries) - Σ(Disbursements) ± Adjustments`.
+   - Store Stock on Hand          = `Σ(Stock IN) - Σ(Stock OUT) ± Adjustments`.
+
+2. Append-Only Financial Records:
+   - Never provide "Edit" or "Delete" actions on past ledger entries.
+   - Any financial reconciliation or inventory count correction must be initiated via an explicit
+     `ADJUSTMENT` transaction with an audit reason tag and staff identification.
+
+3. Debt Aging FIFO Calculation:
+   - Debt aging in Customer 360° uses a First-In, First-Out (FIFO) algorithm against unpaid credit invoices.
+   - Unpaid balances are chronologically bucketed into `0-30 Days`, `31-60 Days`, `61-90 Days`, and `90+ Days`.
+
+====================================================================================================
+10. USAGE RULES & DEVELOPER GUIDELINES
 ====================================================================================================
 
 1. ALWAYS use the Tailwind HSL tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`).
-   NEVER hardcode hex codes (e.g. avoid `#000000` or `#ffffff` in JSX).
+   NEVER hardcode raw hex codes (e.g. avoid `#000000` or `#ffffff` in JSX components).
 2. ALWAYS use `font-mono tabular-nums` when rendering currency (`₹`), quantities, SKUs, and barcodes.
 3. ALWAYS provide visual active feedback (`active:scale-[0.975]`) on clickable action items.
 4. Keep data tables responsive with horizontal scroll wrappers (`overflow-x-auto`).
 5. Ensure all modals support dismissal via the `Esc` key and backdrop click.
+6. Provide clear visual cues for loading (`animate-spin`), empty states (`PackageSearch`, `UserX`), and error toasts.
+7. Use semantic toast notifications (`react-hot-toast`) with descriptive action feedback and duration >= 4000ms.
 
 ====================================================================================================
 END OF MASTER DESIGN SYSTEM SPECIFICATION

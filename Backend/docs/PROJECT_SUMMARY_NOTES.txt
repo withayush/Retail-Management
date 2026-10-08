@@ -160,6 +160,7 @@ Customer ka profile kholte hi uska 360-degree pura hisaab samne aa jata hai:
 - Recent Bills & Payments: Pichle 5 bills aur pichli 5 payments ek sath dikhti hain.
 
 ------------------------------------------------------------------------
+------------------------------------------------------------------------
 G. SUPPLIERS & PROCUREMENT (WHOLSALE DEALERS KA HISABB)
 ------------------------------------------------------------------------
 - Jin distributors, wholesalers ya dealers se dukan ka maal khareeda jata hai, 
@@ -167,6 +168,58 @@ G. SUPPLIERS & PROCUREMENT (WHOLSALE DEALERS KA HISABB)
   * Company ka naam, contact person, mobile number, aur email.
   * Dukan/Godown ka address aur GSTIN number.
   * Supplier ko kitne paise dene baki hain uska hisaab.
+  * Supplier ko kab-kab kitna payment (Bank / Cash / Cheque) diya gaya uska audit ledger.
+
+------------------------------------------------------------------------
+H. PURCHASE ORDERS & MAAL KI DELIVERY (PO & GRN SYSTEM - PHASE 7)
+------------------------------------------------------------------------
+- Purchase Order (PO): Supplier ko maal ka order bhejte waqt official PO banta hai. 
+  Is waqt bina delivery ke dukan ka stock galat tarike se nahi badhta.
+- Goods Received Note (GRN): Jab dukan par tempo ya truck se maal physical deliver hota hai:
+  * Dukandaar parchi (Challan # aur Invoice #) dekh kar har item ki quantity check karta hai.
+  * Confirm karte hi dukan ka sellable stock apne aap system me add ho jata hai.
+  * Supplier ka khata apne aap update ho jata hai ki kitne rupaye ka maal pahuncha.
+
+------------------------------------------------------------------------
+I. DUKAN KA AUDIT & RECONCILIATION (GAYAB HISABB KA ILAJ - T47)
+------------------------------------------------------------------------
+- Dukan me computer system aur physical dukan ke hisaab me kabhi-kabhi gap aa jata hai.
+- VendorOS ka "Reconciliation Engine" ek click me pura system scan karta hai:
+  * Stock ka actual count aur ledger ka count match hai ya nahi.
+  * Customers ka total udhaar aur unke bills match hain ya nahi.
+  * Suppliers ka hisaab aur unke challan match hain ya nahi.
+- Auto-Repair: Agar 1-2 rupaye ya pieces ka farak mile, toh "Auto-Fix" se pura 
+  system mathematically 100% synchronize ho jata hai.
+
+------------------------------------------------------------------------
+J. DUKAN KE KHARCHE (STORE EXPENSES & OPEX - PHASE 8)
+------------------------------------------------------------------------
+- Dukan chalane ke roz ke aur mahine ke kharche track hote hain:
+  * Dukan ka Kiraya (Rent), Bijli ka Bill (Electricity), Dukan ke ladko ki Salary.
+  * Chai-paani, Internet, Safai, aur Transport/Auto ka bhada.
+- Category Budget: Dukandaar har kharche ki limit set kar sakta hai (jaise Bijli ka bill max ₹10,000). 
+  Agar kharcha limit se zyada hua toh system warning alert deta hai.
+- EXP-1001 Sequential Slips: Har kharche ka sequential number aur payment mode (Cash/UPI) save hota hai.
+
+------------------------------------------------------------------------
+K. DUKAN KA ASLI MUNAFA & PROFIT LOSS REPORT (FULL P&L SUITE - PHASE 9)
+------------------------------------------------------------------------
+Dukandaar ko sabse bada sawaal hota hai: "Pore mahine me saara kharcha kaat ke mere jeb me kitna bacha?"
+VendorOS yeh 5-stage engine se 100% accurate calculate karta hai:
+
+1. Gross Revenue (Puri Bikri): 
+   Mahine me total kitne rupaye ka samaan bika.
+2. COGS (Samaan Ki Kharid Lagat): 
+   Jo samaan bika, usko distributor se kitne me khareeda gaya tha.
+3. Gross Profit (Dukan Ka Margin): 
+   Bikri - Kharid Lagat. (Pata chalta hai ki dukan ka margin 30% hai ya kam).
+4. Operating Expenses (Dukan Ka Kharcha): 
+   Kiraya + Salary + Bijli + Chai-paani ka total kharcha.
+5. Net Profit (Jeb Ka Asli Munafa - Bottom Line): 
+   Gross Profit - Saare Kharche. 
+   Yeh hai dukandaar ka asli profit jo uske ghar jayega!
+- Visual Waterfall Chart: Screen par rang-birange chart me dikhta hai ki 100 rupaye ki bikri me se 
+  kitne rupaye supplier le gaya, kitne rupaye dukan ke kharche me gaye, aur kitne rupaye munafa bacha.
 
 --------------------------------------------------------------------------------
 5. REAL DUKAN ME YEH KAISE KAAM KARTA HAI? (TYPICAL DAILY FLOW)
@@ -175,11 +228,12 @@ G. SUPPLIERS & PROCUREMENT (WHOLSALE DEALERS KA HISABB)
 1. Subah Dukan Khulne Par:
    - Dukandaar VendorOS me login karta hai.
    - Dashboard par dekhta hai ki kaunsa samaan khatam ho raha hai (Low Stock Alerts) 
-     aur kis supplier se maal mangwana hai.
+     aur kis supplier se maal mangwana hai (Pending POs).
+   - Reconciliation health check dekhta hai ki dukan ka system 100% healthy hai.
 
-2. Mal Aane Par (Stock In):
-   - Naya samaan godown/dukan me aane par "Stock IN" karke quantity aur kharid rate 
-     update kar diya jata hai.
+2. Mal Aane Par (GRN Receiving):
+   - Naya samaan deliver hone par delivery challan verify hota hai aur 1 click me 
+     maal dukan ke live stock me add ho jata hai.
 
 3. Din Bhar Counter Par (POS Billing):
    - Customer dukan me aaya aur samaan counter par rakha.
@@ -187,9 +241,15 @@ G. SUPPLIERS & PROCUREMENT (WHOLSALE DEALERS KA HISABB)
    - Cashier ne F9 dabaya -> Payment mode choose kiya (Cash / UPI / Udhaar) -> Print nikla!
    - Stock apne aap dukan ke system se kam ho gaya.
 
-4. Shaam Ko Dukan Band Hone Par:
-   - Dukandaar check karta hai ki aaj total kitni bikri hui, kitna profit hua, 
-     aur kis-kis customer ne udhaar par samaan liya.
+4. Din Ke Kharchon Ki Entry:
+   - Dukan ki bijli ka bill ya auto ka bhada diya toh turant "Record Expense" me save kiya.
+
+5. Shaam Ko Dukan Band Hone Par:
+   - Dukandaar check karta hai:
+     * Aaj total kitni bikri hui (Revenue)
+     * Cash counter me kitna cash aur UPI aaya
+     * Kis customer ka kitna Udhaar bana
+     * Mahine ka projected Net Profit (Munafa) kitna chal raha hai.
 
 --------------------------------------------------------------------------------
 6. VENDOROS KI SABSE BADI KHASIYAT (STANDOUT HIGHLIGHTS)
@@ -199,14 +259,18 @@ G. SUPPLIERS & PROCUREMENT (WHOLSALE DEALERS KA HISABB)
    Normal softwares ki tarah atakta nahi hai. Barcode scan aur billing bina 
    kisi delay ke chalti hai.
 
-2. Ekdum Pakka Hisaab:
+2. Ekdum Pakka Hisaab (Zero Math Corruption):
    Koi stock gayab nahi ho sakta aur na hi purane bills ka rate badal sakta hai. 
-   Har cheez ka audit record rehta hai.
+   Double-entry ledger aur auto-reconciliation se har paise ka hisaab rehta hai.
 
-3. Keyboard-First:
-   Mouse par haath lagaye bina pura counter chalaya ja sakta hai.
+3. 100% Keyboard-First POS:
+   Mouse par haath lagaye bina pura counter chalaya ja sakta hai (F2, F4, F8, F9, Esc).
 
-4. Dukaandar Ke Liye Simple & Saaf Design:
+4. Bottom-Line Net Profit Visibility:
+   Aam POS software sirf bikri dikhate hain. VendorOS bikri me se samaan ki kharid lagat 
+   aur dukan ke kiraye-bijli ke kharche kaat kar asli "Net Profit" batata hai.
+
+5. Dukaandar Ke Liye Simple & Saaf Design:
    Koi faltu ki mushkil settings nahi hain. Koi bhi aam dukandaar ya cashier 
    ise 5 minute me chalana seekh sakta hai.
 
