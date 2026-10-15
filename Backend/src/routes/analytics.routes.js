@@ -25,10 +25,23 @@ const {
   recalculateMonthlyNetProfit,
 } = require("../controllers/sale.controller");
 
+const {
+  getConsolidatedReceivablesIndex,
+  getReceivablesSummary,
+} = require("../controllers/customer.controller");
+
 const router = express.Router();
 
 router.use(authMiddleware);
 router.use(businessMiddleware);
+
+// ============================================
+// RECEIVABLES CONSOLIDATED INDEX (PHASE 9 - TASK T57)
+// ============================================
+// Canonical endpoint matching PRD: GET /api/analytics/receivables
+router.get("/receivables", getConsolidatedReceivablesIndex);
+router.get("/receivables/summary", getReceivablesSummary);
+router.get("/receivables/index", getConsolidatedReceivablesIndex);
 
 // ============================================
 // NET PROFIT AGGREGATION SERVICE (PHASE 9 - TASK T56)

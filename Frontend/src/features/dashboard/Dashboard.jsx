@@ -11,7 +11,7 @@ import {
   getCustomers,
 } from "../../services/customer.api";
 import { downloadInvoicePdf, previewInvoicePdf } from "../../services/sale.api";
-import { ExternalLink, Download, ShoppingCart, ArrowRight, Sparkles, ShieldCheck } from "lucide-react";
+import { ExternalLink, Download, ShoppingCart, ArrowRight, Sparkles, ShieldCheck, TrendingUp } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function Dashboard() {
@@ -128,7 +128,14 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <button
+              onClick={() => navigate("/analytics")}
+              className="apple-btn-secondary text-xs flex items-center gap-2 py-2 px-3.5 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <span>P&L Analytics</span>
+            </button>
             <button
               onClick={() => navigate("/pos")}
               className="apple-btn-primary shadow-[0_4px_20px_rgba(0,102,204,0.45)] hover:scale-105 active:scale-95 cursor-pointer text-xs"

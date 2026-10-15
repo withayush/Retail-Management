@@ -15,9 +15,12 @@ router.post("/", customerController.createCustomer);
 router.get("/", customerController.getCustomers);
 router.get("/search", customerController.searchCustomers);
 
-// Outstanding Aggregates (Must be defined before :id route)
+// Outstanding Aggregates & T57 Receivables Index (Must be defined before :id route)
 router.get("/outstanding/summary", customerController.getBusinessOutstandingSummary);
 router.get("/outstanding/totals", customerController.getBusinessOutstandingTotals);
+router.get("/receivables/consolidated", customerController.getConsolidatedReceivablesIndex);
+router.get("/receivables/index", customerController.getConsolidatedReceivablesIndex);
+router.get("/receivables/summary", customerController.getReceivablesSummary);
 
 // Specific Customer Details by Phone
 router.get("/phone/:phone", customerController.getCustomerByPhone);

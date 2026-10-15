@@ -17,6 +17,7 @@ import {
   Sparkles,
   ShieldCheck,
   Wallet,
+  TrendingUp,
 } from "lucide-react";
 
 export default function Sidebar({
@@ -46,6 +47,7 @@ export default function Sidebar({
     { label: "Suppliers", path: "/suppliers", icon: Truck },
     { label: "Sales & Invoices", path: "/sales", icon: Receipt },
     { label: "Expenses", path: "/expenses", icon: Wallet },
+    { label: "Profit & Analytics", path: "/analytics", icon: TrendingUp },
     { label: "Reconciliation", path: "/reconciliation", icon: ShieldCheck },
   ];
 

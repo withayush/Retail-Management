@@ -160,6 +160,7 @@ const recordSaleCredit = async (creditData, session = null) => {
     },
     ledgerEntry: ledgerDoc.entries[ledgerDoc.entries.length - 1],
     newBalance: potentialBalance,
+    currentBalance: potentialBalance,
   };
 };
 

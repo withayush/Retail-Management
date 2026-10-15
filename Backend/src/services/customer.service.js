@@ -1,5 +1,6 @@
 const customerRepo = require("../repositories/customer.repository");
 const customerLedgerRepo = require("../repositories/customerLedger.repository");
+const receivablesAnalyticsService = require("./receivablesAnalytics.service");
 const { normalizePhone } = require("../utils/phone");
 const mongoose = require("mongoose");
 
@@ -115,6 +116,17 @@ const getCustomerCRMSummary = async (businessId, customerId) => {
   return await customerRepo.getCustomerCRMSummary(businessId, customerId);
 };
 
+/**
+ * Phase 9 - Task T57: Receivables Consolidated Index Service Bridge
+ */
+const getConsolidatedReceivablesIndex = async (businessId, options = {}) => {
+  return await receivablesAnalyticsService.getConsolidatedReceivablesIndex(businessId, options);
+};
+
+const getReceivablesSummary = async (businessId) => {
+  return await receivablesAnalyticsService.getReceivablesSummaryOnly(businessId);
+};
+
 module.exports = {
   createCustomer,
   getCustomers,
@@ -132,4 +144,6 @@ module.exports = {
   recordCustomerPayment,
   getCustomerPaymentHistory,
   getCustomerCRMSummary,
+  getConsolidatedReceivablesIndex,
+  getReceivablesSummary,
 };

@@ -18,6 +18,7 @@ import POSTerminalPage from "./features/pos/POSTerminalPage";
 import SalesHistoryPage from "./features/pos/SalesHistoryPage";
 import ReconciliationPage from "./features/reconciliation/ReconciliationPage";
 import ExpensesPage from "./features/expenses/ExpensesPage";
+import FinancialAnalyticsPage from "./features/analytics/FinancialAnalyticsPage";
 
 export default function App() {
 
@@ -80,6 +81,8 @@ export default function App() {
             <Route path="/invoices" element={<SalesHistoryPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/expense-categories" element={<ExpensesPage />} />
+            <Route path="/analytics" element={<FinancialAnalyticsPage />} />
+            <Route path="/profit" element={<FinancialAnalyticsPage />} />
             <Route path="/reconciliation" element={<ReconciliationPage />} />
           </Route>
 

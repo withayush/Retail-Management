@@ -331,6 +331,43 @@ const getCustomerCRMSummary = async (req, res, next) => {
   }
 };
 
+/**
+ * Phase 9 - Task T57: Receivables Consolidated Index Controller
+ * Primary endpoint: GET /api/analytics/receivables or GET /api/customers/receivables/index
+ */
+const getConsolidatedReceivablesIndex = async (req, res, next) => {
+  try {
+    const businessId = req.businessId;
+    const { limit = 10 } = req.query;
+
+    const data = await customerService.getConsolidatedReceivablesIndex(businessId, { limit });
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Fast Summary for Dashboard Widgets
+ */
+const getReceivablesSummary = async (req, res, next) => {
+  try {
+    const businessId = req.businessId;
+    const data = await customerService.getReceivablesSummary(businessId);
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCustomer,
   getCustomers,
@@ -348,4 +385,6 @@ module.exports = {
   appendLedgerEntry,
   getCustomerPaymentHistory,
   getCustomerCRMSummary,
+  getConsolidatedReceivablesIndex,
+  getReceivablesSummary,
 };

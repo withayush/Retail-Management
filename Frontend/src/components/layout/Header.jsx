@@ -136,17 +136,36 @@ export default function Header({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. CENTER: Apple Pill Universal Search Bar
+          2. CENTER: Universal Search Bar
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 max-w-sm md:max-w-md mx-auto">
+      <div className="flex-1 max-w-sm md:max-w-lg mx-auto">
         <button
           onClick={onOpenSearch}
-          className="w-full flex items-center gap-2.5 px-4 py-2 rounded-full bg-[#1D1D1F]/90 border border-[#D2D2D7]/15 text-xs text-[#6E6E73] hover:border-[#0066CC]/60 hover:text-white hover:shadow-[0_0_15px_-3px_rgba(0,102,204,0.25)] transition-all duration-300 text-left cursor-pointer group"
+          className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-[#1D1D1F]/90 border border-[#D2D2D7]/15 hover:border-[#0066CC]/50 hover:shadow-[0_0_18px_-4px_rgba(0,102,204,0.3)] transition-all duration-300 text-left cursor-pointer group"
         >
-          <Search className="w-4 h-4 shrink-0 text-[#6E6E73] group-hover:text-[#0066CC] transition-colors" />
-          <span className="truncate flex-1 font-normal">Search products, invoices, customers...</span>
-          <kbd className="hidden sm:inline-flex items-center text-[10px] text-[#D2D2D7]/70 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 font-mono">
-            ⌘K
+          <Search className="w-3.5 h-3.5 shrink-0 text-[#6E6E73] group-hover:text-[#0066CC] transition-colors" />
+
+          {/* Placeholder text + category chips */}
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
+            <span className="text-xs text-[#4A4A4F] group-hover:text-[#6E6E73] transition-colors font-normal shrink-0">
+              Search
+            </span>
+            <div className="hidden md:flex items-center gap-1 overflow-hidden">
+              {["Products", "Customers", "Suppliers", "Sales", "Expenses"].map((cat, i) => (
+                <span
+                  key={cat}
+                  className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 text-[#6E6E73] border border-white/8 whitespace-nowrap shrink-0 group-hover:border-white/14 transition-colors"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+            <span className="md:hidden text-xs text-[#4A4A4F] truncate">products, customers, suppliers...</span>
+          </div>
+
+          {/* Keyboard shortcut badge */}
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[9px] text-[#6E6E73] bg-white/5 px-2 py-1 rounded-lg border border-white/10 font-mono shrink-0 group-hover:border-white/20 transition-colors">
+            <span className="text-[10px] leading-none">⌘</span>K
           </kbd>
         </button>
       </div>

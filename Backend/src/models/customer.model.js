@@ -71,7 +71,6 @@ const customerSchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 0.0,
-      min: 0,
     },
     creditLimit: {
       type: Number,
@@ -194,13 +193,11 @@ const customerLedgerEntrySchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 0.0,
-      min: 0,
     },
     balanceSnapshot: {
       type: Number,
       required: true,
       default: 0.0,
-      min: 0,
     },
     notes: {
       type: String,
@@ -235,7 +232,7 @@ const customerLedgerSchema = new mongoose.Schema(
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", required: true, index: true },
     customerName: { type: String, required: true, trim: true, maxlength: 100 },
     customerPhone: { type: String, required: true, trim: true, maxlength: 20 },
-    balance: { type: Number, required: true, default: 0.0, min: 0 },
+    balance: { type: Number, required: true, default: 0.0 },
     entries: [customerLedgerEntrySchema],
   },
   { timestamps: true }
