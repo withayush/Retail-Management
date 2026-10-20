@@ -1,149 +1,193 @@
-# VendorOS Frontend Architecture & Implementation Documentation
+# VendorOS — Frontend Architecture & Directory Blueprint
 
-This document tracks all frontend features, component structures, custom hooks, state models, architectural choices, and the implementation details of all modules in VendorOS.
-
----
-
-## 1. Overview of Frontend Architecture
-
-- **Framework**: React 19 + Vite
-- **Routing**: React Router v7 (`react-router-dom`)
-- **Styling**: Tailwind CSS with dark monochrome palette and design tokens (`bg-background`, `text-foreground`, `border-border`, `bg-card`, etc.)
-- **Animations & Modals**: Framer Motion
-- **Icons**: Lucide React
-- **Notifications**: `react-hot-toast`
-- **HTTP Client**: Axios with centralized Request/Response interceptors, bearer tokens, multi-tenant `x-business-id` header injection, and silent token refresh logic
+> **Platform**: VendorOS (React 19 + Vite 8 + Tailwind CSS + Framer Motion)  
+> **Status**: 100% Arranged, Modular Clean Architecture with Standard Barrel Indexes (`index.js`)  
+> **Path Aliases**: `@/` maps to `Frontend/src/`
 
 ---
 
-## 2. Directory Structure & Module Breakdown
+## 1. Clean Directory Structure & File Hierarchy
 
-```text
+```
 Frontend/src/
-├── context/
-│   └── AuthContext.jsx                # Global Auth & Business active state
-├── hooks/
-│   ├── useBarcodeScanner.js           # Sub-millisecond hardware barcode scanner listener
-│   └── usePOSKeyboard.js              # Global cashier hotkey management (F2, F4, F8, F9, Esc)
-├── routes/
-│   ├── AppRoutes.jsx                  # Main route mapping table
-│   ├── ProtectedRoute.jsx             # Auth & active session route gate
-│   └── OnboardingRoute.jsx            # Business onboarding status gate
-├── services/                          # API Communication Clients
-│   ├── api.js                         # Base Axios instance with interceptors
-│   ├── auth.api.js                    # Auth endpoints (register, login, OTP, me, logout)
-│   ├── business.api.js                # Business onboarding, settings, and context
-│   ├── category.api.js                # Category CRUD endpoints
-│   ├── customer.api.js                # Customer CRM, Khata ledger, and settlements
-│   ├── inventory.api.js               # Stock In/Out, adjustments, alerts, and ledgers
-│   ├── product.api.js                 # Products CRUD, barcode lookup, search, and archival
-│   └── sale.api.js                    # POS checkout, sales history, and gross profit analytics
-├── features/
-│   ├── auth/                          # Authentication Views
-│   │   ├── Login.jsx
-│   │   ├── Register.jsx
-│   │   └── VerifyOTP.jsx
-│   ├── business/                      # Multi-Step Business Onboarding
-│   │   └── BusinessOnboarding.jsx
-│   ├── dashboard/                     # Vendor Dashboard
-│   │   └── DashboardPage.jsx
-│   ├── products/                      # Product Catalog Management
-│   │   ├── ProductsPage.jsx
-│   │   ├── components/
-│   │   │   ├── CategoriesModal.jsx
-│   │   │   ├── ProductForm.jsx
-│   │   │   ├── ProductTable.jsx
-│   │   │   ├── ProductFilters.jsx
-│   │   │   ├── ProductStats.jsx
-│   │   │   ├── ProductHeader.jsx
-│   │   │   └── ArchiveProductModal.jsx
-│   ├── inventory/                     # Store Stock State & Movement Ledger (T15-T22)
-│   │   ├── InventoryAuditPage.jsx
-│   │   └── components/
-│   │       ├── InventoryTabsNav.jsx
-│   │       ├── StoreStateTable.jsx
-│   │       ├── InventoryLedgerTable.jsx
-│   │       ├── InventoryAlertsTable.jsx
-│   │       ├── StockInModal.jsx
-│   │       ├── StockOutModal.jsx
-│   │       ├── AdjustStockModal.jsx
-│   │       └── ReorderModal.jsx
-│   ├── pos/                           # POS Cashier Terminal & Billing Screen (T30)
-│   │   ├── POSTerminalPage.jsx
-│   │   └── components/
-│   │       ├── POSHeader.jsx
-│   │       ├── POSProductsGrid.jsx
-│   │       ├── POSCart.jsx
-│   │       ├── POSCustomerModal.jsx
-│   │       ├── SettlePaymentModal.jsx
-│   │       ├── PrintReceiptModal.jsx
-│   │       └── POSKeyboardShortcutsModal.jsx
-│   ├── customers/                     # Customer Profiles & Khata (Udhaar) CRM (T29)
-│   │   ├── CustomersPage.jsx
-│   │   └── components/
-│   │       ├── CustomersStatsCards.jsx
-│   │       ├── CustomersTable.jsx
-│   │       ├── CustomerLedgerModal.jsx
-│   │       ├── SettleKhataModal.jsx
-│   │       └── AddCustomerModal.jsx
-│   └── sales/                         # Invoices & Billing History
-│       ├── SalesHistoryPage.jsx
-│       └── components/
-│           ├── SalesHistoryTable.jsx
-│           └── SaleDetailModal.jsx
+├── assets/                     # Static brand assets, logos, and vector illustrations
+│   ├── logo.png                # Primary high-res logo
+│   └── vendoros-logo.png       # Dark-mode optimized vector brand mark
+│
+├── components/                 # Shared Cross-Cutting UI Components & Primitives
+│   ├── common/                 # Global utility components
+│   │   ├── PageLoader.jsx      # High-density route-splitting loading skeleton
+│   │   └── index.js            # Barrel export
+│   │
+│   ├── layout/                 # Shell & Application Frame Layout
+│   │   ├── AppLayout.jsx       # Persistent responsive container (Sidebar + Header + Outlet)
+│   │   ├── Header.jsx          # Top navigation, active store badge, keyboard cheat-sheet
+│   │   ├── Sidebar.jsx         # Collapsible desktop/mobile drawer with status badges
+│   │   ├── UniversalSearchModal.jsx # Global Spotlight Command Center (Ctrl+K / Cmd+K)
+│   │   └── index.js            # Barrel export
+│   │
+│   ├── ui/                     # Apple/Vercel-Grade Atomic Primitives
+│   │   ├── button.jsx          # CVA-powered buttons (default, outline, ghost, destructive, orange)
+│   │   ├── card.jsx            # Glassmorphism cards (CardHeader, CardTitle, CardContent, etc.)
+│   │   ├── input.jsx           # Accessible styled inputs with focus rings & invalid states
+│   │   ├── label.jsx           # Form label primitives
+│   │   └── index.js            # Unified atomic UI barrel export
+│   │
+│   └── index.js                # Master components barrel (export * from common, layout, ui)
+│
+├── context/                    # React Contexts for Global App State
+│   └── AuthContext.jsx         # Authentication, Active Session, Current Business, RTR hooks
+│
+├── hooks/                      # Centralized Custom React Hooks
+│   ├── useBarcodeScanner.js    # Sub-millisecond hardware barcode listener with auto-focus & sound
+│   ├── usePOSKeyboard.js       # Keyboard-first cashier ergonomics hotkeys (F2, F4, F8, F9, Esc)
+│   └── index.js                # Hooks barrel export
+│
+├── lib/                        # Core Utilities & Helpers
+│   └── utils.js                # Tailwind class merge utility (`clsx` + `twMerge` -> `cn`)
+│
+├── routes/                     # Application Route Guards & Security Gating
+│   ├── ProtectedRoute.jsx      # Authentication & Active Session route gate + Onboarding route gate
+│   └── index.js                # Routes barrel export
+│
+├── services/                   # Data Access Layer & REST API Client
+│   ├── api.js                  # Axios client, in-memory token store, silent RTR interceptors
+│   ├── analytics.api.js        # Net Profit, OpEx, Gross Profit, Receivables endpoints
+│   ├── auth.api.js             # Registration, Phone OTP, Google Auth, Session tokens
+│   ├── business.api.js         # Business onboarding, settings, business profiles
+│   ├── category.api.js         # Category CRUD endpoints
+│   ├── customer.api.js         # Customer CRM, Khata udhaar ledger, debt aging, payments
+│   ├── expense.api.js          # Operating expenses (OpEx) logging and period filters
+│   ├── expenseCategory.api.js  # Expense categories and budgets
+│   ├── inventory.api.js        # Stock ledger, low-stock alerts, reorder points, adjustments
+│   ├── payment.api.js          # Multi-tranche payments and split-payment transactions
+│   ├── product.api.js          # Product catalog, barcodes, soft-delete, seek pagination
+│   ├── purchaseOrder.api.js    # Supplier PO creation, status lifecycle, timeline history
+│   ├── reconciliation.api.js   # Cross-system ledger drift detection & auto-reconciliation
+│   ├── sale.api.js             # Atomic POS checkout, invoice PDF receipt, sales history
+│   ├── supplier.api.js         # Supplier master CRUD, payables, and 360° vendor profile
+│   └── index.js                # Master services barrel export (namespaced + direct)
+│
+├── features/                   # Domain-Driven Feature Modules (Clean Architecture)
+│   ├── analytics/              # Financial Analytics & P&L Waterfall
+│   │   ├── FinancialAnalyticsPage.jsx
+│   │   ├── components/         # Hero cards, Waterfall bar, Matrix, Receivables card
+│   │   └── index.js
+│   │
+│   ├── auth/                   # Authentication & Onboarding
+│   │   ├── Login.jsx           # Phone/Password + Google OAuth login
+│   │   ├── Register.jsx        # Business owner registration
+│   │   ├── VerifyOTP.jsx       # 6-digit cryptographic phone verification
+│   │   ├── components/         # GoogleAuthButton
+│   │   └── index.js
+│   │
+│   ├── business/               # Store Onboarding
+│   │   ├── BusinessOnboarding.jsx # 3-step draft wizard (Store details, GST, Hours)
+│   │   └── index.js
+│   │
+│   ├── customers/              # Customer Master & Udhaar (Khata)
+│   │   ├── CustomersPage.jsx   # Master customer directory
+│   │   ├── components/         # CRM Modal, Debt Aging, Khata Ledger, Repayment history
+│   │   └── index.js
+│   │
+│   ├── dashboard/              # Store Owner Overview
+│   │   ├── Dashboard.jsx       # Real-time revenue, gross profit, low stock, cashier stats
+│   │   ├── components/         # DashboardMetrics
+│   │   └── index.js
+│   │
+│   ├── expenses/               # Store Operational Expenses (OpEx)
+│   │   ├── ExpensesPage.jsx    # Cash burn ledger & expense categories
+│   │   ├── components/         # RecordExpenseModal, ExpenseCategoriesModal, MonthlyAggregator
+│   │   └── index.js
+│   │
+│   ├── inventory/              # Inventory Stock & Movement Ledger
+│   │   ├── InventoryAuditPage.jsx # Stock state, movement ledger, low stock queue
+│   │   ├── components/         # StockInModal, StockOutModal, StockAdjustModal, AlertsTable
+│   │   ├── utils/              # inventory.utils.js
+│   │   └── index.js
+│   │
+│   ├── pos/                    # Keyboard-First Cashier POS Terminal
+│   │   ├── POSTerminalPage.jsx # Sub-millisecond barcode checkout, split payments
+│   │   ├── SalesHistoryPage.jsx# Historical invoices, thermal receipts, P&L widgets
+│   │   ├── components/         # POSCart, POSProductGrid, SettlePaymentModal, Profit calculators
+│   │   ├── hooks/              # useBarcodeScanner, usePOSKeyboard
+│   │   ├── utils/              # pos.utils.js
+│   │   └── index.js
+│   │
+│   ├── procurement/            # Supplier Purchasing & Physical Stock Receipts
+│   │   ├── PurchaseOrdersPage.jsx # Purchase order lifecycle & approval pipelines
+│   │   ├── GoodsReceivedPage.jsx  # GRN receipt verification & variance audits
+│   │   ├── components/         # CreatePurchaseOrderModal, ReceiveGoodsModal, GRN notes
+│   │   └── index.js
+│   │
+│   ├── products/               # Product Master Catalog
+│   │   ├── ProductsPage.jsx    # Catalog table, SKU/barcode lookup, price edits
+│   │   ├── components/         # ProductForm, CategoriesModal, ProductStats, ArchiveModal
+│   │   ├── utils/              # product.utils.js
+│   │   └── index.js
+│   │
+│   ├── profile/                # User & Store Profile
+│   │   ├── ProfilePage.jsx     # Account security, business profile, password change
+│   │   └── index.js
+│   │
+│   ├── reconciliation/         # Drift Detection & Ledger Audits
+│   │   ├── ReconciliationPage.jsx # Cross-system discrepancy detection & 1-click fixes
+│   │   └── index.js
+│   │
+│   ├── suppliers/              # Vendor Management & Accounts Payable
+│   │   ├── SuppliersPage.jsx   # Master vendor directory, payables summary
+│   │   ├── components/         # Supplier360Modal, SettleSupplierModal, SupplierLedger
+│   │   └── index.js
+│   │
+│   └── index.js                # Master feature barrel export
+│
+├── App.jsx                     # Central route definitions, lazy code-splitting, layout tree
+├── index.css                   # Global Tailwind directives & dark monochrome design tokens
+└── main.jsx                    # React 19 root DOM mounting point
 ```
 
 ---
 
-## 3. Implemented Modules Detailed Breakdown
+## 2. Standardized Import Conventions
 
-### A. POS Billing Checkout Terminal (`Frontend/src/features/pos/`) [T30]
-- **Hardware Barcode Scanner Listener (`useBarcodeScanner.js`)**: Auto-detects fast keystroke bursts (< 50ms interval) from USB/Bluetooth handheld barcode scanners and automatically appends matching products to the active cart.
-- **Global Cashier Keyboard Hotkeys (`usePOSKeyboard.js`)**:
-  - `F2`: Auto-focus product search box
-  - `F4`: Open Customer selection / Khata modal
-  - `F8`: Reset and clear active cart
-  - `F9`: Proceed to payment / Settle modal
-  - `F1`: Open shortcuts help cheat sheet
-  - `Esc`: Close any open modal dialog
-- **Quick Cart (`POSCart.jsx`)**: Real-time computation of subtotal, product-level discounts, GST tax amounts, and grand total.
-- **Payment & Settle Modal (`SettlePaymentModal.jsx`)**:
-  - Supports `CASH`, `UPI` (with reference ID), `CARD`, and `CREDIT/UDHAAR`.
-  - Supports partial payments with automatic live Udhaar debt calculation.
-- **Print Receipt Modal (`PrintReceiptModal.jsx`)**: Thermal receipt preview formatted for 80mm/58mm POS receipt printers.
+Thanks to clean barrel files (`index.js`), you can now write clean, professional imports:
 
-### B. Customer Credit (Khata) & CRM (`Frontend/src/features/customers/`) [T29]
-- **KPI Summary (`CustomersStatsCards.jsx`)**: Displays Total Customers, Total Udhaar (₹), and Count of Customers with Pending Dues.
-- **Customer Directory (`CustomersTable.jsx`)**: Real-time search, phone numbers, credit limits, and balance indicators with action buttons.
-- **Khata Ledger Statement (`CustomerLedgerModal.jsx`)**: Chronological audit trail showing every credit sale (`SALE_CREDIT`) and cash repayment (`PAYMENT_RECEIVED`) with before/after balance snapshots.
-- **Settle Khata Modal (`SettleKhataModal.jsx`)**: Quick modal to record customer debt settlements.
+### UI & Primitives:
+```javascript
+// Clean single-line import:
+import { Button, Card, CardHeader, CardTitle, Input, Label } from "@/components/ui";
 
-### C. Inventory Movement & Store State (`Frontend/src/features/inventory/`) [T15–T22]
-- **Store State Tab**: Real-time physical quantities, reorder thresholds, low stock status, and total inventory asset valuation.
-- **Movement Ledger Tab**: Bank-statement format showing WHO (actor), WHEN (timestamp), WHY (purchase, sale, damage, audit), and WHAT (product & delta).
-- **Alerts Queue Tab**: Deterministic low-stock notifications with 1-click **"Restock Now"** shortcuts.
-- **Action Modals**: Stock In, Stock Out (with insufficient stock guard), Physical Reconciliation Adjustment, and Reorder Limits.
+// Or from master components:
+import { AppLayout, Header, Sidebar, PageLoader, Button, Card } from "@/components";
+```
 
-### D. Product Catalog Management (`Frontend/src/features/products/`) [T7–T14]
-- **Products Page (`ProductsPage.jsx`)**: Real-time multi-field search (Name, SKU, Barcode), category filters, and active/archived status toggles.
-- **Product Lifecycle Form (`ProductForm.jsx`)**: Live profit margin (%) calculator, smart SKU generator, packaging specifications, and opening stock seeding.
-- **Categories Modal (`CategoriesModal.jsx`)**: Modal to create, edit, search, and delete categories with live product counter badges.
-- **Archival Protection (`ArchiveProductModal.jsx`)**: Safe soft-deletion preserving historical invoices and credit ledgers.
+### Services & APIs:
+```javascript
+// Named imports directly:
+import { getProducts, createProduct, getInventoryLedger, createSale } from "@/services";
+
+// Or namespaced by domain:
+import { productApi, saleApi, customerApi, inventoryApi } from "@/services";
+```
+
+### Hooks:
+```javascript
+import { useBarcodeScanner, usePOSKeyboard } from "@/hooks";
+```
+
+### Features:
+```javascript
+import { POSTerminalPage, ProductsPage, CustomersPage } from "@/features";
+```
 
 ---
 
-## 4. API Communication Layer (`Frontend/src/services/`)
-- `api.js`: Central Axios instance handling bearer tokens, `x-business-id` header injection, and 401 token refresh interceptors.
-- `auth.api.js`: Full authentication and session management.
-- `business.api.js`: Store configuration and onboarding wizard APIs.
-- `category.api.js`: Category CRUD operations.
-- `product.api.js`: Product catalog queries, seek pagination, and barcode lookups.
-- `inventory.api.js`: Stock movements, reconciliations, alerts, and audit ledgers.
-- `sale.api.js`: POS checkout creation, sales history, line snapshots, and PDF invoice downloads.
-- `customer.api.js`: Customer profiles, Khata statements, and debt settlements.
+## 3. Maintenance Guidelines
 
----
-
-## 5. Development & Verification Commands
-- Run development server: `npm run dev` (Starts Vite on http://localhost:5173)
-- Run production build: `npm run build` (Ensures zero compilation/type errors)
+1. **New UI Component**: Create inside `src/components/ui/<Component>.jsx` and export from `src/components/ui/index.js`.
+2. **New Feature Module**: Create folder in `src/features/<feature-name>/` with:
+   - `<Feature>Page.jsx`
+   - `components/` (and its `index.js`)
+   - `index.js` exporting the page and components.
+3. **New API Service**: Create in `src/services/<domain>.api.js` and register in `src/services/index.js`.
+4. **All paths support `@/`**: Configured in `vite.config.js` to point directly to `src/`.

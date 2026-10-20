@@ -27,54 +27,55 @@ export default function SaleDetailModal({ isOpen, sale, onClose }) {
   const [loadingPayments, setLoadingPayments] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !sale) return;
+    if (!isOpen || !sale?._id) return;
+    let active = true;
 
-    if (sale.items && sale.items.length > 0) {
-      setItems(sale.items);
-    } else if (sale._id) {
-      const fetchItems = async () => {
-        setLoading(true);
-        try {
-          const res = await getSaleItems(sale._id);
-          const list = res.data || res || [];
-          setItems(list);
-        } catch (err) {
+    if (!sale.items || sale.items.length === 0) {
+      setLoading(true);
+      getSaleItems(sale._id)
+        .then((res) => {
+          if (active) setItems(res.data || res || []);
+        })
+        .catch((err) => {
           console.error("Failed to load sale items:", err);
-          setItems([]);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchItems();
+          if (active) setItems([]);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
     }
 
-    if (sale._id) {
-      const fetchPayments = async () => {
-        setLoadingPayments(true);
-        try {
-          const pRes = await getPaymentsByInvoice(sale._id);
-          const pList = pRes.data || pRes || [];
-          setPayments(pList);
-        } catch (pErr) {
-          console.error("Failed to load payments:", pErr);
-          setPayments([]);
-        } finally {
-          setLoadingPayments(false);
-        }
-      };
-      fetchPayments();
-    }
-  }, [isOpen, sale]);
+    setLoadingPayments(true);
+    getPaymentsByInvoice(sale._id)
+      .then((pRes) => {
+        if (active) setPayments(pRes.data || pRes || []);
+      })
+      .catch((pErr) => {
+        console.error("Failed to load payments:", pErr);
+        if (active) setPayments([]);
+      })
+      .finally(() => {
+        if (active) setLoadingPayments(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, sale?._id, sale?.items]);
 
   if (!isOpen || !sale) return null;
 
-  const formattedDate = new Date(sale.createdAt || Date.now()).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const displayItems = (sale.items && sale.items.length > 0) ? sale.items : items;
+
+  const formattedDate = sale.createdAt
+    ? new Date(sale.createdAt).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
 
   let ModeIcon = Banknote;
   if (sale.paymentMode === "UPI") ModeIcon = Smartphone;
@@ -82,7 +83,7 @@ export default function SaleDetailModal({ isOpen, sale, onClose }) {
   else if (sale.paymentMode === "CREDIT_UDHAR") ModeIcon = BookOpen;
 
   // Calculate gross profit aggregate for this sale
-  const totalGrossProfit = items.reduce((acc, it) => {
+  const totalGrossProfit = displayItems.reduce((acc, it) => {
     const sold = Number(it.soldPrice ?? it.sellingPrice ?? 0);
     const cost = Number(it.costPrice ?? 0);
     const qty = Number(it.quantity || it.qty || 1);
@@ -175,7 +176,7 @@ export default function SaleDetailModal({ isOpen, sale, onClose }) {
             <div className="bg-[#141417] px-3.5 py-2 border-b border-[#1f1f23] flex items-center justify-between">
               <span className="font-semibold text-xs text-white flex items-center gap-1.5">
                 <Package className="w-3.5 h-3.5 text-zinc-300" />
-                <span>Sold Line Items ({items.length})</span>
+                <span>Sold Line Items ({displayItems.length})</span>
               </span>
             </div>
 
@@ -184,7 +185,7 @@ export default function SaleDetailModal({ isOpen, sale, onClose }) {
                 <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin mx-auto mb-1.5" />
                 <span className="text-xs">Loading items...</span>
               </div>
-            ) : items.length === 0 ? (
+            ) : displayItems.length === 0 ? (
               <div className="py-6 text-center text-zinc-500 text-xs">
                 <span>No item snapshot records attached to this invoice.</span>
               </div>
@@ -202,7 +203,7 @@ export default function SaleDetailModal({ isOpen, sale, onClose }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1f1f23] font-mono">
-                    {items.map((it, idx) => {
+                    {displayItems.map((it, idx) => {
                       const sold = Number(it.soldPrice ?? it.sellingPrice ?? 0);
                       const cost = Number(it.costPrice ?? 0);
                       const qty = Number(it.quantity || it.qty || 1);
@@ -269,12 +270,14 @@ export default function SaleDetailModal({ isOpen, sale, onClose }) {
                     {payments.map((p, pIdx) => (
                       <tr key={pIdx} className="hover:bg-zinc-800/20">
                         <td className="py-1.5 px-3 text-zinc-400 text-[11px] font-sans">
-                          {new Date(p.createdAt || Date.now()).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {p.createdAt
+                            ? new Date(p.createdAt).toLocaleDateString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "—"}
                         </td>
                         <td className="py-1.5 px-3 font-semibold text-white">
                           <span className="px-1.5 py-0.2 rounded bg-[#141417] text-[10px] border border-[#27272a]">

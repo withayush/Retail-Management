@@ -1,27 +1,31 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute, OnboardingRoute } from "./routes/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
+import PageLoader from "./components/common/PageLoader";
 
-import Register from "./features/auth/Register";
-import Login from "./features/auth/Login";
-import VerifyOTP from "./features/auth/VerifyOTP";
-import BusinessOnboarding from "./features/business/BusinessOnboarding";
-import Dashboard from "./features/dashboard/Dashboard";
-import ProfilePage from "./features/profile/ProfilePage";
-import ProductsPage from "./features/products/ProductsPage";
-import InventoryAuditPage from "./features/inventory/InventoryAuditPage";
-import CustomersPage from "./features/customers/CustomersPage";
-import SuppliersPage from "./features/suppliers/SuppliersPage";
-import POSTerminalPage from "./features/pos/POSTerminalPage";
-import SalesHistoryPage from "./features/pos/SalesHistoryPage";
-import ReconciliationPage from "./features/reconciliation/ReconciliationPage";
-import ExpensesPage from "./features/expenses/ExpensesPage";
-import FinancialAnalyticsPage from "./features/analytics/FinancialAnalyticsPage";
+// Lazy-loaded page components for route-based code-splitting
+const Register = lazy(() => import("./pages/auth/RegisterPage"));
+const Login = lazy(() => import("./pages/auth/LoginPage"));
+const VerifyOTP = lazy(() => import("./pages/auth/VerifyOTPPage"));
+const BusinessOnboarding = lazy(() => import("./pages/onboarding/BusinessOnboardingPage"));
+const Dashboard = lazy(() => import("./pages/dashboard/DashboardPage"));
+const ProfilePage = lazy(() => import("./pages/profile/ProfilePage"));
+const ProductsPage = lazy(() => import("./pages/products/ProductsPage"));
+const InventoryAuditPage = lazy(() => import("./pages/inventory/InventoryPage"));
+const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
+const SuppliersPage = lazy(() => import("./pages/suppliers/SuppliersPage"));
+const POSTerminalPage = lazy(() => import("./pages/pos/POSTerminalPage"));
+const SalesHistoryPage = lazy(() => import("./pages/pos/SalesHistoryPage"));
+const ReconciliationPage = lazy(() => import("./pages/reconciliation/ReconciliationPage"));
+const ExpensesPage = lazy(() => import("./pages/expenses/ExpensesPage"));
+const FinancialAnalyticsPage = lazy(() => import("./pages/analytics/FinancialAnalyticsPage"));
+const PurchaseOrdersPage = lazy(() => import("./pages/procurement/PurchaseOrdersPage"));
+const GoodsReceivedPage = lazy(() => import("./pages/procurement/GoodsReceivedPage"));
 
 export default function App() {
-
   return (
     <AuthProvider>
       <Toaster
@@ -37,59 +41,65 @@ export default function App() {
         }}
       />
       <BrowserRouter>
-        <Routes>
-          {/* Public Auth Routes */}
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/verify-otp" element={<VerifyOTP />} />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            {/* Public Auth Routes */}
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/verify-otp" element={<VerifyOTP />} />
 
-          {/* Onboarding Route */}
-          <Route
-            path="/business-onboarding"
-            element={
-              <OnboardingRoute>
-                <BusinessOnboarding />
-              </OnboardingRoute>
-            }
-          />
-          <Route
-            path="/onboarding"
-            element={
-              <OnboardingRoute>
-                <BusinessOnboarding />
-              </OnboardingRoute>
-            }
-          />
+            {/* Onboarding Route */}
+            <Route
+              path="/business-onboarding"
+              element={
+                <OnboardingRoute>
+                  <BusinessOnboarding />
+                </OnboardingRoute>
+              }
+            />
+            <Route
+              path="/onboarding"
+              element={
+                <OnboardingRoute>
+                  <BusinessOnboarding />
+                </OnboardingRoute>
+              }
+            />
 
-          {/* Protected Application Routes (with Shared Persistent Layout) */}
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/inventory" element={<InventoryAuditPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/suppliers" element={<SuppliersPage />} />
-            <Route path="/pos" element={<POSTerminalPage />} />
+            {/* Protected Application Routes (with Shared Persistent Layout) */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/inventory" element={<InventoryAuditPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/suppliers" element={<SuppliersPage />} />
+              <Route path="/pos" element={<POSTerminalPage />} />
 
-            <Route path="/sales" element={<SalesHistoryPage />} />
-            <Route path="/invoices" element={<SalesHistoryPage />} />
-            <Route path="/expenses" element={<ExpensesPage />} />
-            <Route path="/expense-categories" element={<ExpensesPage />} />
-            <Route path="/analytics" element={<FinancialAnalyticsPage />} />
-            <Route path="/profit" element={<FinancialAnalyticsPage />} />
-            <Route path="/reconciliation" element={<ReconciliationPage />} />
-          </Route>
+              <Route path="/sales" element={<SalesHistoryPage />} />
+              <Route path="/invoices" element={<SalesHistoryPage />} />
+              <Route path="/purchases" element={<PurchaseOrdersPage />} />
+              <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+              <Route path="/grn" element={<GoodsReceivedPage />} />
+              <Route path="/goods-received" element={<GoodsReceivedPage />} />
+              <Route path="/expenses" element={<ExpensesPage />} />
+              <Route path="/expense-categories" element={<ExpensesPage />} />
+              <Route path="/analytics" element={<FinancialAnalyticsPage />} />
+              <Route path="/profit" element={<FinancialAnalyticsPage />} />
+              <Route path="/reconciliation" element={<ReconciliationPage />} />
+            </Route>
 
-          {/* Fallback default redirect */}
-          <Route path="/index.html" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+            {/* Fallback default redirect */}
+            <Route path="/index.html" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );

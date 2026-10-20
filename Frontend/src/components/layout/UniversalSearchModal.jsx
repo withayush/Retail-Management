@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -30,7 +30,9 @@ const PAGES = [
   { title: "Customers", path: "/customers", icon: Users, desc: "Khata & customer accounts" },
   { title: "Sales & Invoices", path: "/sales", icon: Receipt, desc: "Bills & payment history" },
   { title: "Suppliers", path: "/suppliers", icon: Truck, desc: "Vendor & purchase orders" },
+  { title: "Purchase Orders", path: "/purchases", icon: Truck, desc: "Procurement & vendor orders" },
   { title: "Expenses", path: "/expenses", icon: Wallet, desc: "Track business expenses" },
+  { title: "Profit & Analytics", path: "/analytics", icon: BarChart2, desc: "P&L waterfall & margins" },
   { title: "Reconciliation", path: "/reconciliation", icon: BarChart2, desc: "Financial reconciliation" },
 ];
 

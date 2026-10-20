@@ -17,15 +17,55 @@ import { Trophy, AlertCircle, Calendar } from "lucide-react";
  * 12-Month Fiscal Year Progression & Annual Bottom-Line Summary
  * Visualizes Monthly Net Profit, Revenue, COGS, and OpEx
  */
-export default function FiscalYearChart({ overviewData, loading = false }) {
-  const formatINR = (val) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(Number(val) || 0);
-  };
+const formatINR = (val) => {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(val) || 0);
+};
 
+const CustomTooltip = ({ active, payload, year }) => {
+  if (active && payload && payload.length) {
+    const dataPoint = payload[0]?.payload;
+    return (
+      <div className="p-3 bg-[#1A1A1E] border border-[#D2D2D7]/20 rounded-xl shadow-xl text-xs space-y-1.5 z-50">
+        <p className="font-semibold text-white border-b border-[#D2D2D7]/10 pb-1">
+          {dataPoint?.name} {year}
+        </p>
+        <div className="space-y-1 font-mono text-[11px]">
+          <div className="flex justify-between gap-4 text-[#A1A1AA]">
+            <span>Revenue:</span>
+            <span className="text-white font-medium">{formatINR(dataPoint?.revenue)}</span>
+          </div>
+          <div className="flex justify-between gap-4 text-sky-400">
+            <span>COGS:</span>
+            <span>{formatINR(dataPoint?.cogs)}</span>
+          </div>
+          <div className="flex justify-between gap-4 text-amber-400">
+            <span>OpEx:</span>
+            <span>{formatINR(dataPoint?.opex)}</span>
+          </div>
+          <div className="flex justify-between gap-4 text-[#D2D2D7] pt-1 border-t border-[#D2D2D7]/10">
+            <span>Gross Profit:</span>
+            <span>{formatINR(dataPoint?.grossProfit)}</span>
+          </div>
+          <div
+            className={`flex justify-between gap-4 font-bold pt-1 border-t border-[#D2D2D7]/10 ${
+              (dataPoint?.netProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            <span>Net Profit:</span>
+            <span>{formatINR(dataPoint?.netProfit)} ({dataPoint?.margin}%)</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+export default function FiscalYearChart({ overviewData, loading = false }) {
   const months = overviewData?.months || [];
   const year = overviewData?.year || new Date().getUTCFullYear();
   const ytdNetProfit = overviewData?.ytdNetProfit ?? 0;
@@ -47,46 +87,6 @@ export default function FiscalYearChart({ overviewData, loading = false }) {
       margin: m.netProfitMargin || 0,
     };
   });
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const dataPoint = payload[0]?.payload;
-      return (
-        <div className="p-3 bg-[#1A1A1E] border border-[#D2D2D7]/20 rounded-xl shadow-xl text-xs space-y-1.5 z-50">
-          <p className="font-semibold text-white border-b border-[#D2D2D7]/10 pb-1">
-            {dataPoint.name} {year}
-          </p>
-          <div className="space-y-1 font-mono text-[11px]">
-            <div className="flex justify-between gap-4 text-[#A1A1AA]">
-              <span>Revenue:</span>
-              <span className="text-white font-medium">{formatINR(dataPoint.revenue)}</span>
-            </div>
-            <div className="flex justify-between gap-4 text-sky-400">
-              <span>COGS:</span>
-              <span>{formatINR(dataPoint.cogs)}</span>
-            </div>
-            <div className="flex justify-between gap-4 text-amber-400">
-              <span>OpEx:</span>
-              <span>{formatINR(dataPoint.opex)}</span>
-            </div>
-            <div className="flex justify-between gap-4 text-[#D2D2D7] pt-1 border-t border-[#D2D2D7]/10">
-              <span>Gross Profit:</span>
-              <span>{formatINR(dataPoint.grossProfit)}</span>
-            </div>
-            <div
-              className={`flex justify-between gap-4 font-bold pt-1 border-t border-[#D2D2D7]/10 ${
-                dataPoint.netProfit >= 0 ? "text-emerald-400" : "text-rose-400"
-              }`}
-            >
-              <span>Net Profit:</span>
-              <span>{formatINR(dataPoint.netProfit)} ({dataPoint.margin}%)</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="p-6 bg-[#161617]/90 backdrop-blur-2xl border border-[#D2D2D7]/12 rounded-[18px] shadow-[0_4px_24px_rgba(0,0,0,0.3)] space-y-5">
@@ -197,7 +197,7 @@ export default function FiscalYearChart({ overviewData, loading = false }) {
                 tickLine={false}
                 tickFormatter={(v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`)}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip year={year} />} />
               <Legend
                 wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
                 formatter={(value) => <span className="text-[#A1A1AA]">{value}</span>}

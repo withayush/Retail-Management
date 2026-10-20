@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const { Inventory, InventoryLedger } = require("../models/inventory.model");
 const Product = require("../models/product.model");
 const Category = require("../models/category.model");
@@ -47,17 +48,23 @@ const findInventoryByProductId = async (businessId, productId) => {
 };
 
 const findInventoryStoreState = async (businessId, filters = {}) => {
-  // First find active product IDs for this business matching search or category filters
-  const productQuery = { businessId, isArchived: false };
+  const bId = mongoose.Types.ObjectId.isValid(businessId)
+    ? new mongoose.Types.ObjectId(businessId)
+    : businessId;
+
+  // Build match query for active products belonging to this business
+  const productMatch = { businessId: bId, isArchived: false };
 
   if (filters.categoryId) {
-    productQuery.categoryId = filters.categoryId;
+    productMatch.categoryId = mongoose.Types.ObjectId.isValid(filters.categoryId)
+      ? new mongoose.Types.ObjectId(filters.categoryId)
+      : filters.categoryId;
   }
 
   if (filters.search && filters.search.trim()) {
     const term = filters.search.trim();
     const matchingCategories = await Category.find({
-      businessId,
+      businessId: bId,
       name: { $regex: term, $options: "i" },
     }).select("_id");
     const matchedCategoryIds = matchingCategories.map((c) => c._id);
@@ -72,71 +79,123 @@ const findInventoryStoreState = async (businessId, filters = {}) => {
       searchConditions.push({ categoryId: { $in: matchedCategoryIds } });
     }
 
-    productQuery.$or = searchConditions;
+    productMatch.$or = searchConditions;
   }
 
-  const activeProducts = await Product.find(productQuery)
-    .select("_id name sku barcode sellingPrice costPrice unit packSize categoryId isActive")
-    .populate("categoryId", "name")
-    .sort({ createdAt: -1 });
+  // Single round-trip aggregation pipeline: joins Product, Category, and Inventory at DB engine level
+  const pipeline = [
+    { $match: productMatch },
+    { $sort: { createdAt: -1 } },
+    // 1. Join Category details
+    {
+      $lookup: {
+        from: Category.collection.name,
+        localField: "categoryId",
+        foreignField: "_id",
+        as: "categoryDoc",
+      },
+    },
+    // 2. Join Inventory record scoped to this business and product
+    {
+      $lookup: {
+        from: Inventory.collection.name,
+        let: { prodId: "$_id", bId: "$businessId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$productId", "$$prodId"] },
+                  { $eq: ["$businessId", "$$bId"] },
+                ],
+              },
+            },
+          },
+          { $limit: 1 },
+        ],
+        as: "inventoryDoc",
+      },
+    },
+    {
+      $unwind: {
+        path: "$categoryDoc",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: "$inventoryDoc",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    // 3. Project and compute store state, stock alerts, and valuation in DB engine
+    {
+      $project: {
+        _id: 0,
+        id: { $ifNull: ["$inventoryDoc._id", null] },
+        productId: "$_id",
+        name: "$name",
+        sku: "$sku",
+        barcode: { $ifNull: ["$barcode", null] },
+        category: {
+          $cond: [
+            { $ifNull: ["$categoryDoc._id", false] },
+            { id: "$categoryDoc._id", name: "$categoryDoc.name" },
+            null,
+          ],
+        },
+        sellingPrice: "$sellingPrice",
+        costPrice: "$costPrice",
+        unit: { $ifNull: ["$unit", "pcs"] },
+        packSize: { $ifNull: ["$packSize", 1] },
+        availableStock: { $ifNull: ["$inventoryDoc.availableStock", 0] },
+        reorderLevel: { $ifNull: ["$inventoryDoc.reorderLevel", 5] },
+        lowStockAlert: {
+          $lte: [
+            { $ifNull: ["$inventoryDoc.availableStock", 0] },
+            { $ifNull: ["$inventoryDoc.reorderLevel", 5] },
+          ],
+        },
+        stockStatus: {
+          $cond: [
+            { $lte: [{ $ifNull: ["$inventoryDoc.availableStock", 0] }, 0] },
+            "OUT_OF_STOCK",
+            {
+              $cond: [
+                {
+                  $lte: [
+                    { $ifNull: ["$inventoryDoc.availableStock", 0] },
+                    { $ifNull: ["$inventoryDoc.reorderLevel", 5] },
+                  ],
+                },
+                "LOW_STOCK",
+                "IN_STOCK",
+              ],
+            },
+          ],
+        },
+        valuation: {
+          $multiply: [
+            { $ifNull: ["$inventoryDoc.availableStock", 0] },
+            { $ifNull: ["$costPrice", 0] },
+          ],
+        },
+        lastRestockedAt: { $ifNull: ["$inventoryDoc.lastRestockedAt", null] },
+        updatedAt: { $ifNull: ["$inventoryDoc.updatedAt", "$updatedAt"] },
+      },
+    },
+  ];
 
-  const productIds = activeProducts.map((p) => p._id);
-
-  // Fetch or build inventory store state for each product
-  const inventoryRecords = await Inventory.find({
-    businessId,
-    productId: { $in: productIds },
-  });
-
-  const inventoryMap = new Map();
-  for (const inv of inventoryRecords) {
-    inventoryMap.set(inv.productId.toString(), inv);
-  }
-
-  // Merge products with their inventory state
-  const storeState = activeProducts.map((prod) => {
-    const inv = inventoryMap.get(prod._id.toString());
-    const availableStock = inv ? inv.availableStock : 0;
-    const reorderLevel = inv ? inv.reorderLevel : 5;
-    const lowStockAlert = availableStock <= reorderLevel;
-
-    let stockStatus = "IN_STOCK";
-    if (availableStock <= 0) {
-      stockStatus = "OUT_OF_STOCK";
-    } else if (availableStock <= reorderLevel) {
-      stockStatus = "LOW_STOCK";
-    }
-
-    return {
-      id: inv ? inv._id : null,
-      productId: prod._id,
-      name: prod.name,
-      sku: prod.sku,
-      barcode: prod.barcode || null,
-      category: prod.categoryId
-        ? { id: prod.categoryId._id, name: prod.categoryId.name }
-        : null,
-      sellingPrice: prod.sellingPrice,
-      costPrice: prod.costPrice,
-      unit: prod.unit || "pcs",
-      packSize: prod.packSize || 1,
-      availableStock,
-      reorderLevel,
-      lowStockAlert,
-      stockStatus,
-      valuation: (availableStock * (prod.costPrice || 0)),
-      lastRestockedAt: inv?.lastRestockedAt || null,
-      updatedAt: inv?.updatedAt || prod.updatedAt,
-    };
-  });
-
-  // Filter by stockStatus if requested
+  // Optional stock status filter applied directly inside the pipeline
   if (filters.stockStatus && filters.stockStatus !== "ALL") {
-    return storeState.filter(
-      (item) => item.stockStatus === filters.stockStatus.toUpperCase()
-    );
+    pipeline.push({
+      $match: {
+        stockStatus: filters.stockStatus.toUpperCase(),
+      },
+    });
   }
 
+  const storeState = await Product.aggregate(pipeline);
   return storeState;
 };
 
