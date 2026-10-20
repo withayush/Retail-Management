@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute, OnboardingRoute } from "./routes/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
 import PageLoader from "./components/common/PageLoader";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 
 // Lazy-loaded page components for route-based code-splitting
 const Register = lazy(() => import("./pages/auth/RegisterPage"));
@@ -25,9 +26,15 @@ const FinancialAnalyticsPage = lazy(() => import("./pages/analytics/FinancialAna
 const PurchaseOrdersPage = lazy(() => import("./pages/procurement/PurchaseOrdersPage"));
 const GoodsReceivedPage = lazy(() => import("./pages/procurement/GoodsReceivedPage"));
 
+// Quick Test Component to safely demonstrate Error Boundary interception
+function ErrorBoundaryCrashDemo() {
+  throw new Error("Demonstration: VendorOS Error Boundary successfully intercepted this crash! Blank screen avoided.");
+}
+
 export default function App() {
   return (
-    <AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -47,6 +54,7 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/verify-otp" element={<VerifyOTP />} />
+            <Route path="/test-error" element={<ErrorBoundaryCrashDemo />} />
 
             {/* Onboarding Route */}
             <Route
@@ -102,5 +110,6 @@ export default function App() {
         </Suspense>
       </BrowserRouter>
     </AuthProvider>
+  </ErrorBoundary>
   );
 }

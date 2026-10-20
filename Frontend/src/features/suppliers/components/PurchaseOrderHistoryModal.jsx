@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   X,
   Clock,
@@ -49,13 +49,7 @@ export default function PurchaseOrderHistoryModal({
   const [logNote, setLogNote] = useState("");
   const [submittingLog, setSubmittingLog] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && purchaseOrder?._id) {
-      loadTimeline(purchaseOrder._id);
-    }
-  }, [isOpen, purchaseOrder]);
-
-  const loadTimeline = async (poId) => {
+  const loadTimeline = useCallback(async (poId) => {
     try {
       setLoading(true);
       const res = await getPurchaseOrderTimeline(poId);
@@ -68,7 +62,13 @@ export default function PurchaseOrderHistoryModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && purchaseOrder?._id) {
+      loadTimeline(purchaseOrder._id);
+    }
+  }, [isOpen, purchaseOrder, loadTimeline]);
 
   const handleAddLogSubmit = async (e) => {
     e.preventDefault();

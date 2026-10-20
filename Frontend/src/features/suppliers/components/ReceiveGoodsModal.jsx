@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   X,
   PackageCheck,
@@ -48,6 +48,19 @@ export default function ReceiveGoodsModal({
   // Line items state
   const [receiptLines, setReceiptLines] = useState([]);
 
+  const loadHistory = useCallback(async (poId) => {
+    if (!poId) return;
+    try {
+      setLoadingHistory(true);
+      const res = await getGRNsByPoId(poId);
+      setGrnHistory(res.data || []);
+    } catch (err) {
+      console.error("Failed to load GRN history:", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
   // Initialize receipt lines when purchaseOrder opens
   useEffect(() => {
     if (purchaseOrder && isOpen) {
@@ -87,20 +100,7 @@ export default function ReceiveGoodsModal({
       // Load past GRN history for this PO
       loadHistory(purchaseOrder._id);
     }
-  }, [purchaseOrder, isOpen]);
-
-  const loadHistory = async (poId) => {
-    if (!poId) return;
-    try {
-      setLoadingHistory(true);
-      const res = await getGRNsByPoId(poId);
-      setGrnHistory(res.data || []);
-    } catch (err) {
-      console.error("Failed to load GRN history:", err);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
+  }, [purchaseOrder, isOpen, loadHistory]);
 
   if (!isOpen || !purchaseOrder) return null;
 
@@ -414,7 +414,7 @@ export default function ReceiveGoodsModal({
                               {line.orderedQty}
                             </td>
 
-                            <td className="py-2.5 px-2 text-center font-mono">
+                            {/* <td className="py-2.5 px-2 text-center font-mono">
                               <span
                                 className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                   line.remainingQty > 0
@@ -430,7 +430,7 @@ export default function ReceiveGoodsModal({
                               <span className="px-1.5 py-0.5 rounded bg-zinc-800/80 text-[11px] font-bold text-zinc-300 border border-zinc-700/50">
                                 {line.currentStock}
                               </span>
-                            </td>
+                            </td> */}
 
                             <td className="py-2.5 px-3 text-center">
                               <input
