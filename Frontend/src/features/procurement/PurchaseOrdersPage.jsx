@@ -5,6 +5,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  X,
   Filter,
   PackageCheck,
   Truck,
@@ -303,9 +304,17 @@ export default function PurchaseOrdersPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search PO number or supplier..."
-            className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
+            placeholder="Search PO #, supplier, or items..."
+            className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl pl-9 pr-8 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

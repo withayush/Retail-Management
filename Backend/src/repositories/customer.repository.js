@@ -1,5 +1,6 @@
 const { Customer, CustomerLedger } = require("../models/customer.model");
 const Invoice = require("../models/invoice.model");
+const { escapeRegex, rankCustomers } = require("../utils/fuzzySearch");
 
 /**
  * Phase 5 - Task T31, T32 & T36: Customer Repository Layer
@@ -55,19 +56,42 @@ const findCustomers = async (businessId, filters = {}, pagination = { page: 1, l
   const query = { businessId };
 
   if (filters.search && filters.search.trim()) {
-    const term = filters.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.$or = [
-      { name: { $regex: term, $options: "i" } },
-      { phone: { $regex: term, $options: "i" } },
-      { email: { $regex: term, $options: "i" } },
-      { address: { $regex: term, $options: "i" } },
-      { city: { $regex: term, $options: "i" } },
+    const rawSearch = filters.search.trim();
+    const escaped = escapeRegex(rawSearch);
+    const cleanDigits = rawSearch.replace(/\D/g, "");
+
+    const orClauses = [
+      { name: { $regex: escaped, $options: "i" } },
+      { email: { $regex: escaped, $options: "i" } },
+      { address: { $regex: escaped, $options: "i" } },
+      { city: { $regex: escaped, $options: "i" } },
     ];
+
+    if (cleanDigits.length >= 3) {
+      orClauses.push({ phone: { $regex: cleanDigits, $options: "i" } });
+    } else {
+      orClauses.push({ phone: { $regex: escaped, $options: "i" } });
+    }
+
+    // Multi-token matching (e.g., "patel ramesh" matches "Ramesh Patel")
+    const tokens = rawSearch.split(/\s+/).filter(Boolean);
+    if (tokens.length > 1) {
+      const tokenRegexes = tokens.map((tok) => ({
+        name: { $regex: escapeRegex(tok), $options: "i" },
+      }));
+      orClauses.push({ $and: tokenRegexes });
+    }
+
+    query.$or = orClauses;
   }
 
   if (filters.phone && filters.phone.trim()) {
-    const escapedPhone = filters.phone.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.phone = { $regex: escapedPhone, $options: "i" };
+    const cleanDigits = filters.phone.trim().replace(/\D/g, "");
+    if (cleanDigits.length >= 3) {
+      query.phone = { $regex: cleanDigits, $options: "i" };
+    } else {
+      query.phone = { $regex: escapeRegex(filters.phone.trim()), $options: "i" };
+    }
   }
 
   if (filters.status && filters.status !== "ALL") {
@@ -102,24 +126,65 @@ const findCustomers = async (businessId, filters = {}, pagination = { page: 1, l
 };
 
 const searchCustomers = async (businessId, queryStr = "", limit = 10) => {
+  const lim = Math.max(1, Math.min(50, parseInt(limit, 10) || 10));
+
   if (!queryStr || !queryStr.trim()) {
     return await Customer.find({ businessId, status: "ACTIVE" })
       .sort({ currentBalance: -1, updatedAt: -1 })
-      .limit(limit);
+      .limit(lim);
   }
 
-  const term = queryStr.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return await Customer.find({
+  const raw = queryStr.trim();
+  const escaped = escapeRegex(raw);
+  const cleanDigits = raw.replace(/\D/g, "");
+
+  const orClauses = [
+    { name: { $regex: escaped, $options: "i" } },
+    { email: { $regex: escaped, $options: "i" } },
+  ];
+
+  if (cleanDigits.length >= 3) {
+    orClauses.push({ phone: { $regex: cleanDigits, $options: "i" } });
+  } else {
+    orClauses.push({ phone: { $regex: escaped, $options: "i" } });
+  }
+
+  // Multi-token tokenized matching
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    const tokenRegexes = tokens.map((tok) => ({
+      name: { $regex: escapeRegex(tok), $options: "i" },
+    }));
+    orClauses.push({ $and: tokenRegexes });
+  }
+
+  const results = await Customer.find({
     businessId,
     status: "ACTIVE",
-    $or: [
-      { name: { $regex: term, $options: "i" } },
-      { phone: { $regex: term, $options: "i" } },
-      { email: { $regex: term, $options: "i" } },
-    ],
+    $or: orClauses,
   })
     .sort({ currentBalance: -1, name: 1 })
-    .limit(limit);
+    .limit(lim);
+
+  // If exact query yields results, return them
+  if (results.length > 0) {
+    return results;
+  }
+
+  // Fallback: Fuzzy Typo-Tolerant Search for customer names (e.g. "Rameesh" -> "Ramesh")
+  if (raw.length >= 3) {
+    const candidates = await Customer.find({ businessId, status: "ACTIVE" })
+      .sort({ updatedAt: -1 })
+      .limit(100)
+      .lean();
+
+    const ranked = rankCustomers(candidates, raw, 40);
+    if (ranked.length > 0) {
+      return ranked.slice(0, lim);
+    }
+  }
+
+  return [];
 };
 
 const findCustomerById = async (businessId, customerId) => {

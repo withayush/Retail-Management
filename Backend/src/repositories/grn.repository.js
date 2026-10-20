@@ -3,6 +3,7 @@ const GoodsReceivedNote = require("../models/grn.model");
 const PurchaseOrder = require("../models/purchaseOrder.model");
 const Supplier = require("../models/supplier.model");
 const counterRepo = require("./counter.repository");
+const { escapeRegex } = require("../utils/fuzzySearch");
 
 /**
  * Phase 7 - Task T44: Goods Received Note (GRN) Repository
@@ -74,17 +75,34 @@ class GRNRepository {
     }
 
     if (search && search.trim()) {
-      const term = search.trim();
-      const regex = new RegExp(term, "i");
-      query.$or = [
-        { grnNumber: regex },
-        { poNumber: regex },
-        { supplierCompany: regex },
-        { deliveryChallanNumber: regex },
-        { invoiceNumber: regex },
-        { "items.name": regex },
-        { "items.sku": regex },
+      const raw = search.trim();
+      const escaped = escapeRegex(raw);
+      const cleanDigits = raw.replace(/\D/g, "");
+
+      const orClauses = [
+        { grnNumber: { $regex: escaped, $options: "i" } },
+        { poNumber: { $regex: escaped, $options: "i" } },
+        { supplierCompany: { $regex: escaped, $options: "i" } },
+        { deliveryChallanNumber: { $regex: escaped, $options: "i" } },
+        { invoiceNumber: { $regex: escaped, $options: "i" } },
+        { "items.name": { $regex: escaped, $options: "i" } },
+        { "items.sku": { $regex: escaped, $options: "i" } },
       ];
+
+      if (cleanDigits.length >= 3) {
+        orClauses.push({ grnNumber: { $regex: cleanDigits, $options: "i" } });
+        orClauses.push({ poNumber: { $regex: cleanDigits, $options: "i" } });
+      }
+
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      if (tokens.length > 1) {
+        const companyTokens = tokens.map((t) => ({
+          supplierCompany: { $regex: escapeRegex(t), $options: "i" },
+        }));
+        orClauses.push({ $and: companyTokens });
+      }
+
+      query.$or = orClauses;
     }
 
     if (startDate || endDate) {

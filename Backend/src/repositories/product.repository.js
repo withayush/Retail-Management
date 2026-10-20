@@ -1,5 +1,6 @@
 const Product = require("../models/product.model");
 const Category = require("../models/category.model");
+const { rankProducts, tokenize } = require("../utils/fuzzySearch");
 
 /**
  * Product Repository Layer
@@ -14,9 +15,6 @@ const findProductsByBusinessId = async (businessId, filters = {}) => {
   const query = { businessId };
 
   // Status & Archival Filtering:
-  // - "archived": only archived products
-  // - "all": both active and archived products
-  // - default: only active, non-archived products
   if (filters.status === "archived" || filters.isArchived === "true" || filters.isArchived === true) {
     query.isArchived = true;
   } else if (filters.status !== "all") {
@@ -32,24 +30,41 @@ const findProductsByBusinessId = async (businessId, filters = {}) => {
   }
 
   if (filters.search && filters.search.trim()) {
-    const searchTerm = filters.search.trim();
+    const rawSearch = filters.search.trim();
+    const escapedTerm = rawSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const tokens = tokenize(rawSearch).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
     // 1. Check if the search term matches any category name in this business
-    const matchingCategories = await Category.find({
-      businessId,
-      name: { $regex: searchTerm, $options: "i" },
-    }).select("_id");
-
-    const categoryIds = matchingCategories.map((c) => c._id);
+    let categoryIds = [];
+    try {
+      const matchingCategories = await Category.find({
+        businessId,
+        name: { $regex: escapedTerm, $options: "i" },
+      }).select("_id");
+      categoryIds = matchingCategories.map((c) => c._id);
+    } catch {}
 
     const searchConditions = [
-      { name: { $regex: searchTerm, $options: "i" } },
-      { sku: { $regex: searchTerm, $options: "i" } },
-      { barcode: { $regex: searchTerm, $options: "i" } },
+      { name: { $regex: escapedTerm, $options: "i" } },
+      { sku: { $regex: escapedTerm, $options: "i" } },
+      { barcode: { $regex: escapedTerm, $options: "i" } },
     ];
 
     if (categoryIds.length > 0) {
       searchConditions.push({ categoryId: { $in: categoryIds } });
+    }
+
+    // Support word-order invariant token matching
+    if (tokens.length > 1) {
+      searchConditions.push({
+        $and: tokens.map((tok) => ({
+          $or: [
+            { name: { $regex: tok, $options: "i" } },
+            { sku: { $regex: tok, $options: "i" } },
+            { barcode: { $regex: tok, $options: "i" } },
+          ],
+        })),
+      });
     }
 
     query.$or = searchConditions;
@@ -79,8 +94,8 @@ const findProductsByBusinessId = async (businessId, filters = {}) => {
 };
 
 /**
- * Task T14: Fast Search & Filter for POS & Typeahead
- * Rapidly matches SKU, Name, Barcode, or Category with high priority.
+ * Task T14: Fast Search & Intelligent Fuzzy Filter for POS & Typeahead
+ * Rapidly matches Barcode, SKU, Multi-Token Keywords, or Typo-resilient fuzzy similarity.
  */
 const searchProducts = async (businessId, { query = "", limit = 20, categoryId = null, includeArchived = false }) => {
   const dbQuery = { businessId };
@@ -95,38 +110,108 @@ const searchProducts = async (businessId, { query = "", limit = 20, categoryId =
   }
 
   const cleanTerm = (query || "").trim();
-
-  if (cleanTerm) {
-    // 1. Resolve matching categories
-    const matchingCategories = await Category.find({
-      businessId,
-      name: { $regex: cleanTerm, $options: "i" },
-    }).select("_id");
-
-    const matchedCategoryIds = matchingCategories.map((c) => c._id);
-
-    const searchConditions = [
-      { name: { $regex: cleanTerm, $options: "i" } },
-      { sku: { $regex: cleanTerm, $options: "i" } },
-      { barcode: { $regex: cleanTerm, $options: "i" } },
-    ];
-
-    if (matchedCategoryIds.length > 0) {
-      searchConditions.push({ categoryId: { $in: matchedCategoryIds } });
-    }
-
-    dbQuery.$or = searchConditions;
-  }
-
   const cappedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
 
-  return await Product.find(dbQuery)
+  // If query is empty, return latest active products
+  if (!cleanTerm) {
+    return await Product.find(dbQuery)
+      .select(
+        "_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description isActive isArchived createdAt"
+      )
+      .populate("categoryId", "name description")
+      .sort({ updatedAt: -1, _id: -1 })
+      .limit(cappedLimit);
+  }
+
+  // ── Step 1: Check Exact Barcode Match First (Instant O(1) POS priority) ──
+  let exactBarcodeMatch = null;
+  try {
+    exactBarcodeMatch = await Product.findOne({
+      businessId,
+      barcode: cleanTerm,
+      ...(includeArchived ? {} : { isArchived: false, isActive: true }),
+      ...(categoryId ? { categoryId } : {}),
+    })
+      .select("_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description isActive isArchived createdAt")
+      .populate("categoryId", "name description");
+  } catch {}
+
+  // ── Step 2: Multi-Token Regex Search ──
+  const escapedTerm = cleanTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tokens = tokenize(cleanTerm).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+  let matchedCategoryIds = [];
+  try {
+    const matchingCategories = await Category.find({
+      businessId,
+      name: { $regex: escapedTerm, $options: "i" },
+    }).select("_id");
+    matchedCategoryIds = matchingCategories.map((c) => c._id);
+  } catch {}
+
+  const searchConditions = [
+    { name: { $regex: escapedTerm, $options: "i" } },
+    { sku: { $regex: escapedTerm, $options: "i" } },
+    { barcode: { $regex: escapedTerm, $options: "i" } },
+  ];
+
+  if (matchedCategoryIds.length > 0) {
+    searchConditions.push({ categoryId: { $in: matchedCategoryIds } });
+  }
+
+  // Token-based matching (order independent, e.g. "salt tata" matches "Tata Salt")
+  if (tokens.length > 1) {
+    searchConditions.push({
+      $and: tokens.map((tok) => ({
+        $or: [
+          { name: { $regex: tok, $options: "i" } },
+          { sku: { $regex: tok, $options: "i" } },
+          { barcode: { $regex: tok, $options: "i" } },
+        ],
+      })),
+    });
+  }
+
+  const primarySearchQuery = { ...dbQuery, $or: searchConditions };
+
+  let rawProducts = await Product.find(primarySearchQuery)
     .select(
       "_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description isActive isArchived createdAt"
     )
     .populate("categoryId", "name description")
-    .sort({ updatedAt: -1, _id: -1 })
-    .limit(cappedLimit);
+    .limit(cappedLimit * 2);
+
+  // ── Step 3: Typo / Fuzzy Fallback if few or no exact results found ──
+  // If user made a spelling mistake (e.g. "chwal" for "chawal" or "magi" for "maggi")
+  if (rawProducts.length < cappedLimit && cleanTerm.length >= 2) {
+    const existingIds = new Set(rawProducts.map((p) => p._id.toString()));
+    const candidates = await Product.find(dbQuery)
+      .select(
+        "_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description isActive isArchived createdAt"
+      )
+      .populate("categoryId", "name description")
+      .sort({ updatedAt: -1 })
+      .limit(100);
+
+    const extraCandidates = candidates.filter((c) => !existingIds.has(c._id.toString()));
+    rawProducts = [...rawProducts, ...extraCandidates];
+  }
+
+  // ── Step 4: Apply Fuzzy Ranking & Relevance Sorting ──
+  const plainList = rawProducts.map((p) => (p.toObject ? p.toObject() : p));
+  const ranked = rankProducts(plainList, cleanTerm);
+
+  // If exact barcode match was found, ensure it sits at the absolute top (Index 0)
+  if (exactBarcodeMatch) {
+    const exactId = exactBarcodeMatch._id.toString();
+    const rest = ranked.filter((r) => (r._id || r.id).toString() !== exactId);
+    const exactObj = exactBarcodeMatch.toObject ? exactBarcodeMatch.toObject() : exactBarcodeMatch;
+    exactObj._searchScore = 100;
+    exactObj._matchType = "EXACT_BARCODE";
+    return [exactObj, ...rest].slice(0, cappedLimit);
+  }
+
+  return ranked.slice(0, cappedLimit);
 };
 
 const findProductById = async (businessId, productId) => {

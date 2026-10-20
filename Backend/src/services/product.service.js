@@ -263,13 +263,25 @@ const searchProducts = async (businessId, queryParams = {}) => {
       stockStatus,
       isActive: prod.isActive,
       isArchived: prod.isArchived,
+      // Search Relevance Metadata
+      searchScore: prod._searchScore || null,
+      matchType: prod._matchType || null,
+      similarity: prod._similarity || null,
+      matchedField: prod._matchedField || null,
     };
   });
+
+  // Suggestion detection: If top match was a fuzzy typo, provide a helpful suggestion
+  let suggestedQuery = null;
+  if (data.length > 0 && (data[0].matchType === "FUZZY_TYPO" || data[0].matchType === "ALL_TOKENS_FUZZY")) {
+    suggestedQuery = data[0].name;
+  }
 
   return {
     data,
     count: data.length,
     query,
+    suggestedQuery,
   };
 };
 

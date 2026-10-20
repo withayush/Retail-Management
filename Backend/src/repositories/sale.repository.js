@@ -7,6 +7,7 @@ const Payment = require("../models/payment.model");
 const alertRepo = require("./inventoryAlert.repository");
 const customerLedgerRepo = require("./customerLedger.repository");
 const counterRepo = require("./counter.repository");
+const { escapeRegex } = require("../utils/fuzzySearch");
 
 /**
  * Phase 4 - Tasks T23, T24 & T25: Sale Transaction, Line Items & POS Checkout Repository
@@ -443,15 +444,37 @@ const findSales = async (businessId, filters = {}, pagination = { page: 1, limit
     if (filters.endDate) query.createdAt.$lte = new Date(filters.endDate);
   }
 
-  // Text Search
+  // Text Search (Invoice Number, Customer Name, Customer Phone, Line Item Name/SKU, Notes)
   if (filters.search && filters.search.trim()) {
-    const term = filters.search.trim();
-    query.$or = [
-      { invoiceNumber: { $regex: term, $options: "i" } },
-      { customerName: { $regex: term, $options: "i" } },
-      { customerPhone: { $regex: term, $options: "i" } },
-      { notes: { $regex: term, $options: "i" } },
+    const raw = filters.search.trim();
+    const escaped = escapeRegex(raw);
+    const cleanDigits = raw.replace(/\D/g, "");
+
+    const orClauses = [
+      { invoiceNumber: { $regex: escaped, $options: "i" } },
+      { customerName: { $regex: escaped, $options: "i" } },
+      { notes: { $regex: escaped, $options: "i" } },
+      { "items.name": { $regex: escaped, $options: "i" } },
+      { "items.sku": { $regex: escaped, $options: "i" } },
     ];
+
+    if (cleanDigits.length >= 3) {
+      orClauses.push({ customerPhone: { $regex: cleanDigits, $options: "i" } });
+      orClauses.push({ invoiceNumber: { $regex: cleanDigits, $options: "i" } });
+    } else {
+      orClauses.push({ customerPhone: { $regex: escaped, $options: "i" } });
+    }
+
+    // Multi-token customer name / invoice search (e.g., "patel 1001" or "ramesh cash")
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    if (tokens.length > 1) {
+      const nameTokens = tokens.map((t) => ({
+        customerName: { $regex: escapeRegex(t), $options: "i" },
+      }));
+      orClauses.push({ $and: nameTokens });
+    }
+
+    query.$or = orClauses;
   }
 
   const page = Math.max(1, parseInt(pagination.page, 10) || 1);

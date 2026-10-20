@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Search, UserPlus, Phone, User, Check, AlertCircle, Wallet } from "lucide-react";
+import { X, Search, UserPlus, Phone, User, Check, AlertCircle, Wallet, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
-import { getCustomers, createCustomer } from "../../../services/customer.api";
+import { getCustomers, searchCustomers, createCustomer } from "../../../services/customer.api";
 
 export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, currentCustomer }) {
   const inputRef = useRef(null);
+  const searchTimerRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,14 +26,23 @@ export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, cu
         if (inputRef.current) inputRef.current.focus();
       }, 100);
     }
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
   }, [isOpen]);
 
   const loadCustomers = async (search = "") => {
     setLoading(true);
     try {
-      const res = await getCustomers(search);
-      const list = res.data?.customers || res.data || [];
-      setCustomers(list);
+      if (search.trim()) {
+        const res = await searchCustomers(search.trim(), 20);
+        const list = res.data?.customers || res.data || [];
+        setCustomers(Array.isArray(list) ? list : []);
+      } else {
+        const res = await getCustomers("", { limit: 15 });
+        const list = res.data?.customers || res.data || [];
+        setCustomers(Array.isArray(list) ? list : []);
+      }
     } catch (err) {
       console.error("Failed to load customers:", err);
     } finally {
@@ -43,7 +53,20 @@ export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, cu
   const handleSearchChange = (e) => {
     const val = e.target.value;
     setSearchTerm(val);
-    loadCustomers(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      loadCustomers(val);
+    }, 120);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && customers.length > 0) {
+      e.preventDefault();
+      onSelectCustomer(customers[0]);
+      onClose();
+    } else if (e.key === "Escape") {
+      onClose();
+    }
   };
 
   const handleCreateCustomer = async (e) => {
@@ -84,7 +107,7 @@ export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, cu
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Select Customer (F4)</h2>
-              <p className="text-[11px] text-zinc-400">Search existing customer or register new</p>
+              <p className="text-[11px] text-zinc-400">Search by name or last 4 phone digits</p>
             </div>
           </div>
           <button
@@ -105,9 +128,22 @@ export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, cu
                   ref={inputRef}
                   value={searchTerm}
                   onChange={handleSearchChange}
-                  placeholder="Search customer by name or phone..."
-                  className="w-full bg-[#18181b] border border-[#27272a] rounded-xl pl-9 pr-4 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
+                  onKeyDown={handleKeyDown}
+                  placeholder="Search by name, phone (e.g. 4321)..."
+                  className="w-full bg-[#18181b] border border-[#27272a] rounded-xl pl-9 pr-9 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 transition-all"
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      loadCustomers("");
+                      if (inputRef.current) inputRef.current.focus();
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-0.5 rounded-full hover:bg-zinc-800"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <button
                 onClick={() => {
@@ -125,7 +161,7 @@ export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, cu
               {loading ? (
                 <div className="py-8 text-center text-xs text-zinc-500 flex items-center justify-center gap-2">
                   <div className="w-4 h-4 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />
-                  Loading customers...
+                  Searching customers...
                 </div>
               ) : customers.length === 0 ? (
                 <div className="py-8 text-center text-xs text-zinc-500">
@@ -145,6 +181,7 @@ export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, cu
                   const isSelected =
                     (currentCustomer?.id || currentCustomer?._id) === (c.id || c._id);
                   const hasDebt = (c.currentBalance || 0) > 0;
+                  const isFuzzy = c._matchType === "FUZZY_TYPO";
 
                   return (
                     <div
@@ -160,8 +197,13 @@ export default function POSCustomerModal({ isOpen, onClose, onSelectCustomer, cu
                       }`}
                     >
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-xs text-zinc-100">{c.name}</span>
+                          {isFuzzy && (
+                            <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded flex items-center gap-1 font-sans">
+                              <Sparkles className="w-2.5 h-2.5" /> Similar
+                            </span>
+                          )}
                           {hasDebt && (
                             <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.2 rounded font-mono">
                               Debt: ₹{c.currentBalance.toFixed(2)}

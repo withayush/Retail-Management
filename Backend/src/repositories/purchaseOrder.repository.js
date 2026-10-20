@@ -6,6 +6,7 @@ const { Product } = require("../models/product.model");
 const { Inventory } = require("../models/inventory.model");
 const counterRepo = require("./counter.repository");
 const purchaseOrderHistoryRepo = require("./purchaseOrderHistory.repository");
+const { escapeRegex } = require("../utils/fuzzySearch");
 
 /**
  * Phase 7 - Tasks T42, T43 & T47: Purchase Order, Line Items & Workflow History Repository
@@ -231,16 +232,34 @@ class PurchaseOrderRepository {
     }
 
     if (search && search.trim()) {
-      const term = search.trim();
-      const regex = new RegExp(term, "i");
-      query.$or = [
-        { poNumber: regex },
-        { supplierCompany: regex },
-        { supplierContact: regex },
-        { supplierPhone: regex },
-        { "items.name": regex },
-        { "items.sku": regex },
+      const raw = search.trim();
+      const escaped = escapeRegex(raw);
+      const cleanDigits = raw.replace(/\D/g, "");
+
+      const orClauses = [
+        { poNumber: { $regex: escaped, $options: "i" } },
+        { supplierCompany: { $regex: escaped, $options: "i" } },
+        { supplierContact: { $regex: escaped, $options: "i" } },
+        { "items.name": { $regex: escaped, $options: "i" } },
+        { "items.sku": { $regex: escaped, $options: "i" } },
       ];
+
+      if (cleanDigits.length >= 3) {
+        orClauses.push({ supplierPhone: { $regex: cleanDigits, $options: "i" } });
+        orClauses.push({ poNumber: { $regex: cleanDigits, $options: "i" } });
+      } else {
+        orClauses.push({ supplierPhone: { $regex: escaped, $options: "i" } });
+      }
+
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      if (tokens.length > 1) {
+        const companyTokens = tokens.map((t) => ({
+          supplierCompany: { $regex: escapeRegex(t), $options: "i" },
+        }));
+        orClauses.push({ $and: companyTokens });
+      }
+
+      query.$or = orClauses;
     }
 
     if (startDate || endDate) {

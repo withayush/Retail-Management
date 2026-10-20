@@ -1,5 +1,5 @@
 import React from "react";
-import { Package, Plus, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Package, Plus, AlertTriangle, CheckCircle, XCircle, Sparkles } from "lucide-react";
 
 export default function POSProductGrid({ loading, products, searchTerm, onAddToCart }) {
   if (loading) {
@@ -41,6 +41,7 @@ export default function POSProductGrid({ loading, products, searchTerm, onAddToC
           const stock = p.availableStock !== undefined ? Number(p.availableStock) : null;
           const isOutOfStock = stock !== null && stock <= 0;
           const isLowStock = stock !== null && stock > 0 && stock <= (p.reorderLevel ?? 5);
+          const isFuzzy = p._matchType === "FUZZY_TYPO";
 
           return (
             <div
@@ -62,6 +63,12 @@ export default function POSProductGrid({ loading, products, searchTerm, onAddToC
                   <span className="text-[10px] font-medium text-[#D2D2D7] bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
                     {categoryName}
                   </span>
+
+                  {isFuzzy && (
+                    <span className="text-[9px] font-medium text-purple-300 bg-purple-500/15 px-2 py-0.5 rounded-full border border-purple-500/30 flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5" /> Similar
+                    </span>
+                  )}
 
                   {/* Stock Badges */}
                   {isOutOfStock ? (

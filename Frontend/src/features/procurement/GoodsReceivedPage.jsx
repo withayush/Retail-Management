@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   PackageCheck,
   Search,
+  X,
   RefreshCw,
   Boxes,
   Truck,
@@ -180,9 +181,17 @@ export default function GoodsReceivedPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by GRN number, PO number, or supplier..."
-            className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
+            placeholder="Search by GRN #, PO #, or supplier..."
+            className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl pl-9 pr-8 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
           />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

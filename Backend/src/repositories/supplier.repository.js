@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Supplier } = require("../models/supplier.model");
+const { escapeRegex, rankSuppliers } = require("../utils/fuzzySearch");
 
 /**
  * Phase 6 - Task T37 & T38: Supplier Repository (Multi-Tenant Data Access Layer)
@@ -93,22 +94,65 @@ class SupplierRepository {
         .lean();
     }
 
-    const term = queryStr.trim();
-    const regex = new RegExp(term, "i");
-    return await Supplier.find({
+    const raw = queryStr.trim();
+    const escaped = escapeRegex(raw);
+    const cleanDigits = raw.replace(/\D/g, "");
+
+    const orClauses = [
+      { company: { $regex: escaped, $options: "i" } },
+      { contactName: { $regex: escaped, $options: "i" } },
+      { email: { $regex: escaped, $options: "i" } },
+      { city: { $regex: escaped, $options: "i" } },
+      { gstin: { $regex: escaped, $options: "i" } },
+    ];
+
+    if (cleanDigits.length >= 3) {
+      orClauses.push({ phone: { $regex: cleanDigits, $options: "i" } });
+    } else {
+      orClauses.push({ phone: { $regex: escaped, $options: "i" } });
+    }
+
+    // Multi-token tokenized matching (e.g., "traders shree" matches "Shree Traders")
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    if (tokens.length > 1) {
+      const companyTokenRegexes = tokens.map((tok) => ({
+        company: { $regex: escapeRegex(tok), $options: "i" },
+      }));
+      orClauses.push({ $and: companyTokenRegexes });
+
+      const contactTokenRegexes = tokens.map((tok) => ({
+        contactName: { $regex: escapeRegex(tok), $options: "i" },
+      }));
+      orClauses.push({ $and: contactTokenRegexes });
+    }
+
+    const results = await Supplier.find({
       businessId,
       status: "ACTIVE",
-      $or: [
-        { company: regex },
-        { contactName: regex },
-        { phone: regex },
-        { email: regex },
-        { city: regex },
-      ],
+      $or: orClauses,
     })
       .sort({ company: 1 })
       .limit(lim)
       .lean();
+
+    if (results.length > 0) {
+      return results;
+    }
+
+    // Fallback: Fuzzy Typo-Tolerant Search for Suppliers (e.g., "Haldiram" misspelled)
+    if (raw.length >= 3) {
+      const candidates = await Supplier.find({ businessId, status: "ACTIVE" })
+        .sort({ updatedAt: -1 })
+        .limit(100)
+        .lean();
+
+      const ranked = rankSuppliers(candidates, raw, 40);
+      if (ranked.length > 0) {
+        return ranked.slice(0, lim);
+      }
+    }
+
+    return [];
   }
 
   /**
@@ -136,12 +180,16 @@ class SupplierRepository {
     }
 
     if (phone && phone.trim()) {
-      const normalized = this.normalizePhone(phone);
-      query.phone = { $regex: normalized || phone.trim(), $options: "i" };
+      const cleanDigits = phone.trim().replace(/\D/g, "");
+      if (cleanDigits.length >= 3) {
+        query.phone = { $regex: cleanDigits, $options: "i" };
+      } else {
+        query.phone = { $regex: escapeRegex(phone.trim()), $options: "i" };
+      }
     }
 
     if (city && city.trim()) {
-      query.city = { $regex: city.trim(), $options: "i" };
+      query.city = { $regex: escapeRegex(city.trim()), $options: "i" };
     }
 
     if (hasBalance === "true" || hasBalance === true) {
@@ -149,16 +197,34 @@ class SupplierRepository {
     }
 
     if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
-      query.$or = [
-        { company: regex },
-        { contactName: regex },
-        { phone: regex },
-        { email: regex },
-        { city: regex },
-        { gstin: regex },
-        { address: regex },
+      const raw = search.trim();
+      const escaped = escapeRegex(raw);
+      const cleanDigits = raw.replace(/\D/g, "");
+
+      const orClauses = [
+        { company: { $regex: escaped, $options: "i" } },
+        { contactName: { $regex: escaped, $options: "i" } },
+        { email: { $regex: escaped, $options: "i" } },
+        { city: { $regex: escaped, $options: "i" } },
+        { gstin: { $regex: escaped, $options: "i" } },
+        { address: { $regex: escaped, $options: "i" } },
       ];
+
+      if (cleanDigits.length >= 3) {
+        orClauses.push({ phone: { $regex: cleanDigits, $options: "i" } });
+      } else {
+        orClauses.push({ phone: { $regex: escaped, $options: "i" } });
+      }
+
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      if (tokens.length > 1) {
+        const companyTokenRegexes = tokens.map((tok) => ({
+          company: { $regex: escapeRegex(tok), $options: "i" },
+        }));
+        orClauses.push({ $and: companyTokenRegexes });
+      }
+
+      query.$or = orClauses;
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);

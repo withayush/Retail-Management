@@ -19,7 +19,7 @@ export default function SalesHistoryFilters({
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
             type="text"
-            placeholder="Search by Invoice # (e.g. INV-1001), Customer Name, Phone, or Notes..."
+            placeholder="Search by Invoice #, Customer, Phone, or Product item..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);

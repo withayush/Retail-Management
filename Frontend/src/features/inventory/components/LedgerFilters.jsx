@@ -29,7 +29,7 @@ export default function LedgerFilters({
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
             type="text"
-            placeholder="Search by Reference #, Reason, Supplier, or Notes..."
+            placeholder="Search by Product name, SKU, Barcode, Ref #, Supplier..."
             value={ledgerSearchTerm}
             onChange={(e) => {
               setLedgerSearchTerm(e.target.value);

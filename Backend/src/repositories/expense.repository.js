@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Expense = require("../models/expense.model");
 const counterRepository = require("./counter.repository");
+const { escapeRegex } = require("../utils/fuzzySearch");
 
 /**
  * Expense Repository Layer
@@ -111,14 +112,26 @@ class ExpenseRepository {
 
     // Search query (matches description, payee, referenceNumber, expenseNumber, categoryName)
     if (filters.search && filters.search.trim()) {
-      const searchRegex = new RegExp(filters.search.trim(), "i");
-      query.$or = [
-        { expenseNumber: searchRegex },
-        { categoryName: searchRegex },
-        { payee: searchRegex },
-        { description: searchRegex },
-        { referenceNumber: searchRegex },
+      const raw = filters.search.trim();
+      const escaped = escapeRegex(raw);
+
+      const orClauses = [
+        { expenseNumber: { $regex: escaped, $options: "i" } },
+        { categoryName: { $regex: escaped, $options: "i" } },
+        { payee: { $regex: escaped, $options: "i" } },
+        { description: { $regex: escaped, $options: "i" } },
+        { referenceNumber: { $regex: escaped, $options: "i" } },
       ];
+
+      const tokens = raw.split(/\s+/).filter(Boolean);
+      if (tokens.length > 1) {
+        const descTokenRegexes = tokens.map((tok) => ({
+          description: { $regex: escapeRegex(tok), $options: "i" },
+        }));
+        orClauses.push({ $and: descTokenRegexes });
+      }
+
+      query.$or = orClauses;
     }
 
     // Amount range

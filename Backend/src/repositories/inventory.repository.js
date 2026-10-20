@@ -4,6 +4,7 @@ const Product = require("../models/product.model");
 const Category = require("../models/category.model");
 const Invoice = require("../models/invoice.model");
 const Account = require("../models/account.model");
+const { escapeRegex } = require("../utils/fuzzySearch");
 
 /**
  * Inventory Repository Layer
@@ -62,18 +63,28 @@ const findInventoryStoreState = async (businessId, filters = {}) => {
   }
 
   if (filters.search && filters.search.trim()) {
-    const term = filters.search.trim();
+    const raw = filters.search.trim();
+    const escaped = escapeRegex(raw);
+
     const matchingCategories = await Category.find({
       businessId: bId,
-      name: { $regex: term, $options: "i" },
+      name: { $regex: escaped, $options: "i" },
     }).select("_id");
     const matchedCategoryIds = matchingCategories.map((c) => c._id);
 
     const searchConditions = [
-      { name: { $regex: term, $options: "i" } },
-      { sku: { $regex: term, $options: "i" } },
-      { barcode: { $regex: term, $options: "i" } },
+      { name: { $regex: escaped, $options: "i" } },
+      { sku: { $regex: escaped, $options: "i" } },
+      { barcode: { $regex: escaped, $options: "i" } },
     ];
+
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    if (tokens.length > 1) {
+      const tokenRegexes = tokens.map((tok) => ({
+        name: { $regex: escapeRegex(tok), $options: "i" },
+      }));
+      searchConditions.push({ $and: tokenRegexes });
+    }
 
     if (matchedCategoryIds.length > 0) {
       searchConditions.push({ categoryId: { $in: matchedCategoryIds } });
@@ -500,16 +511,39 @@ const findLedgerEntries = async (businessId, filters = {}) => {
     }
   }
 
-  // 5. Text Search (Reference #, Reason, Supplier, Notes)
+  // 5. Text Search (Product Name/SKU/Barcode, Reference #, Reason, Supplier, Notes)
   if (filters.search && filters.search.trim()) {
-    const searchRegex = new RegExp(filters.search.trim(), "i");
-    query.$or = [
-      { referenceNumber: searchRegex },
-      { reason: searchRegex },
-      { supplierName: searchRegex },
-      { createdByName: searchRegex },
-      { notes: searchRegex },
+    const raw = filters.search.trim();
+    const escaped = escapeRegex(raw);
+
+    // Look up matching products in this business by name, sku, barcode
+    const matchingProducts = await Product.find({
+      businessId,
+      $or: [
+        { name: { $regex: escaped, $options: "i" } },
+        { sku: { $regex: escaped, $options: "i" } },
+        { barcode: { $regex: escaped, $options: "i" } },
+      ],
+    })
+      .select("_id")
+      .limit(100)
+      .lean();
+
+    const matchedProductIds = matchingProducts.map((p) => p._id);
+
+    const orClauses = [
+      { referenceNumber: { $regex: escaped, $options: "i" } },
+      { reason: { $regex: escaped, $options: "i" } },
+      { supplierName: { $regex: escaped, $options: "i" } },
+      { createdByName: { $regex: escaped, $options: "i" } },
+      { notes: { $regex: escaped, $options: "i" } },
     ];
+
+    if (matchedProductIds.length > 0) {
+      orClauses.push({ productId: { $in: matchedProductIds } });
+    }
+
+    query.$or = orClauses;
   }
 
   const limit = Math.min(Math.max(parseInt(filters.limit, 10) || 30, 1), 200);
