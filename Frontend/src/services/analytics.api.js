@@ -93,3 +93,15 @@ export const getReceivablesSummary = async () => {
   return response.data;
 };
 
+// --- Payables Consolidated Index (T58) ---------------------------------------
+
+export const getPayablesIndex = async (params = {}) => {
+  const response = await api.get("/analytics/payables", { params });
+  return response.data;
+};
+
+export const getPayablesSummary = async () => {
+  const response = await api.get("/analytics/payables/summary");
+  return response.data;
+};
+

@@ -10,6 +10,7 @@ import {
   getBusinessOutstandingTotals,
   getCustomers,
 } from "../../services/customer.api";
+import { getPayablesSummary } from "../../services/analytics.api";
 import { downloadInvoicePdf, previewInvoicePdf } from "../../services/sale.api";
 import { ExternalLink, Download, ShoppingCart, ArrowRight, Sparkles, ShieldCheck, TrendingUp } from "lucide-react";
 import toast from "react-hot-toast";
@@ -28,6 +29,10 @@ export default function Dashboard() {
     totalCustomers: 0,
     totalOutstanding: 0,
   });
+  const [payablesStats, setPayablesStats] = useState({
+    totalPayables: 0,
+    suppliersWithOutstanding: 0,
+  });
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -37,12 +42,14 @@ export default function Dashboard() {
         alertsSummaryRes,
         outstandingRes,
         customersRes,
+        payablesRes,
       ] = await Promise.allSettled([
         getSalesSummary(),
         getSales({ limit: 6, page: 1 }),
         getInventoryAlertsSummary(),
         getBusinessOutstandingTotals(),
         getCustomers(),
+        getPayablesSummary(),
       ]);
 
       if (salesSummaryRes.status === "fulfilled" && salesSummaryRes.value?.data) {
@@ -75,6 +82,14 @@ export default function Dashboard() {
           ? customersRes.value.data
           : customersRes.value.data?.customers || [];
         totalCustCount = cList.length;
+      }
+
+      if (payablesRes.status === "fulfilled" && payablesRes.value?.data) {
+        const pData = payablesRes.value.data;
+        setPayablesStats({
+          totalPayables: pData.totalPayables || 0,
+          suppliersWithOutstanding: pData.suppliersWithOutstanding || pData.payableSuppliersCount || 0,
+        });
       }
 
       setCustomerStats({
@@ -156,6 +171,8 @@ export default function Dashboard() {
         outOfStockAlerts={inventoryAlerts?.outOfStockCount || 0}
         totalCustomers={customerStats.totalCustomers}
         totalOutstanding={customerStats.totalOutstanding}
+        totalPayables={payablesStats.totalPayables}
+        payableSuppliersCount={payablesStats.suppliersWithOutstanding}
         loading={loading}
       />
 

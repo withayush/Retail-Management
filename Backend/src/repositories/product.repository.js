@@ -132,7 +132,7 @@ const searchProducts = async (businessId, { query = "", limit = 20, categoryId =
       ...(includeArchived ? {} : { isArchived: false, isActive: true }),
       ...(categoryId ? { categoryId } : {}),
     })
-      .select("_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description isActive isArchived createdAt")
+      .select("_id businessId categoryId name sku barcode sellingPrice costPrice unit packSize packagingType description imageUrl isActive isArchived createdAt")
       .populate("categoryId", "name description");
   } catch {}
 

@@ -43,7 +43,7 @@ const getOrCreateInventory = async (
 const findInventoryByProductId = async (businessId, productId) => {
   return await Inventory.findOne({ businessId, productId }).populate({
     path: "productId",
-    select: "name sku barcode sellingPrice costPrice unit packSize categoryId isActive isArchived",
+    select: "name sku barcode sellingPrice costPrice unit packSize categoryId isActive isArchived imageUrl",
     populate: { path: "categoryId", select: "name" },
   });
 };
@@ -554,7 +554,7 @@ const findLedgerEntries = async (businessId, filters = {}) => {
   const entries = await InventoryLedger.find(query)
     .populate({
       path: "productId",
-      select: "name sku barcode unit sellingPrice costPrice categoryId",
+      select: "name sku barcode unit sellingPrice costPrice categoryId imageUrl",
       populate: { path: "categoryId", select: "name" },
     })
     .populate("invoiceId", "invoiceNumber grandTotal createdAt")

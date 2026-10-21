@@ -20,6 +20,8 @@ const idempotencyMiddleware = require("../middlewares/idempotency.middleware");
 // Payables summaries (Registered before /:id)
 router.get("/payables/summary", supplierController.getBusinessPayablesSummary);
 router.get("/payables/totals", supplierController.getBusinessPayablesTotals);
+router.get("/payables/consolidated", supplierController.getConsolidatedPayablesIndex);
+router.get("/payables/index", supplierController.getConsolidatedPayablesIndex);
 
 // Phase 6 - Task T39 & T40: Supplier Ledger Transaction Log & Accounts Payable Endpoints
 router.get("/:id/ledger", supplierController.getSupplierLedger);

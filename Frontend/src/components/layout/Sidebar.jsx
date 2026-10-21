@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Wallet,
   TrendingUp,
+  ShoppingBag,
 } from "lucide-react";
 
 export default function Sidebar({
@@ -45,6 +46,7 @@ export default function Sidebar({
     { label: "Inventory", path: "/inventory", icon: Boxes },
     { label: "Customers", path: "/customers", icon: Users },
     { label: "Suppliers", path: "/suppliers", icon: Truck },
+    { label: "Purchase Orders", path: "/purchases", icon: ShoppingBag },
     { label: "Sales & Invoices", path: "/sales", icon: Receipt },
     { label: "Expenses", path: "/expenses", icon: Wallet },
     { label: "Profit & Analytics", path: "/analytics", icon: TrendingUp },

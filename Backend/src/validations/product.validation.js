@@ -62,6 +62,12 @@ const createProductSchema = z.object({
     .optional()
     .default(""),
 
+  imageUrl: z
+    .string()
+    .trim()
+    .optional()
+    .default(""),
+
   isActive: z
     .boolean()
     .optional()

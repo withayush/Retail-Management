@@ -383,6 +383,40 @@ const getSupplier360Summary = async (req, res, next) => {
   }
 };
 
+// ── Phase 9 - Task T58: Payables Consolidated Index Controller ────────────
+
+// GET /api/analytics/payables or GET /api/suppliers/payables/index
+const getConsolidatedPayablesIndex = async (req, res, next) => {
+  try {
+    const businessId = req.businessId;
+    const { limit = 10 } = req.query;
+
+    const data = await supplierService.getConsolidatedPayablesIndex(businessId, { limit });
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/analytics/payables/summary
+const getPayablesSummary = async (req, res, next) => {
+  try {
+    const businessId = req.businessId;
+    const data = await supplierService.getPayablesSummary(businessId);
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createSupplier,
   getSuppliers,
@@ -402,6 +436,8 @@ module.exports = {
   getBusinessPayablesSummary,
   getBusinessPayablesTotals,
   getSupplier360Summary,
+  getConsolidatedPayablesIndex,
+  getPayablesSummary,
 };
 
 

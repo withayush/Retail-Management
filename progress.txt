@@ -20,7 +20,7 @@ API Base URL : http://localhost:3001/api
 [✓] Phase 6: Supplier & Procurement Management          --> 100% (DONE - T37-T41)
 [✓] Phase 7: Purchasing, GRN & Auto Stock IN            --> 100% (DONE - T42-T47)
 [✓] Phase 8: Expense Management & OpEx Consolidation    --> 100% (DONE - T48-T51)
-[✓] Phase 9: Financial Analytics & Full P&L Engines     --> 100% (DONE - T52-T57)
+[✓] Phase 9: Financial Analytics & Full P&L Engines     --> 100% (DONE - T52-T58)
 
 ================================================================================
 2. COMPLETED WORK (KAISE & KYA-KYA HO GAYA HAI)
@@ -313,6 +313,17 @@ API Base URL : http://localhost:3001/api
     - Full P&L waterfall cost allocation: `Revenue = COGS + OpEx + Net Profit`.
     - Health ratings: `LOSS`, `BREAK_EVEN`, `SLIM_PROFIT` (<10%), `HEALTHY` (10-20%), `EXCELLENT` (>20%).
     - Materialized cache in `MonthlyNetProfitSummary` collection, quarterly rollups (Q1-Q4), and daily bottom-line ledger.
+
+[✓] C50. T57: Receivables Consolidated Index Engine (`src/services/receivablesAnalytics.service.js`)
+    - Formula: `SUM(All outstanding Customer Ledger active balances)`.
+    - Gross vs Net Receivables segregation, customer advances tracking, multi-tier debt aging schedule (0-30d, 31-60d, 61-90d, 90+d), credit risk profile ratings, and top debtor ranking.
+    - Endpoints: `GET /api/analytics/receivables`, `GET /api/analytics/receivables/summary`.
+
+[✓] C51. T58: Payables Consolidated Index Engine (`src/services/payablesAnalytics.service.js`)
+    - Formula: `SUM(All outstanding Supplier Ledger active balances)`.
+    - Consolidated Accounts Payable liabilities owed across all suppliers, supplier advances segregation, multi-tier procurement debt aging (0-30d, 31-60d, 61-90d, 90+d), working capital liability risk indicators, and top creditor ranking.
+    - Full end-to-end frontend integration in Financial Analytics Command Center (`PayablesConsolidatedCard.jsx`) and Store Command Center Dashboard (`DashboardMetrics.jsx`).
+    - Endpoints: `GET /api/analytics/payables`, `GET /api/analytics/payables/summary`, `GET /api/suppliers/payables/consolidated`.
 
 
 ================================================================================

@@ -30,10 +30,23 @@ const {
   getReceivablesSummary,
 } = require("../controllers/customer.controller");
 
+const {
+  getConsolidatedPayablesIndex,
+  getPayablesSummary,
+} = require("../controllers/supplier.controller");
+
 const router = express.Router();
 
 router.use(authMiddleware);
 router.use(businessMiddleware);
+
+// ============================================
+// PAYABLES CONSOLIDATED INDEX (PHASE 9 - TASK T58)
+// ============================================
+// Canonical endpoint matching PRD: GET /api/analytics/payables
+router.get("/payables", getConsolidatedPayablesIndex);
+router.get("/payables/summary", getPayablesSummary);
+router.get("/payables/index", getConsolidatedPayablesIndex);
 
 // ============================================
 // RECEIVABLES CONSOLIDATED INDEX (PHASE 9 - TASK T57)

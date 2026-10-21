@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { TrendingUp, Receipt, AlertTriangle, Users, ArrowUpRight } from "lucide-react";
+import { TrendingUp, Receipt, AlertTriangle, Users, Clock, ArrowUpRight } from "lucide-react";
 
 export default function DashboardMetrics({
   totalSalesAmount = 0,
@@ -10,6 +10,8 @@ export default function DashboardMetrics({
   outOfStockAlerts = 0,
   totalCustomers = 0,
   totalOutstanding = 0,
+  totalPayables = 0,
+  payableSuppliersCount = 0,
   loading = false,
 }) {
   const formatCurrency = (val) => {
@@ -55,12 +57,21 @@ export default function DashboardMetrics({
       icon: Users,
       link: "/customers",
       accent: "neutral",
-      badge: "Credit Balance",
+      badge: "Receivables",
+    },
+    {
+      title: "Supplier Payables",
+      value: formatCurrency(totalPayables),
+      subtitle: `${payableSuppliersCount} vendors with pending dues`,
+      icon: Clock,
+      link: "/analytics",
+      accent: "orange",
+      badge: "Payables (T58)",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       {cards.map((card, idx) => {
         const Icon = card.icon;
         return (

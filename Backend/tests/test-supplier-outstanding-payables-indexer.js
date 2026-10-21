@@ -21,17 +21,21 @@ async function runOutstandingPayablesIndexerTests() {
 
   try {
     // 1. Setup Multi-Tenant Business Stores
+    const mockOwnerIdA = new mongoose.Types.ObjectId();
+    const mockOwnerIdB = new mongoose.Types.ObjectId();
     const testBizA = await Business.create({
-      name: `T40 Store Alpha ${runId}`,
-      email: `t40.alpha.${runId}@test.com`,
-      phone: `+919844${runId.slice(0, 6)}`,
+      businessName: `T40 Store Alpha ${runId}`,
+      ownerId: mockOwnerIdA,
+      businessEmail: `t40.alpha.${runId}@test.com`,
+      businessPhone: `+919844${runId.slice(0, 6)}`,
       currency: "INR",
     });
 
     const testBizB = await Business.create({
-      name: `T40 Store Beta ${runId}`,
-      email: `t40.beta.${runId}@test.com`,
-      phone: `+919855${runId.slice(0, 6)}`,
+      businessName: `T40 Store Beta ${runId}`,
+      ownerId: mockOwnerIdB,
+      businessEmail: `t40.beta.${runId}@test.com`,
+      businessPhone: `+919855${runId.slice(0, 6)}`,
       currency: "INR",
     });
 

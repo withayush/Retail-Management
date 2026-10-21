@@ -20,6 +20,7 @@ import {
   getDailyNetProfitLedger,
   recalculateMonthlyNetProfit,
   getReceivablesIndex,
+  getPayablesIndex,
 } from "../../services/analytics.api";
 
 import NetProfitHeroCards from "./components/NetProfitHeroCards";
@@ -29,9 +30,10 @@ import QuarterlyProfitCards from "./components/QuarterlyProfitCards";
 import DailyProfitLedgerTable from "./components/DailyProfitLedgerTable";
 import ProductProfitMatrix from "./components/ProductProfitMatrix";
 import ReceivablesConsolidatedCard from "./components/ReceivablesConsolidatedCard";
+import PayablesConsolidatedCard from "./components/PayablesConsolidatedCard";
 
 /**
- * FinancialAnalyticsPage - Phase 9 (Task T56: Net Profit Aggregation Service)
+ * FinancialAnalyticsPage - Phase 9 (Task T56: Net Profit & T58: Payables Consolidated Index)
  * Executive P&L Bottom-Line Command Center
  * Net Profit = Gross Profit - Operating Expenses
  */
@@ -44,7 +46,7 @@ export default function FinancialAnalyticsPage() {
 
   const [loading, setLoading] = useState(true);
   const [recalculating, setRecalculating] = useState(false);
-  const [activeModuleTab, setActiveModuleTab] = useState("ALL"); // ALL | PNL | RECEIVABLES
+  const [activeModuleTab, setActiveModuleTab] = useState("ALL"); // ALL | PNL | RECEIVABLES | PAYABLES
 
   // Core Data States
   const [netProfitData, setNetProfitData] = useState(null);
@@ -52,6 +54,8 @@ export default function FinancialAnalyticsPage() {
   const [quarterlyData, setQuarterlyData] = useState(null);
   const [dailyData, setDailyData] = useState(null);
   const [receivablesData, setReceivablesData] = useState(null);
+  const [payablesData, setPayablesData] = useState(null);
+  const [payablesError, setPayablesError] = useState(null);
 
   const now = new Date();
   const currentYear = now.getUTCFullYear();
@@ -88,12 +92,13 @@ export default function FinancialAnalyticsPage() {
       setLoading(true);
       const params = resolveQueryParams();
 
-      const [npRes, yearRes, quarterRes, dailyRes, recRes] = await Promise.allSettled([
+      const [npRes, yearRes, quarterRes, dailyRes, recRes, payRes] = await Promise.allSettled([
         getPeriodNetProfit(params),
         getMonthlyNetProfitOverview({ year: currentYear }),
         getQuarterlyNetProfit({ year: currentYear }),
         getDailyNetProfitLedger({ year: currentYear, month: currentMonth }),
         getReceivablesIndex({ limit: 10 }),
+        getPayablesIndex({ limit: 10 }),
       ]);
 
       if (npRes.status === "fulfilled" && npRes.value?.data) {
@@ -114,6 +119,13 @@ export default function FinancialAnalyticsPage() {
 
       if (recRes.status === "fulfilled" && recRes.value?.data) {
         setReceivablesData(recRes.value.data);
+      }
+
+      if (payRes.status === "fulfilled" && payRes.value?.data) {
+        setPayablesData(payRes.value.data);
+        setPayablesError(null);
+      } else if (payRes.status === "rejected") {
+        setPayablesError(payRes.reason);
       }
     } catch (err) {
       console.error("Failed to load financial analytics:", err);
@@ -184,11 +196,12 @@ export default function FinancialAnalyticsPage() {
       </div>
 
       {/* ── MODULE SWITCHER TABS ── */}
-      <div className="flex items-center gap-2 border-b border-[#D2D2D7]/12 pb-3">
+      <div className="flex items-center gap-2 border-b border-[#D2D2D7]/12 pb-3 overflow-x-auto">
         {[
           { id: "ALL", label: "Full Financial Overview" },
           { id: "PNL", label: "P&L & Net Profit (T56)" },
-          { id: "RECEIVABLES", label: "Receivables Consolidated Index (T57)" },
+          { id: "RECEIVABLES", label: "Receivables Index (T57)" },
+          { id: "PAYABLES", label: "Payables Consolidated Index (T58)" },
         ].map((mod) => (
           <button
             key={mod.id}
@@ -282,6 +295,16 @@ export default function FinancialAnalyticsPage() {
         <ReceivablesConsolidatedCard data={receivablesData} loading={loading} />
       )}
 
+      {/* ── SECTION 3: PAYABLES CONSOLIDATED INDEX (T58) ── */}
+      {(activeModuleTab === "ALL" || activeModuleTab === "PAYABLES") && (
+        <PayablesConsolidatedCard
+          data={payablesData}
+          loading={loading}
+          error={payablesError}
+          onRetry={loadAnalytics}
+        />
+      )}
+
       {/* ── ACCRUAL & ACCOUNTING METHODOLOGY NOTICE ── */}
       <div className="p-4 rounded-xl bg-white/[0.02] border border-[#D2D2D7]/10 flex items-start gap-3 text-xs text-[#A1A1AA]">
         <div className="w-5 h-5 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
@@ -292,7 +315,7 @@ export default function FinancialAnalyticsPage() {
             Accrual Profitability vs Cash Flow Note
           </span>
           <p className="text-[11px] leading-relaxed text-[#6E6E73]">
-            Under VendorOS accrual accounting standards, <strong>Net Profit (T56)</strong> measures operating revenue minus product costs and overhead expenses. In parallel, the <strong>Receivables Consolidated Index (T57)</strong> tracks all outstanding credit (Udhaar) owed to the store across customer sub-ledgers. Customer credit sales are recognized as revenue upon transaction date, and inventory capital purchases are capitalized as stock value rather than double-counted in OpEx.
+            Under VendorOS accrual accounting standards, <strong>Net Profit (T56)</strong> measures operating revenue minus product costs and overhead expenses. In parallel, the <strong>Receivables Consolidated Index (T57)</strong> tracks all customer credit (Udhaar) owed to the store, and the <strong>Payables Consolidated Index (T58)</strong> tracks outstanding accounts payable owed to suppliers for delivered inventory procurement.
           </p>
         </div>
       </div>

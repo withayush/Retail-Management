@@ -91,7 +91,6 @@ const supplierSchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 0.0,
-      min: 0,
     },
     totalPurchases: {
       type: Number,
@@ -206,13 +205,11 @@ const supplierLedgerEntrySchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 0.0,
-      min: 0,
     },
     balanceSnapshot: {
       type: Number,
       required: true,
       default: 0.0,
-      min: 0,
     },
     paymentMethod: {
       type: String,
@@ -293,7 +290,6 @@ const supplierLedgerSchema = new mongoose.Schema(
       type: Number,
       required: true,
       default: 0.0,
-      min: 0,
     },
     entries: [supplierLedgerEntrySchema],
   },

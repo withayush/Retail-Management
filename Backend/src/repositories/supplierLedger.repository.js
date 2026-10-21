@@ -245,7 +245,7 @@ const recordSupplierPayment = async (paymentData, session = null) => {
   }
 
   const currentBal = Number(supplier.currentBalance || 0);
-  const newBalance = Math.round(Math.max(0, currentBal - numAmount) * 100) / 100;
+  const newBalance = Math.round((currentBal - numAmount) * 100) / 100;
 
   const resolvedNotes =
     notes?.trim() ||
@@ -346,7 +346,7 @@ const appendLedgerEntry = async (entryData, session = null) => {
   }
 
   const currentBal = Number(supplier.currentBalance || 0);
-  const potentialBalance = Math.round(Math.max(0, currentBal + numInvoiceVal - numPaymentAmt) * 100) / 100;
+  const potentialBalance = Math.round((currentBal + numInvoiceVal - numPaymentAmt) * 100) / 100;
 
   const ledgerEntry = {
     supplierId: supplier._id,

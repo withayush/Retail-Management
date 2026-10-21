@@ -114,6 +114,18 @@ const getSupplier360Summary = async (businessId, supplierId) => {
   return await supplierRepo.getSupplier360Summary(businessId, supplierId);
 };
 
+const payablesAnalyticsService = require("./payablesAnalytics.service");
+
+// ── Phase 9 - Task T58: Payables Consolidated Index Service Bridge ────────
+
+const getConsolidatedPayablesIndex = async (businessId, options = {}) => {
+  return await payablesAnalyticsService.getConsolidatedPayablesIndex(businessId, options);
+};
+
+const getPayablesSummary = async (businessId) => {
+  return await payablesAnalyticsService.getPayablesSummaryOnly(businessId);
+};
+
 module.exports = {
   createSupplier,
   getSuppliers,
@@ -132,6 +144,8 @@ module.exports = {
   getBusinessPayablesSummary,
   getBusinessPayablesTotals,
   getSupplier360Summary,
+  getConsolidatedPayablesIndex,
+  getPayablesSummary,
 };
 
 
