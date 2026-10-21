@@ -19,6 +19,8 @@ import {
   Wallet,
   TrendingUp,
   ShoppingBag,
+  BarChart3,
+  Layers,
 } from "lucide-react";
 
 export default function Sidebar({
@@ -48,8 +50,10 @@ export default function Sidebar({
     { label: "Suppliers", path: "/suppliers", icon: Truck },
     { label: "Purchase Orders", path: "/purchases", icon: ShoppingBag },
     { label: "Sales & Invoices", path: "/sales", icon: Receipt },
+    { label: "Sales Trends", path: "/sales-analytics", icon: BarChart3 },
     { label: "Expenses", path: "/expenses", icon: Wallet },
     { label: "Profit & Analytics", path: "/analytics", icon: TrendingUp },
+    { label: "Profit Waterfall", path: "/profit", icon: Layers },
     { label: "Reconciliation", path: "/reconciliation", icon: ShieldCheck },
   ];
 

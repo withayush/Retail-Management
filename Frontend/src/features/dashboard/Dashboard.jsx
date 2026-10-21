@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import BusinessDashboard from "./pages/BusinessDashboard";
 import DashboardMetrics from "./components/DashboardMetrics";
 import { getSales, getSalesSummary } from "../../services/sale.api";
 import {
@@ -12,7 +13,7 @@ import {
 } from "../../services/customer.api";
 import { getPayablesSummary } from "../../services/analytics.api";
 import { downloadInvoicePdf, previewInvoicePdf } from "../../services/sale.api";
-import { ExternalLink, Download, ShoppingCart, ArrowRight, Sparkles, ShieldCheck, TrendingUp } from "lucide-react";
+import { ExternalLink, Download, ShoppingCart, ArrowRight, Sparkles, ShieldCheck, TrendingUp, BarChart3 } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function Dashboard() {
@@ -124,8 +125,11 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-5 md:p-8 space-y-7 w-full max-w-7xl mx-auto">
-      {/* ── Apple Hero Banner: Quick POS Checkout Access ── */}
+    <div className="p-5 md:p-8 space-y-9 w-full max-w-7xl mx-auto">
+      {/* ── Business Overview: T60 Summary Cards & Interactive Charts Dashboard ── */}
+      <BusinessDashboard />
+
+      {/* ── Store Operations & POS Terminal Access ── */}
       <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#161617] via-[#1D1D1F] to-[#161617] border border-[#D2D2D7]/12 p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
         <div className="absolute top-0 right-0 w-96 h-96 bg-[#0066CC]/10 rounded-full blur-3xl pointer-events-none" />
         
@@ -144,6 +148,13 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <button
+              onClick={() => navigate("/sales-analytics")}
+              className="apple-btn-secondary text-xs flex items-center gap-2 py-2 px-3.5 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-sky-400" />
+              <span>Sales Performance</span>
+            </button>
             <button
               onClick={() => navigate("/analytics")}
               className="apple-btn-secondary text-xs flex items-center gap-2 py-2 px-3.5 hover:scale-105 active:scale-95 cursor-pointer"

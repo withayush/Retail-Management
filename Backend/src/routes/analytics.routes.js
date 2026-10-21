@@ -35,6 +35,10 @@ const {
   getPayablesSummary,
 } = require("../controllers/supplier.controller");
 
+const { getBusinessSummary } = require("../controllers/dashboard.controller");
+const { getSalesTrends } = require("../controllers/salesTrends.controller");
+const { getProfitBreakdown } = require("../controllers/profitBreakdown.controller");
+
 const router = express.Router();
 
 router.use(authMiddleware);
@@ -89,5 +93,15 @@ router.get("/revenue/monthly", getMonthlyRevenueOverview);
 router.get("/revenue/current", getCurrentMonthRevenue);
 router.get("/cogs/monthly", getMonthlyCogsOverview);
 router.get("/cogs/current", getCurrentMonthCogs);
+
+// Dashboard Business Summary (Phase 10 - Task T60 alias)
+router.get("/business-summary", getBusinessSummary);
+
+// Sales Performance Trends (Phase 10 - Task T61)
+router.get("/sales-trends", getSalesTrends);
+
+// Profit Breakdown & Visualizers (Phase 10 - Task T62)
+router.get("/profit-breakdown", getProfitBreakdown);
+router.get("/profit/breakdown", getProfitBreakdown);
 
 module.exports = router;

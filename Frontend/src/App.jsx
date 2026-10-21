@@ -23,6 +23,8 @@ const SalesHistoryPage = lazy(() => import("./pages/pos/SalesHistoryPage"));
 const ReconciliationPage = lazy(() => import("./pages/reconciliation/ReconciliationPage"));
 const ExpensesPage = lazy(() => import("./pages/expenses/ExpensesPage"));
 const FinancialAnalyticsPage = lazy(() => import("./pages/analytics/FinancialAnalyticsPage"));
+const SalesPerformancePage = lazy(() => import("./pages/analytics/SalesPerformancePage"));
+const ProfitAnalyticsPage = lazy(() => import("./pages/analytics/ProfitAnalyticsPage"));
 const PurchaseOrdersPage = lazy(() => import("./pages/procurement/PurchaseOrdersPage"));
 const GoodsReceivedPage = lazy(() => import("./pages/procurement/GoodsReceivedPage"));
 
@@ -99,7 +101,11 @@ export default function App() {
               <Route path="/expenses" element={<ExpensesPage />} />
               <Route path="/expense-categories" element={<ExpensesPage />} />
               <Route path="/analytics" element={<FinancialAnalyticsPage />} />
-              <Route path="/profit" element={<FinancialAnalyticsPage />} />
+              <Route path="/profit" element={<ProfitAnalyticsPage />} />
+              <Route path="/analytics/profit" element={<ProfitAnalyticsPage />} />
+              <Route path="/profit-analytics" element={<ProfitAnalyticsPage />} />
+              <Route path="/sales-analytics" element={<SalesPerformancePage />} />
+              <Route path="/analytics/sales" element={<SalesPerformancePage />} />
               <Route path="/reconciliation" element={<ReconciliationPage />} />
             </Route>
 

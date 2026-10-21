@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   TrendingUp,
   RefreshCw,
@@ -181,7 +182,14 @@ export default function FinancialAnalyticsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <Link
+              to="/profit"
+              className="px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Profit Waterfall (T62)</span>
+            </Link>
             <button
               onClick={handleRecalculate}
               disabled={recalculating}

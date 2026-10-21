@@ -116,6 +116,8 @@ router.post("/analytics/net-profit/recalculate", recalculateMonthlyNetProfit);
 router.post("/", idempotencyMiddleware("SALE_CREATE"), validate(createSaleSchema), createSale);
 router.get("/", getSales);
 router.get("/summary", getSalesSummary);
+const { getSalesTrends } = require("../controllers/salesTrends.controller");
+router.get("/trends", getSalesTrends);
 router.get("/next-invoice-number", getNextInvoiceNumber);
 router.get("/analytics/gross-profit", getGrossProfitReport);
 router.get("/:id", getSaleById);
