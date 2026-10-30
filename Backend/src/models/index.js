@@ -3,7 +3,7 @@ const AuthLog = require("./authLog.model");
 const Business = require("./business.model");
 const BusinessMember = require("./businessMember.model");
 const Category = require("./category.model");
-const Customer = require("./customer.model");
+const { Customer, CustomerLedger } = require("./customer.model");
 const { Inventory, InventoryLedger } = require("./inventory.model");
 const InventoryAlert = require("./inventoryAlert.model");
 const Invoice = require("./invoice.model");
@@ -35,6 +35,7 @@ module.exports = {
   BusinessMember,
   Category,
   Customer,
+  CustomerLedger,
   Inventory,
   InventoryLedger,
   InventoryAlert,

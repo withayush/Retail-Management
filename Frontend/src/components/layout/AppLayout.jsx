@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import UniversalSearchModal from "./UniversalSearchModal";
+import FloatingAiWidget from "../ai/FloatingAiWidget";
 
 export default function AppLayout({ children }) {
   const { user, business, logout } = useAuth();
@@ -86,6 +87,9 @@ export default function AppLayout({ children }) {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
       />
+
+      {/* Persistent AI Copilot Floating Launcher */}
+      <FloatingAiWidget />
     </div>
   );
 }

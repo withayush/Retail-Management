@@ -43,6 +43,7 @@ export default function Sidebar({
 
   const navItems = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    { label: "AI Assistant", path: "/ai-assistant", icon: Sparkles, isAi: true },
     { label: "POS Terminal", path: "/pos", icon: ShoppingCart },
     { label: "Products", path: "/products", icon: Package },
     { label: "Inventory", path: "/inventory", icon: Boxes },
@@ -158,10 +159,19 @@ export default function Sidebar({
                     } ${collapsed ? "justify-center px-0" : ""}`}
                 >
                   <Icon
-                    className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-white" : "text-[#6E6E73] group-hover:text-white"
+                    className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-white" : item.isAi ? "text-indigo-400 group-hover:text-indigo-300" : "text-[#6E6E73] group-hover:text-white"
                       }`}
                   />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  {!collapsed && (
+                    <div className="flex items-center justify-between flex-1 min-w-0">
+                      <span className="truncate">{item.label}</span>
+                      {item.isAi && (
+                        <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm shadow-indigo-500/30 tracking-wider">
+                          GROQ
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </Link>
               );
             })}

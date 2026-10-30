@@ -4,7 +4,7 @@
 Base URL: http://localhost:3001
 Content-Type: application/json
 
-Is file me Backend ki saari 165+ APIs (across 17 Modules, Phase 0 to Phase 9), unka kaam (Purpose), Headers, Testing ke liye 
+Is file me Backend ki saari 185+ APIs (across 22 Modules, Phase 0 to Phase 10), unka kaam (Purpose), Headers, Testing ke liye 
 Ready-to-use Dummy Data (JSON / Params) aur Expected Response formats diye gaye hain.
 
 --------------------------------------------------------------------------------
@@ -2580,5 +2580,580 @@ Dummy Response (200 OK):
 
 
 ================================================================================
-END OF API DOCUMENTATION & TESTING GUIDE
+MODULE 18: CONSOLIDATED RECEIVABLES & AGING INDEX (PHASE 9 - TASK T57)
 ================================================================================
+
+18.1 CONSOLIDATED RECEIVABLES INDEX & AGING DEBT
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/receivables?limit=10
+Description: Aggregates total money legally owed to the business by customers under accrual accounting. Delivers gross receivables, customer advance deposits, net recoverable debt, 4-tier aging buckets (0-30d, 31-60d, 61-90d, 90+d), portfolio risk rating, and top debtor ranking.
+Auth:        Required (JWT + T6)
+
+Query Parameters:
+  - limit (Optional, default 10): Number of top debtors to return.
+
+Request Headers:
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: <BUSINESS_ID>
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalReceivables": 145000.00,
+    "grossReceivables": 150000.00,
+    "totalAdvances": 5000.00,
+    "netReceivables": 145000.00,
+    "customerCount": 85,
+    "debtorCount": 24,
+    "advanceCount": 3,
+    "aging": {
+      "bucket0_30": 95000.00,
+      "bucket31_60": 30000.00,
+      "bucket61_90": 12000.00,
+      "bucket90Plus": 8000.00,
+      "totalAgedDebt": 145000.00,
+      "shares": {
+        "share0_30": 65.52,
+        "share31_60": 20.69,
+        "share61_90": 8.28,
+        "share90Plus": 5.52
+      }
+    },
+    "riskProfile": {
+      "rating": "HEALTHY_FLOW",
+      "label": "Healthy Credit Velocity",
+      "color": "emerald",
+      "description": "The majority of receivables are fresh (0-30 days) and operating within normal retail credit cycles."
+    },
+    "topDebtors": [
+      {
+        "customerId": "65f1a2b3c4d5e6f7a8b9c0d1",
+        "name": "Rajesh Kumar",
+        "phone": "+919876543210",
+        "outstandingBalance": 28500.00,
+        "creditLimit": 50000.00,
+        "creditUtilization": 57.00,
+        "status": "ACTIVE",
+        "lastPurchaseDate": "2026-10-18T10:30:00.000Z",
+        "lastPaymentDate": "2026-10-05T14:20:00.000Z"
+      }
+    ],
+    "recentRepayments": [],
+    "note": "Receivables represent money legally and commercially owed to the store by customers under accrual accounting."
+  }
+}
+
+
+18.2 RECEIVABLES FAST SUMMARY WIDGET
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/receivables/summary
+Description: Lightweight aggregation for top-level dashboard metrics and KPI cards without loading full debtor rosters.
+Auth:        Required (JWT + T6)
+
+Request Headers:
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: <BUSINESS_ID>
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalReceivables": 145000.00,
+    "grossReceivables": 150000.00,
+    "totalAdvances": 5000.00,
+    "netReceivables": 145000.00,
+    "debtorCount": 24,
+    "riskRating": "HEALTHY_FLOW"
+  }
+}
+
+
+18.3 RECEIVABLES INDEX CUSTOMER ROUTE ALIAS
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/customers/receivables/index?limit=10
+Description: Canonical customer controller alias for the consolidated receivables index.
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+MODULE 19: CONSOLIDATED PAYABLES & EXPOSURE INDEX (PHASE 9 - TASK T58)
+================================================================================
+
+19.1 CONSOLIDATED PAYABLES INDEX & AGING LIABILITIES
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/payables?limit=10
+Description: Consolidates total supplier liability balance obligations across active procurement ledgers. Delivers gross payables, advance disbursements, net payable liability, 4-tier aging buckets, working capital liability risk rating, and top creditor ranking.
+Auth:        Required (JWT + T6)
+
+Query Parameters:
+  - limit (Optional, default 10): Number of top creditors to return.
+
+Request Headers:
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: <BUSINESS_ID>
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalPayables": 112000.00,
+    "grossPayables": 115000.00,
+    "totalAdvances": 3000.00,
+    "netPayables": 112000.00,
+    "supplierCount": 18,
+    "creditorCount": 7,
+    "advanceCount": 2,
+    "aging": {
+      "bucket0_30": 80000.00,
+      "bucket31_60": 22000.00,
+      "bucket61_90": 7000.00,
+      "bucket90Plus": 3000.00,
+      "totalAgedDebt": 112000.00,
+      "shares": {
+        "share0_30": 71.43,
+        "share31_60": 19.64,
+        "share61_90": 6.25,
+        "share90Plus": 2.68
+      }
+    },
+    "riskProfile": {
+      "rating": "HEALTHY_FLOW",
+      "label": "Healthy Credit Cycle",
+      "color": "emerald",
+      "description": "Majority of supplier payables are fresh (0-30 days) and operating within normal procurement terms."
+    },
+    "topCreditors": [
+      {
+        "supplierId": "65f2b3c4d5e6f7a8b9c0d1e2",
+        "name": "Metro Wholesale Distributors",
+        "phone": "+919123456789",
+        "outstandingPayable": 45000.00,
+        "status": "ACTIVE",
+        "lastPurchaseDate": "2026-10-15T11:00:00.000Z",
+        "lastPaymentDate": "2026-10-02T16:45:00.000Z"
+      }
+    ],
+    "note": "Payables represent money legally and commercially owed to suppliers under accrual accounting."
+  }
+}
+
+
+19.2 PAYABLES FAST SUMMARY WIDGET
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/payables/summary
+Description: Lightweight aggregation for financial health cards and executive dashboards.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalPayables": 112000.00,
+    "grossPayables": 115000.00,
+    "totalAdvances": 3000.00,
+    "netPayables": 112000.00,
+    "creditorCount": 7,
+    "riskRating": "HEALTHY_FLOW"
+  }
+}
+
+
+19.3 PAYABLES INDEX SUPPLIER ROUTE ALIAS
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/suppliers/payables/index?limit=10
+Description: Canonical supplier controller alias for the consolidated payables index.
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+MODULE 20: EXECUTIVE BUSINESS SUMMARY DASHBOARD (PHASE 10 - TASK T60)
+================================================================================
+
+20.1 EXECUTIVE BUSINESS SUMMARY ENGINE
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/dashboard/business-summary
+Description: Master executive dashboard data engine. Synchronously consolidates T52 (Revenue), T53 (COGS), T54 (Gross Profit), T55 (Operating Expenses), T56 (Operating/Net Profit), T57 (Receivables), T58 (Payables), and synchronized time-series trends for Charts A, B, and C.
+Auth:        Required (JWT + T6)
+
+Query Parameters:
+  - periodPreset (Optional): "THIS_MONTH" (default), "PREVIOUS_MONTH", "LAST_7_DAYS", "LAST_30_DAYS", "THIS_YEAR", "CUSTOM"
+  - from (Required if CUSTOM): "YYYY-MM-DD"
+  - to (Required if CUSTOM): "YYYY-MM-DD"
+
+Request Headers:
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: <BUSINESS_ID>
+
+Example URL:
+  /api/dashboard/business-summary?periodPreset=THIS_MONTH
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "period": {
+      "from": "2026-10-01",
+      "to": "2026-10-31",
+      "startDate": "2026-10-01T00:00:00.000Z",
+      "endDate": "2026-10-31T23:59:59.999Z",
+      "preset": "THIS_MONTH"
+    },
+    "revenue": 500000.00,
+    "cogs": 350000.00,
+    "grossProfit": 150000.00,
+    "operatingExpenses": 70000.00,
+    "operatingProfit": 80000.00,
+    "grossMargin": 30.00,
+    "operatingMargin": 16.00,
+    "cashPosition": null,
+    "cashPositionStatus": "UNAVAILABLE",
+    "receivables": {
+      "total": 145000.00,
+      "riskRating": "HEALTHY_FLOW",
+      "aging": {
+        "bucket0_30": 95000.00,
+        "bucket31_60": 30000.00,
+        "bucket61_90": 12000.00,
+        "bucket90Plus": 8000.00
+      }
+    },
+    "payables": {
+      "total": 112000.00,
+      "riskRating": "HEALTHY_FLOW",
+      "aging": {
+        "bucket0_30": 80000.00,
+        "bucket31_60": 22000.00,
+        "bucket61_90": 7000.00,
+        "bucket90Plus": 3000.00
+      }
+    },
+    "profitabilityStatus": "PROFITABLE",
+    "healthRating": "HEALTHY",
+    "currency": "INR",
+    "trends": [
+      {
+        "date": "2026-10-01",
+        "revenue": 18500.00,
+        "cogs": 12950.00,
+        "grossProfit": 5550.00,
+        "operatingExpenses": 2400.00,
+        "operatingProfit": 3150.00,
+        "grossMargin": 30.00,
+        "operatingMargin": 17.03,
+        "invoiceCount": 24
+      }
+    ],
+    "trendsSummary": {
+      "totalRevenue": 500000.00,
+      "totalCogs": 350000.00,
+      "totalGrossProfit": 150000.00,
+      "totalOperatingExpenses": 70000.00,
+      "totalOperatingProfit": 80000.00,
+      "totalInvoices": 640
+    }
+  }
+}
+
+
+20.2 UNIFIED DASHBOARD SUMMARY ALIASES
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/dashboard/summary
+Endpoint:    /api/analytics/business-summary
+Description: Alternative route aliases serving the canonical executive dashboard summary.
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+MODULE 21: SALES PERFORMANCE & TRENDS ENGINE (PHASE 10 - TASK T61)
+================================================================================
+
+21.1 SALES TRENDS & ORDER VOLUME ANALYTICS
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/sales-trends
+Description: Analyzes sales revenue (T52) and invoice volume across multi-granularity time buckets (hourly, daily, weekly, monthly) with period-over-period delta comparisons, average order value (AOV), and peak/trough detection.
+Auth:        Required (JWT + T6)
+
+Query Parameters:
+  - groupBy (Optional): "hourly", "daily" (default), "weekly", "monthly"
+  - periodPreset (Optional): "THIS_MONTH" (default), "LAST_7_DAYS", "LAST_30_DAYS", "THIS_YEAR", "CUSTOM"
+  - from (Required if CUSTOM): "YYYY-MM-DD"
+  - to (Required if CUSTOM): "YYYY-MM-DD"
+  - date (Optional, for hourly drilldown): "YYYY-MM-DD"
+
+Request Headers:
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: <BUSINESS_ID>
+
+Example URL:
+  /api/analytics/sales-trends?periodPreset=THIS_MONTH&groupBy=daily
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "groupBy": "daily",
+    "currency": "INR",
+    "period": {
+      "from": "2026-10-01",
+      "to": "2026-10-31",
+      "startDate": "2026-10-01T00:00:00.000Z",
+      "endDate": "2026-10-31T23:59:59.999Z",
+      "preset": "THIS_MONTH"
+    },
+    "summary": {
+      "totalSales": 500000.00,
+      "totalOrders": 640,
+      "averageOrderValue": 781.25,
+      "peakPeriod": {
+        "label": "2026-10-15",
+        "date": "2026-10-15",
+        "sales": 28400.00,
+        "orderCount": 42
+      },
+      "lowestPeriod": {
+        "label": "2026-10-03",
+        "date": "2026-10-03",
+        "sales": 8200.00,
+        "orderCount": 11
+      }
+    },
+    "comparison": {
+      "hasPreviousPeriod": true,
+      "previousSales": 435000.00,
+      "previousOrders": 580,
+      "previousAOV": 750.00,
+      "salesChange": 65000.00,
+      "salesChangePercent": 14.94,
+      "ordersChange": 60,
+      "ordersChangePercent": 10.34,
+      "aovChange": 31.25,
+      "aovChangePercent": 4.17
+    },
+    "data": [
+      {
+        "date": "2026-10-01",
+        "label": "2026-10-01",
+        "sales": 18500.00,
+        "orderCount": 24,
+        "averageOrderValue": 770.83
+      }
+    ]
+  }
+}
+
+
+21.2 HOURLY INTRADAY SALES DISTRIBUTION
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/sales-trends?date=2026-10-21&groupBy=hourly
+Description: 24-hour intraday distribution breakdown for shift planning and rush-hour POS management.
+Auth:        Required (JWT + T6)
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "groupBy": "hourly",
+    "currency": "INR",
+    "period": {
+      "from": "2026-10-21",
+      "to": "2026-10-21",
+      "preset": "SINGLE_DAY"
+    },
+    "summary": {
+      "totalSales": 32400.00,
+      "totalOrders": 48,
+      "averageOrderValue": 675.00,
+      "peakPeriod": {
+        "label": "18:00 - 19:00",
+        "sales": 6800.00,
+        "orderCount": 12
+      }
+    },
+    "data": [
+      {
+        "hour": 18,
+        "label": "18:00",
+        "sales": 6800.00,
+        "orderCount": 12,
+        "averageOrderValue": 566.67
+      }
+    ]
+  }
+}
+
+
+================================================================================
+MODULE 22: PROFIT BREAKDOWN & WATERFALL VISUALIZERS (PHASE 10 - TASK T62)
+================================================================================
+
+22.1 COMPREHENSIVE PROFIT WATERFALL BREAKDOWN
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/profit-breakdown
+Description: Financial presentation layer explaining how recognized Revenue is depleted by COGS and OpEx to yield Gross Profit and Operating Profit. Generates a strict 5-stage Waterfall dataset (Start Level, Base, Value, End Level, and deduction flags) tailored for Recharts Bar visualizers, alongside period-over-period percentage metrics.
+Auth:        Required (JWT + T6)
+
+Query Parameters:
+  - periodPreset (Optional): "THIS_MONTH" (default), "PREVIOUS_MONTH", "LAST_30_DAYS", "THIS_YEAR", "CUSTOM"
+  - from (Required if CUSTOM): "YYYY-MM-DD"
+  - to (Required if CUSTOM): "YYYY-MM-DD"
+
+Request Headers:
+  Authorization: Bearer <YOUR_ACCESS_TOKEN>
+  x-business-id: <BUSINESS_ID>
+
+Example URL:
+  /api/analytics/profit-breakdown?periodPreset=THIS_MONTH
+
+Dummy Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "period": {
+      "from": "2026-10-01",
+      "to": "2026-10-31",
+      "startDate": "2026-10-01T00:00:00.000Z",
+      "endDate": "2026-10-31T23:59:59.999Z",
+      "preset": "THIS_MONTH"
+    },
+    "currency": "INR",
+    "metrics": {
+      "revenue": 500000.00,
+      "cogs": 350000.00,
+      "grossProfit": 150000.00,
+      "operatingExpenses": 70000.00,
+      "operatingProfit": 80000.00,
+      "grossMargin": 30.00,
+      "operatingMargin": 16.00
+    },
+    "waterfall": [
+      {
+        "id": "revenue",
+        "step": "Revenue",
+        "label": "Gross Recognized Revenue",
+        "type": "total",
+        "amount": 500000.00,
+        "startLevel": 0,
+        "endLevel": 500000.00,
+        "base": 0,
+        "value": 500000.00,
+        "isDeduction": false,
+        "isNegative": false,
+        "fill": "#3B82F6",
+        "stroke": "#2563EB"
+      },
+      {
+        "id": "cogs",
+        "step": "COGS",
+        "label": "Cost of Goods Sold",
+        "type": "deduction",
+        "amount": 350000.00,
+        "startLevel": 500000.00,
+        "endLevel": 150000.00,
+        "base": 150000.00,
+        "value": 350000.00,
+        "isDeduction": true,
+        "isNegative": false,
+        "fill": "#F97316",
+        "stroke": "#EA580C"
+      },
+      {
+        "id": "grossProfit",
+        "step": "Gross Profit",
+        "label": "Gross Profit (Revenue - COGS)",
+        "type": "subtotal",
+        "amount": 150000.00,
+        "startLevel": 0,
+        "endLevel": 150000.00,
+        "base": 0,
+        "value": 150000.00,
+        "isDeduction": false,
+        "isNegative": false,
+        "fill": "#10B981",
+        "stroke": "#059669"
+      },
+      {
+        "id": "operatingExpenses",
+        "step": "Operating Expenses",
+        "label": "Total OpEx (Overhead & Operating)",
+        "type": "deduction",
+        "amount": 70000.00,
+        "startLevel": 150000.00,
+        "endLevel": 80000.00,
+        "base": 80000.00,
+        "value": 70000.00,
+        "isDeduction": true,
+        "isNegative": false,
+        "fill": "#EF4444",
+        "stroke": "#DC2626"
+      },
+      {
+        "id": "operatingProfit",
+        "step": "Operating Profit",
+        "label": "Operating Profit (Gross Profit - OpEx)",
+        "type": "total",
+        "amount": 80000.00,
+        "startLevel": 0,
+        "endLevel": 80000.00,
+        "base": 0,
+        "value": 80000.00,
+        "isDeduction": false,
+        "isNegative": false,
+        "fill": "#8B5CF6",
+        "stroke": "#7C3AED"
+      }
+    ],
+    "comparison": {
+      "hasPreviousPeriod": true,
+      "previousPeriod": {
+        "from": "2026-09-01",
+        "to": "2026-09-30"
+      },
+      "metrics": {
+        "revenue": {
+          "current": 500000.00,
+          "previous": 420000.00,
+          "change": 80000.00,
+          "changePercent": 19.05
+        },
+        "grossProfit": {
+          "current": 150000.00,
+          "previous": 126000.00,
+          "change": 24000.00,
+          "changePercent": 19.05
+        },
+        "operatingProfit": {
+          "current": 80000.00,
+          "previous": 62000.00,
+          "change": 18000.00,
+          "changePercent": 29.03
+        }
+      }
+    }
+  }
+}
+
+
+22.2 PROFIT BREAKDOWN CANONICAL ROUTE ALIAS
+--------------------------------------------------
+Method:      GET
+Endpoint:    /api/analytics/profit/breakdown
+Description: Canonical alias matching `/api/analytics/profit/breakdown`.
+Auth:        Required (JWT + T6)
+
+
+================================================================================
+END OF API DOCUMENTATION & TESTING GUIDE (TOTAL 185+ APIS - PHASES 0 TO 10)
+================================================================================
+

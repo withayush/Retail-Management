@@ -61,6 +61,13 @@ const getRouteMeta = (pathname) => {
     };
   }
 
+  // AI Assistant
+  if (pathname.startsWith("/ai-assistant") || pathname.startsWith("/ai-agent")) {
+    return {
+      breadcrumbs: [HOME, { label: "AI Copilot (Groq)" }],
+    };
+  }
+
   // Fallback
   return {
     breadcrumbs: [{ label: "Dashboard" }],
@@ -171,11 +178,21 @@ export default function Header({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          3. RIGHT SIDE: Apple Profile Button with Frosted Dropdown
+          3. RIGHT SIDE: AI Shortcut & Apple Profile Button
       ───────────────────────────────────────────────────────────── */}
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => setDropdownOpen((prev) => !prev)}
+      <div className="flex items-center gap-2.5">
+        <Link
+          to="/ai-assistant"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-500/15 to-purple-500/15 border border-indigo-500/25 hover:border-indigo-400/50 text-indigo-300 hover:text-white text-xs font-medium transition-all group shadow-sm shadow-indigo-500/10"
+          title="Open AI Copilot"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
+          <span>AI Copilot</span>
+        </Link>
+
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen((prev) => !prev)}
           className="flex items-center gap-2.5 p-1.5 pl-2 pr-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer active:scale-95"
           title="Account Menu"
         >
@@ -232,6 +249,7 @@ export default function Header({
             </div>
           </div>
         )}
+      </div>
       </div>
     </header>
   );

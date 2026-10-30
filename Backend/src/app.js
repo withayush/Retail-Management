@@ -18,6 +18,7 @@ const expenseCategoryRoutes = require("./routes/expenseCategory.routes");
 const expenseRoutes = require("./routes/expense.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const aiRoutes = require("./routes/ai.routes");
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
@@ -91,6 +92,7 @@ app.use("/api/expenses/categories", expenseCategoryRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use(errorHandler);
 

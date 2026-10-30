@@ -29,3 +29,5 @@ export * from "./expense.api";
 export * from "./expenseCategory.api";
 export * from "./analytics.api";
 export * from "./reconciliation.api";
+export * as aiApi from "./ai.api";
+export * from "./ai.api";

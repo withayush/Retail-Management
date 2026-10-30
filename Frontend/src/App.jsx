@@ -27,6 +27,7 @@ const SalesPerformancePage = lazy(() => import("./pages/analytics/SalesPerforman
 const ProfitAnalyticsPage = lazy(() => import("./pages/analytics/ProfitAnalyticsPage"));
 const PurchaseOrdersPage = lazy(() => import("./pages/procurement/PurchaseOrdersPage"));
 const GoodsReceivedPage = lazy(() => import("./pages/procurement/GoodsReceivedPage"));
+const AiAgentPage = lazy(() => import("./pages/ai/AiAgentPage"));
 
 // Quick Test Component to safely demonstrate Error Boundary interception
 function ErrorBoundaryCrashDemo() {
@@ -107,6 +108,8 @@ export default function App() {
               <Route path="/sales-analytics" element={<SalesPerformancePage />} />
               <Route path="/analytics/sales" element={<SalesPerformancePage />} />
               <Route path="/reconciliation" element={<ReconciliationPage />} />
+              <Route path="/ai-assistant" element={<AiAgentPage />} />
+              <Route path="/ai-agent" element={<AiAgentPage />} />
             </Route>
 
             {/* Fallback default redirect */}
