@@ -10,6 +10,16 @@ export const getBusinessSummary = async (params = {}) => {
   return response.data;
 };
 
+/**
+ * Phase 10 - Task T63: Inventory Warning Center Endpoint
+ * Canonical endpoint: GET /api/dashboard/inventory-warnings
+ */
+export const getInventoryWarnings = async (params = {}) => {
+  const response = await api.get("/dashboard/inventory-warnings", { params });
+  return response.data;
+};
+
 export default {
   getBusinessSummary,
+  getInventoryWarnings,
 };

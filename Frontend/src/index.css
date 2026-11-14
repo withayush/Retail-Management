@@ -400,3 +400,10 @@
   background: rgba(210, 210, 215, 0.08);
   border-color: rgba(210, 210, 215, 0.35);
 }
+
+input:focus,
+input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}

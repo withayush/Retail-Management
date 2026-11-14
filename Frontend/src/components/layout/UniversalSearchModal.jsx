@@ -135,8 +135,8 @@ function ResultItem({ item, isActive, onClick, query }) {
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all duration-150 group cursor-pointer ${
         isActive
-          ? "bg-[#0066CC]/20 border border-[#0066CC]/50 shadow-[0_0_15px_rgba(0,102,204,0.2)]"
-          : "hover:bg-white/5 border border-transparent"
+  ? "bg-[#0066CC]/15 border border-[#0066CC]/40 shadow-none"
+  : "hover:bg-white/5 border border-transparent"
       }`}
     >
       <div
@@ -516,25 +516,34 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
       >
         {/* Search Input Bar */}
         <div
-          className="flex items-center gap-3 px-4 border-b border-white/10"
-          style={{ paddingTop: "14px", paddingBottom: "14px" }}
-        >
+  className="flex items-center gap-3 px-4"
+  style={{
+    paddingTop: "15px",
+    paddingBottom: "15px",
+    background: "transparent",
+  }}
+>
           {loading ? (
             <div className="w-4 h-4 rounded-full border-2 border-[#0066CC] border-t-transparent animate-spin shrink-0" />
           ) : (
             <Search className="w-4 h-4 text-[#0066CC] shrink-0" />
           )}
           <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search products by name/barcode/SKU, customers, suppliers..."
-            className="w-full bg-transparent text-sm text-white outline-none font-normal placeholder-zinc-500"
-            style={{ caretColor: "#0066CC" }}
-            autoComplete="off"
-          />
+  ref={inputRef}
+  type="text"
+  value={query}
+  onChange={(e) => setQuery(e.target.value)}
+  onKeyDown={handleKeyDown}
+  placeholder="Search products by name/barcode/SKU, customers, suppliers..."
+  className="w-full bg-transparent text-sm text-white border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 shadow-none focus:shadow-none appearance-none"
+  style={{
+    caretColor: "#0066CC",
+    outline: "none",
+    border: "none",
+    boxShadow: "none",
+  }}
+  autoComplete="off"
+/>
           <div className="flex items-center gap-2 shrink-0">
             {query && (
               <button
@@ -552,7 +561,7 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
 
         {/* Filter Tabs Bar */}
         <div
-          className="flex items-center gap-1.5 px-3 py-2 border-b border-white/8 overflow-x-auto scrollbar-none"
+          className="flex items-center gap-1.5 px-3 py-2 border- border-white/8  "
         >
           {TABS.map((tab) => (
             <button
@@ -561,7 +570,7 @@ export default function UniversalSearchModal({ isOpen, onClose }) {
               className="px-3 py-1 text-[11px] font-semibold rounded-full whitespace-nowrap transition-all duration-150 cursor-pointer"
               style={
                 activeTab === tab.id
-                  ? { background: "#0066CC", color: "white", boxShadow: "0 0 12px rgba(0,102,204,0.4)" }
+                  ? { background: "#0066CC", color: "white", boxShadow: "" }
                   : { color: "#8E8E93", background: "rgba(255,255,255,0.04)" }
               }
             >

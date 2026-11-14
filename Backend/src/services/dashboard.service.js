@@ -5,6 +5,8 @@ const payablesAnalyticsService = require("./payablesAnalytics.service");
 const Invoice = require("../models/invoice.model");
 const Expense = require("../models/expense.model");
 const SaleItem = require("../models/saleItem.model");
+const { Inventory } = require("../models/inventory.model");
+const Product = require("../models/product.model");
 
 /**
  * Dashboard Analytics Engine Service (Phase 10 - Task T60)
@@ -341,6 +343,237 @@ class DashboardService {
         totalDays: timeline.length,
         daysWithSales: timeline.filter((d) => d.revenue > 0).length,
         daysWithExpenses: timeline.filter((d) => d.operatingExpenses > 0).length,
+      },
+    };
+  }
+
+  /**
+   * Phase 10 - Task T63: Inventory Warning Center Aggregation
+   * Identifies products requiring immediate replenishment (OUT_OF_STOCK and LOW_STOCK).
+   * - Business-scoped data only
+   * - availableStock === 0 -> OUT_OF_STOCK (Checked first)
+   * - 0 < availableStock <= reorderLevel -> LOW_STOCK
+   * - availableStock > reorderLevel -> HEALTHY (not included in warnings)
+   * - reorderLevel = 0 handled safely (availableStock === 0 triggers OUT_OF_STOCK; availableStock > 0 is healthy)
+   * - Excludes archived products (isArchived === true)
+   * - Safely ignores orphan records where product doesn't exist
+   * - OUT_OF_STOCK prioritized first, followed by LOW_STOCK
+   * - Computes business-wide warning summary counts (outOfStock, lowStock, totalWarnings)
+   * - Supports pagination / limit and optional status filtering
+   */
+  async getInventoryWarnings(businessId, query = {}) {
+    if (!businessId) {
+      throw new Error("Business ID is required for multi-tenant isolation.");
+    }
+
+    const bId = mongoose.Types.ObjectId.isValid(businessId)
+      ? new mongoose.Types.ObjectId(businessId)
+      : businessId;
+
+    const page = Math.max(1, parseInt(query.page, 10) || 1);
+    const limit =
+      query.limit === "all" || query.limit === 0 || query.limit === "0"
+        ? 0
+        : Math.min(100, Math.max(1, parseInt(query.limit, 10) || 10));
+    const skip = limit > 0 ? (page - 1) * limit : 0;
+    const statusFilter = query.status ? String(query.status).toUpperCase() : null;
+    const search = query.search ? String(query.search).trim() : null;
+
+    // Base match on Inventory: only consider items where availableStock is 0 OR availableStock <= reorderLevel
+    const baseMatch = {
+      businessId: bId,
+      $or: [
+        { availableStock: 0 },
+        {
+          $expr: {
+            $lte: ["$availableStock", "$reorderLevel"],
+          },
+        },
+      ],
+    };
+
+    const basePipeline = [
+      { $match: baseMatch },
+      // Join product ensuring ownership and non-archived status
+      {
+        $lookup: {
+          from: "products",
+          let: { prodId: "$productId", bId: "$businessId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$_id", "$$prodId"] },
+                    { $eq: ["$businessId", "$$bId"] },
+                    { $ne: ["$isArchived", true] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "product",
+        },
+      },
+      // Exclude orphan records or archived products
+      { $unwind: "$product" },
+      // Status determination: OUT_OF_STOCK MUST be checked first!
+      {
+        $addFields: {
+          status: {
+            $cond: [
+              { $eq: ["$availableStock", 0] },
+              "OUT_OF_STOCK",
+              "LOW_STOCK",
+            ],
+          },
+          urgencyPriority: {
+            $cond: [
+              { $eq: ["$availableStock", 0] },
+              1, // Highest urgency: Out of Stock
+              2, // High urgency: Low Stock
+            ],
+          },
+          deficit: {
+            $max: [0, { $subtract: ["$reorderLevel", "$availableStock"] }],
+          },
+        },
+      },
+    ];
+
+    // Pipeline for global summary counts (before user-selected status filter or pagination)
+    const summaryFacetStages = [
+      {
+        $group: {
+          _id: null,
+          totalWarnings: { $sum: 1 },
+          outOfStock: {
+            $sum: { $cond: [{ $eq: ["$status", "OUT_OF_STOCK"] }, 1, 0] },
+          },
+          lowStock: {
+            $sum: { $cond: [{ $eq: ["$status", "LOW_STOCK"] }, 1, 0] },
+          },
+        },
+      },
+    ];
+
+    // Pipeline for filtered items
+    const itemsFacetStages = [];
+
+    // Apply status filter if provided
+    if (statusFilter && ["OUT_OF_STOCK", "LOW_STOCK"].includes(statusFilter)) {
+      itemsFacetStages.push({
+        $match: { status: statusFilter },
+      });
+    }
+
+    // Apply search filter if provided
+    if (search) {
+      itemsFacetStages.push({
+        $match: {
+          $or: [
+            { "product.name": { $regex: search, $options: "i" } },
+            { "product.sku": { $regex: search, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // Sort items: OUT_OF_STOCK first, then lowest stock, then product name
+    itemsFacetStages.push({
+      $sort: {
+        urgencyPriority: 1,
+        availableStock: 1,
+        "product.name": 1,
+      },
+    });
+
+    // Pagination
+    if (skip > 0) {
+      itemsFacetStages.push({ $skip: skip });
+    }
+    if (limit > 0) {
+      itemsFacetStages.push({ $limit: limit });
+    }
+
+    // Project output item format
+    itemsFacetStages.push({
+      $project: {
+        _id: 1,
+        productId: 1,
+        productName: "$product.name",
+        sku: "$product.sku",
+        unit: { $ifNull: ["$product.unit", "units"] },
+        sellingPrice: "$product.sellingPrice",
+        costPrice: "$product.costPrice",
+        imageUrl: "$product.imageUrl",
+        availableStock: 1,
+        reorderLevel: 1,
+        reservedStock: 1,
+        deficit: 1,
+        status: 1,
+        lastRestockedAt: 1,
+        updatedAt: 1,
+      },
+    });
+
+    // Count stage for filtered items
+    const countFacetStages = [];
+    if (statusFilter && ["OUT_OF_STOCK", "LOW_STOCK"].includes(statusFilter)) {
+      countFacetStages.push({
+        $match: { status: statusFilter },
+      });
+    }
+    if (search) {
+      countFacetStages.push({
+        $match: {
+          $or: [
+            { "product.name": { $regex: search, $options: "i" } },
+            { "product.sku": { $regex: search, $options: "i" } },
+          ],
+        },
+      });
+    }
+    countFacetStages.push({ $count: "count" });
+
+    const [aggResult] = await Inventory.aggregate([
+      ...basePipeline,
+      {
+        $facet: {
+          summary: summaryFacetStages,
+          items: itemsFacetStages,
+          filteredCount: countFacetStages,
+        },
+      },
+    ]);
+
+    const summaryData = aggResult?.summary?.[0] || {
+      outOfStock: 0,
+      lowStock: 0,
+      totalWarnings: 0,
+    };
+
+    const items = aggResult?.items || [];
+    const totalFiltered = aggResult?.filteredCount?.[0]?.count || 0;
+    const totalPages =
+      limit > 0
+        ? Math.ceil(totalFiltered / limit)
+        : totalFiltered > 0
+        ? 1
+        : 0;
+
+    return {
+      summary: {
+        outOfStock: summaryData.outOfStock || 0,
+        lowStock: summaryData.lowStock || 0,
+        totalWarnings: summaryData.totalWarnings || 0,
+      },
+      items,
+      pagination: {
+        total: totalFiltered,
+        page,
+        limit: limit > 0 ? limit : totalFiltered,
+        totalPages,
       },
     };
   }

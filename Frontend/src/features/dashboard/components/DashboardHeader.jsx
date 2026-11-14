@@ -20,14 +20,14 @@ export function DashboardHeader({
             <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
               Business Overview
             </h1>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            {/* <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Live Accrual Ledger
-            </span>
+            </span> */}
           </div>
-          <p className="text-xs md:text-sm text-[#8E8E93] font-normal">
+          {/* <p className="text-xs md:text-sm text-[#8E8E93] font-normal">
             Financial performance at a glance.
-          </p>
+          </p> */}
         </div>
 
         {/* Refresh & Controls */}

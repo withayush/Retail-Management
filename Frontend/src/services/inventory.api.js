@@ -82,3 +82,11 @@ export const syncInventoryAlerts = async () => {
   const response = await api.post("/inventory/alerts/sync");
   return response.data;
 };
+
+/**
+ * Phase 10 - Task T63: Inventory Warning Center Widget Endpoint
+ */
+export const getInventoryWarnings = async (params = {}) => {
+  const response = await api.get("/dashboard/inventory-warnings", { params });
+  return response.data;
+};

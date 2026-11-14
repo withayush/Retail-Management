@@ -70,9 +70,9 @@ export function RevenueExpenseChart({ data = [], loading = false }) {
               <ArrowLeftRight className="w-4 h-4 text-sky-400" />
               Chart B — Revenue vs Operating Expenses
             </h3>
-            <span className="text-[10px] font-mono text-[#A1A1AA] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+            {/* <span className="text-[10px] font-mono text-[#A1A1AA] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
               Sources: T52 & T55
-            </span>
+            </span> */}
           </div>
           <p className="text-xs text-[#8E8E93]">
             Comparing top-line sales recognition against store cash burn OpEx

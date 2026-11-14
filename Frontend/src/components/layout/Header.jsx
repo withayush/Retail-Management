@@ -7,71 +7,127 @@ const HOME = { label: "Dashboard", path: "/dashboard" };
 const getRouteMeta = (pathname) => {
   // Dashboard — single root crumb
   if (pathname === "/dashboard") {
-    return {
-      breadcrumbs: [{ label: "Dashboard" }],
-    };
+    return { breadcrumbs: [{ label: "Dashboard" }] };
   }
 
   // Profile
   if (pathname.startsWith("/profile")) {
-    return {
-      breadcrumbs: [HOME, { label: "My Profile" }],
-    };
+    return { breadcrumbs: [HOME, { label: "My Profile" }] };
   }
 
   // POS Terminal
   if (pathname.startsWith("/pos")) {
-    return {
-      breadcrumbs: [HOME, { label: "POS Terminal" }],
-    };
+    return { breadcrumbs: [HOME, { label: "POS Terminal" }] };
   }
 
   // Products
   if (pathname.startsWith("/products")) {
-    return {
-      breadcrumbs: [HOME, { label: "Products" }],
-    };
+    return { breadcrumbs: [HOME, { label: "Products" }] };
   }
 
   // Inventory
   if (pathname.startsWith("/inventory")) {
-    return {
-      breadcrumbs: [HOME, { label: "Inventory" }],
-    };
+    return { breadcrumbs: [HOME, { label: "Inventory" }] };
   }
 
   // Customers & Khata
   if (pathname.startsWith("/customers")) {
-    return {
-      breadcrumbs: [HOME, { label: "Customers & Khata" }],
-    };
+    return { breadcrumbs: [HOME, { label: "Customers & Khata" }] };
   }
 
   // Suppliers
   if (pathname.startsWith("/suppliers")) {
-    return {
-      breadcrumbs: [HOME, { label: "Suppliers" }],
-    };
+    return { breadcrumbs: [HOME, { label: "Suppliers" }] };
   }
 
-  // Sales & Invoices
+  // Sales History & Invoices
   if (pathname.startsWith("/sales") || pathname.startsWith("/invoices")) {
+    return { breadcrumbs: [HOME, { label: "Sales & Invoices" }] };
+  }
+
+  // Purchase Orders — check before /purchases generic
+  if (
+    pathname.startsWith("/purchases") ||
+    pathname.startsWith("/purchase-orders")
+  ) {
+    return { breadcrumbs: [HOME, { label: "Purchase Orders" }] };
+  }
+
+  // Goods Received Notes
+  if (pathname.startsWith("/grn") || pathname.startsWith("/goods-received")) {
+    return { breadcrumbs: [HOME, { label: "Goods Received (GRN)" }] };
+  }
+
+  // Expenses
+  if (
+    pathname.startsWith("/expenses") ||
+    pathname.startsWith("/expense-categories")
+  ) {
+    return { breadcrumbs: [HOME, { label: "Expenses" }] };
+  }
+
+  // Profit Analytics — must come before /analytics generic
+  if (
+    pathname.startsWith("/profit") ||
+    pathname.startsWith("/profit-analytics") ||
+    pathname === "/analytics/profit"
+  ) {
     return {
-      breadcrumbs: [HOME, { label: "Sales & Invoices" }],
+      breadcrumbs: [
+        HOME,
+        { label: "Analytics", path: "/analytics" },
+        { label: "Profit Analytics" },
+      ],
     };
   }
 
-  // AI Assistant
-  if (pathname.startsWith("/ai-assistant") || pathname.startsWith("/ai-agent")) {
+  // Sales Performance Analytics — must come before /analytics generic
+  if (
+    pathname.startsWith("/sales-analytics") ||
+    pathname === "/analytics/sales"
+  ) {
     return {
-      breadcrumbs: [HOME, { label: "AI Copilot (Groq)" }],
+      breadcrumbs: [
+        HOME,
+        { label: "Analytics", path: "/analytics" },
+        { label: "Sales Performance" },
+      ],
     };
   }
 
-  // Fallback
-  return {
-    breadcrumbs: [{ label: "Dashboard" }],
-  };
+  // Financial Analytics (main /analytics)
+  if (pathname.startsWith("/analytics")) {
+    return { breadcrumbs: [HOME, { label: "Financial Analytics" }] };
+  }
+
+  // Reconciliation
+  if (pathname.startsWith("/reconciliation")) {
+    return { breadcrumbs: [HOME, { label: "Reconciliation" }] };
+  }
+
+  // AI Assistant / Agent
+  if (
+    pathname.startsWith("/ai-assistant") ||
+    pathname.startsWith("/ai-agent")
+  ) {
+    return { breadcrumbs: [HOME, { label: "AI Copilot" }] };
+  }
+
+  // Fallback — generate breadcrumbs from pathname segments
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length > 0) {
+    const crumbs = [HOME];
+    let accumulatedPath = '';
+    segments.forEach((seg) => {
+      accumulatedPath += `/${seg}`;
+      const label = seg
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      crumbs.push({ label, path: accumulatedPath });
+    });
+    return { breadcrumbs: crumbs };
+  }
+  return { breadcrumbs: [HOME] };
 };
 
 export default function Header({
@@ -106,11 +162,12 @@ export default function Header({
   }, [dropdownOpen]);
 
   return (
-    <header className="h-16 bg-black/75 backdrop-blur-2xl border-b border-[#D2D2D7]/12 px-4 md:px-7 flex items-center justify-between gap-4 sticky top-0 z-30 select-none transition-all">
+    <header className="h-16 bg-black/75 backdrop-blur-2xl border-b border-[#D2D2D7]/12 px-4 md:px-7 flex items-center gap-4 sticky top-0 z-30 select-none transition-all">
       {/* ─────────────────────────────────────────────────────────────
           1. LEFT SIDE: Apple Breadcrumbs & Navigation
+          Fixed width so search bar never shifts when crumbs change
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-3 w-[200px] md:w-[240px] shrink-0">
         {/* Mobile Hamburger */}
         <button
           onClick={onOpenMobileSidebar}
@@ -121,14 +178,14 @@ export default function Header({
         </button>
 
         {/* Apple Stylized Breadcrumbs */}
-        <nav className="flex items-center gap-2 text-xs text-[#6E6E73] leading-none min-w-0">
+        <nav className="flex items-center gap-2 text-xs text-[#6E6E73] leading-none min-w-0 overflow-hidden">
           {meta.breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={idx}>
               {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-[#6E6E73]/60 shrink-0" />}
               {crumb.path ? (
                 <Link
                   to={crumb.path}
-                  className="hover:text-white transition-colors duration-200 truncate font-medium text-xs text-[#6E6E73]"
+                  className="hover:text-white transition-colors duration-200 truncate font-medium text-xs text-[#6E6E73] shrink-0"
                 >
                   {crumb.label}
                 </Link>
@@ -143,9 +200,10 @@ export default function Header({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. CENTER: Universal Search Bar
+          2. CENTER: Universal Search Bar — always perfectly centred
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 max-w-sm md:max-w-lg mx-auto">
+      <div className="flex-1 flex justify-center">
+      <div className="w-full max-w-sm md:max-w-lg">
         <button
           onClick={onOpenSearch}
           className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-[#1D1D1F]/90 border border-[#D2D2D7]/15 hover:border-[#0066CC]/50 hover:shadow-[0_0_18px_-4px_rgba(0,102,204,0.3)] transition-all duration-300 text-left cursor-pointer group"
@@ -158,7 +216,7 @@ export default function Header({
               Search
             </span>
             <div className="hidden md:flex items-center gap-1 overflow-hidden">
-              {["Products", "Customers", "Suppliers", "Sales", "Expenses"].map((cat, i) => (
+              {[].map((cat, i) => (
                 <span
                   key={cat}
                   className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 text-[#6E6E73] border border-white/8 whitespace-nowrap shrink-0 group-hover:border-white/14 transition-colors"
@@ -176,19 +234,21 @@ export default function Header({
           </kbd>
         </button>
       </div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────
           3. RIGHT SIDE: AI Shortcut & Apple Profile Button
+          Fixed width (mirrors left) so search stays centred
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2.5">
-        <Link
+      <div className="flex items-center justify-end gap-2.5 w-[200px] md:w-[240px] shrink-0">
+        {/* <Link
           to="/ai-assistant"
           className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-500/15 to-purple-500/15 border border-indigo-500/25 hover:border-indigo-400/50 text-indigo-300 hover:text-white text-xs font-medium transition-all group shadow-sm shadow-indigo-500/10"
           title="Open AI Copilot"
         >
           <Sparkles className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
           <span>AI Copilot</span>
-        </Link>
+        </Link> */}
 
         <div className="relative" ref={dropdownRef}>
           <button

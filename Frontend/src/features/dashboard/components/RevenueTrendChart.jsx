@@ -57,9 +57,9 @@ export function RevenueTrendChart({ data = [], loading = false }) {
               <TrendingUp className="w-4 h-4 text-emerald-400" />
               Chart A — Revenue Trend
             </h3>
-            <span className="text-[10px] font-mono text-[#A1A1AA] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
-              Source: T52
-            </span>
+            {/* <span className="text-[10px] font-mono text-[#A1A1AA] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+              
+            </span> */}
           </div>
           <p className="text-xs text-[#8E8E93]">
             Accrual recognized sales revenue over selected reporting timeline

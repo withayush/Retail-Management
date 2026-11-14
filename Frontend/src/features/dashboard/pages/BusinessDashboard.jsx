@@ -90,7 +90,7 @@ export function BusinessDashboard() {
               title="Operating Profit"
               value={data?.operatingProfit ?? 0}
               isCurrency={true}
-              sourceTag="T56"
+              sourceTag=""
               subtitle={
                 (data?.operatingProfit || 0) >= 0
                   ? "Gross Profit minus OpEx (Profitable)"
@@ -105,7 +105,7 @@ export function BusinessDashboard() {
               title="Current Cash Position"
               value={data?.cashPosition}
               isCurrency={true}
-              sourceTag="T59"
+              sourceTag=""
               isSnapshot={true}
               variant={data?.cashPositionStatus?.isAvailable ? "snapshot" : "unavailable"}
               unavailableMessage="Feature Pending (T59)"
@@ -119,7 +119,7 @@ export function BusinessDashboard() {
               value={data?.grossMargin ?? 0}
               isCurrency={false}
               suffix="%"
-              sourceTag="T54"
+              sourceTag=""
               subtitle={`Gross Profit: ${formatINR(data?.grossProfit || 0)}`}
               variant={(data?.grossMargin || 0) >= 20 ? "profit" : (data?.grossMargin || 0) > 0 ? "alert" : "default"}
               tooltip="(Gross Profit / Revenue) × 100. Measures retail markup efficiency."
@@ -134,7 +134,7 @@ export function BusinessDashboard() {
               value={data?.operatingMargin ?? 0}
               isCurrency={false}
               suffix="%"
-              sourceTag="T56"
+              sourceTag=""
               subtitle={`OpEx: ${formatINR(data?.operatingExpenses || 0)}`}
               variant={(data?.operatingMargin || 0) >= 15 ? "profit" : (data?.operatingMargin || 0) > 0 ? "alert" : "loss"}
               tooltip="(Operating Profit / Revenue) × 100. Operational efficiency after operating expenses."
@@ -145,7 +145,7 @@ export function BusinessDashboard() {
               title="Receivables"
               value={data?.receivables ?? 0}
               isCurrency={true}
-              sourceTag="T57"
+              sourceTag=""
               isSnapshot={true}
               subtitle="Outstanding customer balances (Udhar)"
               variant="snapshot"
@@ -157,7 +157,7 @@ export function BusinessDashboard() {
               title="Payables"
               value={data?.payables ?? 0}
               isCurrency={true}
-              sourceTag="T58"
+              sourceTag=""
               isSnapshot={true}
               subtitle="Outstanding supplier procurement liabilities"
               variant="alert"

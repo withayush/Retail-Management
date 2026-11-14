@@ -21,13 +21,11 @@ export default function POSTerminalHeader({ loading, onRefresh, onOpenShortcuts 
             <Zap className="w-3.5 h-3.5 fill-current" />
           </div>
           <div>
-            <h1 className="text-xs font-bold text-white flex items-center gap-2 leading-none">
+            <h1 className="text-xl font-bold text-white flex items-center gap-2 leading-none">
               POS Terminal
-              <span className="text-[10px] bg-[#0066CC]/20 text-[#54A7FF] border border-[#0066CC]/30 px-2 py-0.5 rounded-full font-semibold">
-                IDEMPOTENT ENGINE READY
-              </span>
+              
             </h1>
-            <span className="text-[10px] text-[#6E6E73] font-normal">Atomic Zero-Overselling Register</span>
+         
           </div>
         </div>
       </div>

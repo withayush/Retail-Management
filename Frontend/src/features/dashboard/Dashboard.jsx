@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import BusinessDashboard from "./pages/BusinessDashboard";
 import DashboardMetrics from "./components/DashboardMetrics";
+import InventoryWarningCenter from "./components/InventoryWarningCenter";
 import { getSales, getSalesSummary } from "../../services/sale.api";
 import {
   getInventoryAlertsSummary,
@@ -172,6 +173,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Inventory Warning Center (Phase 10 - Task T63) ── */}
+      <InventoryWarningCenter />
 
       {/* KPI Metrics */}
       <DashboardMetrics
